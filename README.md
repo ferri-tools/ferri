@@ -1,3 +1,15 @@
+```
+                                                  
+     [0;1;34;94m▄▄▄▄ [0m                                     [0;1;30;90m██ [0m    
+    [0;34m██▀▀▀ [0m                                     [0;1;30;90m▀▀ [0m    
+  [0;34m███████ [0m     [0;37m▄████▄ [0m     [0;37m██ [0;1;30;90m▄████ [0m    [0;1;30;90m██▄████ [0m    [0;1;34;94m████ [0m    
+    [0;37m██ [0m       [0;37m██▄▄▄ [0;1;30;90m▄██ [0m    [0;1;30;90m██▀ [0m        [0;1;34;94m██▀ [0m          [0;1;34;94m██ [0m    
+    [0;37m██ [0m       [0;1;30;90m██▀▀▀▀▀▀ [0m    [0;1;30;90m██ [0m         [0;1;34;94m██ [0m           [0;34m██ [0m    
+    [0;1;30;90m██ [0m       [0;1;30;90m▀██▄▄ [0;1;34;94m▄▄█ [0m    [0;1;34;94m██ [0m         [0;34m██ [0m        [0;34m▄▄▄██▄▄ [0;37m▄ [0m 
+    [0;1;30;90m▀▀ [0m         [0;1;34;94m▀▀▀▀▀ [0m     [0;1;34;94m▀▀ [0m         [0;34m▀▀ [0m        [0;37m▀▀▀▀▀▀▀▀ [0m 
+                                                  
+                                                  
+```
 # Ferri
 
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
