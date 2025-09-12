@@ -1,66 +1,88 @@
 # Ferri
 
-Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It creates secure, project-based environments with portable context, unifying your workflow across local (Ollama) and remote (API) models. The goal is to let you focus on code, not on context management.
+Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
 
-## Core Features
+Ferri creates secure, project-based environments with portable context, unifying your workflow across local (Ollama) and remote (API) models. The goal is to let you focus on your high-level goals, not on the minutiae of context management and command execution.
 
-### Demo v1
-| Feature Group | Feature Name | Description |
+## The Ferri Architecture
+
+Ferri is built in layers, allowing you to choose the right level of power for your task.
+
+| Layer | Command(s) | Description |
 |---|---|---|
-| Core Environment | Project Initialization (`ferri init`) | Creates a self-contained `.ferri` directory in the user's project to store all state, logs, and configuration. |
-| Core Environment | Secure Secrets Management (`ferri secrets`) | Allows developers to set, update, and remove encrypted secrets (like API keys) on a per-project basis. Secrets are encrypted with a master password. |
-| Context Management | Define Context (`ferri ctx add`) | Allows a user to specify files and directories that constitute the project's "context." This list is stored within the `.ferri` environment. |
-| Context Management | Remove Context (`ferri ctx rm`) | Allows a user to remove files and directories from the project's context. |
-| Core Workflow | Unified Command Runner (`ferri with`) | Executes any given command in a temporary, secure environment. Injects stored secrets as environment variables. |
-| Core Workflow | Context Injection (`--ctx` flag) | A flag for `ferri with` that reads the defined context, concatenates the file contents, and stuffs them into the prompt for the target model. |
-| Model Integration | Local Model Support (Ollama) | The `ferri with` command should seamlessly pipe the context-aware prompt to a locally running Ollama model. |
-| Model Integration | Remote Model Support (`--model` flag) | A flag for `ferri with` that sends the context-aware prompt to a specified remote API (e.g., gpt-4o), handling authentication with the stored secrets. |
+| **L1: Core Execution** | `init`, `secrets`, `ctx`, `with` | The foundation. Manages your environment and executes synchronous, single-shot commands with injected context and secrets. |
+| **L2: Workflow Automation** | `run`, `ps`, `flow` | The automation layer. Runs commands as long-running background jobs, monitors their status in an interactive TUI, and orchestrates multi-step, declarative workflows. |
+| **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. Supports interactive debugging to pause and get user feedback on errors. |
 
-### Future Vision
-| Feature Group | Feature Name | Description |
-|---|---|---|
-| Job Management | Asynchronous Runner (`ferri run`) | Runs any command as a long-running background job, returning an immediate Job ID for tracking. |
-| Job Management | Job Dashboard (`ferri ps`) | Provides an interactive dashboard to monitor the status, logs, and output of all background jobs. |
-| Workflow Automation | Declarative Workflows (`ferri flow`) | Allows developers to define a multi-step AI pipeline in a YAML file, chaining jobs together with dependencies. |
-| UX/DX | Improved Logging & Error Handling | Provide more helpful and verbose logging options and user-friendly error messages for easier debugging. |
-| Integrations | Third-Party Tool Integrations | Explore and implement integrations with other common developer tools (e.g., Git, IDEs) to further streamline workflows. |
+## Interactive Features
 
-## Usage
+Ferri is designed for a tight feedback loop. When things go wrong, you have tools to see what's happening and intervene.
 
-A typical workflow with Ferri looks like this:
+*   **Interactive Job Dashboard:** Use `ferri ps -i` to launch a terminal-based UI where you can see the real-time status of all running jobs, inspect their logs, and visualize workflow dependencies.
+*   **Interactive Debugging:** When the agent encounters an error, it can pause execution and ask for your input, turning a failed run into a collaborative debugging session.
 
-1.  **Initialize your project:**
-    ```bash
-    ferri init
-    ```
-2.  **Securely store an API key:**
-    ```bash
-    ferri secrets set OPENAI_API_KEY="sk-..."
-    ```
-3.  **Define your context:**
-    ```bash
-    ferri ctx add ./src README.md
-    ```
-4.  **Run commands with context injected:**
-    ```bash
-    # Query a local model via Ollama
-    ferri with --ctx -- ollama run llama3 "Based on the code, what is the primary goal of this project?"
+## Usage Examples
 
-    # Query a remote model by just changing a flag
-    ferri with --ctx --model gpt-4o "Refactor the main function in my source code to be more modular."
-    ```
+#### 1\. Basic Execution (`with`)
+
+Run a one-shot command to get a quick answer from a local model.
+
+```bash
+# Initialize project and add context
+ferri init
+ferri ctx add ./src
+
+# Query a local model via Ollama
+ferri with --ctx -- ollama run llama3 "Based on the code, what is the primary goal of this project?"
+```
+
+#### 2\. Advanced Workflow (`flow`)
+
+Define a multi-step process in a YAML file to automate repetitive tasks.
+
+`ci-prep.yml:`
+
+```yaml
+name: "Prepare for CI"
+jobs:
+  - id: generate-docs
+    description: "Generate documentation for all source files."
+    command: 'ferri with --ctx --model gpt-4o "Generate technical markdown docs for the codebase" > DOCS.md'
+
+  - id: write-tests
+    description: "Write unit tests based on the new documentation."
+    dependencies: [generate-docs]
+    command: 'ferri with --ctx DOCS.md --model gpt-4o "Write unit tests for the main module" > main.test.js'
+```
+
+```bash
+# Execute the entire workflow
+ferri flow run ci-prep.yml
+```
+
+#### 3\. Agentic Task (`do`)
+
+Give Ferri a high-level objective and let it figure out the steps.
+
+```bash
+# Tell Ferri what you want to achieve
+ferri do "Add a new '/api/users' endpoint to my Express app. It should have a route, a controller with a placeholder function, and be registered in the main app file."
+
+# Ferri will generate and propose a plan for your approval:
+# PLAN:
+# 1. Create file: src/routes/users.js
+# 2. Create file: src/controllers/users.js
+# 3. Modify file: src/app.js to import and use the new router.
+# Proceed? [y/N]
+```
 
 ## Commands
 
 ```
 Usage: ferri [OPTIONS] COMMAND [ARGS]...
 
-  Ferri is a local-first AI toolkit that acts as an intelligent director for
-  foundation models. It creates secure, project-based environments with
-  portable context, unifying your workflow across local (Ollama) and remote
-  (API) models.
-
-  The goal is to let you focus on code, not on context management.
+  Ferri is a local-first AI toolkit that acts as an intelligent director
+  for foundation models.
 
 Options:
   -v, --verbose    Enable verbose output for debugging.
@@ -71,8 +93,9 @@ Commands:
   init        Initialize a new Ferri project in the current directory.
   secrets     Manage encrypted, project-specific secrets like API keys.
   ctx         Manage the project's context (files and directories).
-  with        Execute a command within a context-aware environment.
-  run         (Coming Soon) Run a command as a long-running background job.
-  ps          (Coming Soon) List and manage active background jobs.
-  flow        (Coming Soon) Define and run multi-step, declarative AI workflows.
+  with        Execute a command within a context-aware, synchronous environment.
+  run         Run a command as a long-running background job.
+  ps          List and manage active background jobs.
+  flow        Define and run multi-step, declarative AI workflows from a file.
+  do          Execute a high-level goal with an AI-powered agentic engine.
 ```
