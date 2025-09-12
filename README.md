@@ -11,7 +11,7 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 | Layer | Command(s) | Description |
 |---|---|---|
 | **L1: Core Execution** | `init`, `secrets`, `ctx`, `with` | The foundation. Manages your environment and executes synchronous, single-shot commands with injected context and secrets. |
-| **L2: Workflow Automation** | `run`, `ps`, `flow` | The automation layer. Runs commands as long-running background jobs, monitors their status in an interactive TUI, and orchestrates multi-step, declarative workflows. |
+| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, monitors their status, retrieves their output, and orchestrates multi-step workflows. |
 | **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. Supports interactive debugging to pause and get user feedback on errors. |
 
 ## Interactive Features
@@ -23,7 +23,7 @@ Ferri is designed for a tight feedback loop. When things go wrong, you have tool
 
 ## Usage Examples
 
-#### 1\. Basic Execution (`with`)
+### 1. Basic Execution (`with`)
 
 Run a one-shot command to get a quick answer from a local model.
 
@@ -36,12 +36,34 @@ ferri ctx add ./src
 ferri with --ctx -- ollama run llama3 "Based on the code, what is the primary goal of this project?"
 ```
 
-#### 2\. Advanced Workflow (`flow`)
+### 2. The Asynchronous Workflow (`run`, `ps`, `yank`, `ctx`)
+
+For long-running tasks, submit a job, monitor it, and then "yank" the result directly into your context for the next step. This creates a powerful feedback loop.
+
+```bash
+# Step 1: Run a job to generate documentation. It returns a Job ID instantly.
+ferri run -- ferri with --ctx src/main.rs --model gemma "Generate a summary of this Rust module"
+=> Job submitted: job-b4c5d6
+
+# Step 2: Check the status of your job.
+ferri ps
+  JOB ID      STATUS      COMMAND
+  job-b4c5d6  COMPLETED   ferri with --ctx src/main.rs...
+
+# Step 3: Directly add the job's output to the context as a new virtual file.
+# This avoids creating temporary files and keeps the workflow clean.
+ferri ctx add --from-job job-b4c5d6 --as module_summary.md
+=> Added output from job-b4c5d6 to context as 'module_summary.md'
+
+# Step 4: Use the newly created context in your next command.
+ferri with --ctx --model gemma "Based on the summary, write three potential refactors for this module"
+```
+
+### 3. Advanced Workflow (`flow`)
 
 Define a multi-step process in a YAML file to automate repetitive tasks.
 
 `ci-prep.yml:`
-
 ```yaml
 name: "Prepare for CI"
 jobs:
@@ -60,7 +82,7 @@ jobs:
 ferri flow run ci-prep.yml
 ```
 
-#### 3\. Agentic Task (`do`)
+### 4. Agentic Task (`do`)
 
 Give Ferri a high-level objective and let it figure out the steps.
 
@@ -86,16 +108,16 @@ Usage: ferri [OPTIONS] COMMAND [ARGS]...
 
 Options:
   -v, --verbose    Enable verbose output for debugging.
-  --version        Show the version number and exit.
   -h, --help       Show this message and exit.
 
 Commands:
   init        Initialize a new Ferri project in the current directory.
   secrets     Manage encrypted, project-specific secrets like API keys.
-  ctx         Manage the project's context (files and directories).
+  ctx         Manage the project's context from files or job outputs.
   with        Execute a command within a context-aware, synchronous environment.
   run         Run a command as a long-running background job.
   ps          List and manage active background jobs.
+  yank        Fetch the output (stdout) of a completed background job.
   flow        Define and run multi-step, declarative AI workflows from a file.
   do          Execute a high-level goal with an AI-powered agentic engine.
 ```
