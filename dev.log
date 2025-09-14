@@ -1,0 +1,2 @@
+Ticket ID: T1
+Description: Workspace Setup & CLI Scaffolding. Added clap dependency, defined CLI structs and commands, and implemented placeholder match arms.

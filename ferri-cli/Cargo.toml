@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 ferri-core = { path = "../ferri-core" }
+clap = { version = "4.5.4", features = ["derive"] }
+
+[dev-dependencies]
+assert_cmd = "2.0.14"
