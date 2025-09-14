@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::env;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -40,7 +41,14 @@ fn main() {
 
     match &cli.command {
         Commands::Init => {
-            println!("unimplemented: init");
+            // Get the current directory
+            let current_path = env::current_dir().expect("Failed to get current directory");
+
+            // Call the core logic
+            match ferri_core::initialize_project(&current_path) {
+                Ok(_) => println!("Successfully initialized Ferri project in ./.ferri"),
+                Err(e) => eprintln!("Error: Failed to initialize project - {}", e),
+            }
         }
         Commands::Ctx { action } => match action {
             CtxCommand::Add { path } => {
