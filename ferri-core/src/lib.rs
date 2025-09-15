@@ -1,3 +1,4 @@
+pub mod models;
 pub mod secrets;
 
 use std::fs;

@@ -24,17 +24,17 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T3,`secrets` Command,T3.7,"In `ferri-core`, write unit tests for `set_secret` (new key and existing key).",Done
 ,T3,`secrets` Command,T3.8,"In `ferri-cli`, call `ferri_core::secrets::set_secret` from the `secrets set` match arm.",Done
 ,T3,`secrets` Command,T3.9,"In `ferri-cli/tests/`, write an integration test for `ferri secrets set`.",Done
-,T4,`models` Command,T4.1,"In `ferri-cli`, define `models` subcommand with `add`, `ls`, and `rm` subcommands.",To Do
-,T4,`models` Command,T4.2,"In `ferri-cli`, define arguments for `models add` (alias, provider, name, etc.).",To Do
-,T4,`models` Command,T4.3,"In `ferri-core`, create a `models` module.",To Do
-,T4,`models` Command,T4.4,"In `models` module, define a `Model` struct that can be serialized.",To Do
-,T4,`models` Command,T4.5,"In `models` module, implement `add_model(model: Model)` function.",To Do
-,T4,`models` Command,T4.6,"In `models` module, implement `list_models()` function.",To Do
-,T4,`models` Command,T4.7,"In `models` module, implement `remove_model(alias: &str)` function.",To Do
-,T4,`models` Command,T4.8,"`list_models` logic: Implement auto-discovery of local Ollama models.",To Do
-,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",To Do
-,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",To Do
-,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",To Do
+,T4,`models` Command,T4.1,"In `ferri-cli`, define `models` subcommand with `add`, `ls`, and `rm` subcommands.",Done
+,T4,`models` Command,T4.2,"In `ferri-cli`, define arguments for `models add` (alias, provider, name, etc.).",Done
+,T4,`models` Command,T4.3,"In `ferri-core`, create a `models` module.",Done
+,T4,`models` Command,T4.4,"In `models` module, define a `Model` struct that can be serialized.",Done
+,T4,`models` Command,T4.5,"In `models` module, implement `add_model(model: Model)` function.",Done
+,T4,`models` Command,T4.6,"In `models` module, implement `list_models()` function.",Done
+,T4,`models` Command,T4.7,"In `models` module, implement `remove_model(alias: &str)` function.",Done
+,T4,`models` Command,T4.8,"`list_models` logic: Implement auto-discovery of local Ollama models.",Done
+,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",Done
+,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",Done
+,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",Done
 ,T5,`ctx` Command,T5.1,"In `ferri-cli`, define `ctx` subcommand with `add <PATHS...>` and `ls` subcommands.",To Do
 ,T5,`ctx` Command,T5.2,"In `ferri-core`, create a `context` module.",To Do
 ,T5,`ctx` Command,T5.3,"In `context` module, implement `add_to_context(paths: Vec<PathBuf>)` function.",To Do
