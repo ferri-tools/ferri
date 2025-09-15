@@ -146,7 +146,10 @@ fn main() {
             }
         },
         Commands::With { command } => {
-            println!("unimplemented: with {:?}", command);
+            if let Err(e) = ferri_core::execute::execute_with_context(&current_path, command) {
+                eprintln!("Error: Command execution failed - {}", e);
+                std::process::exit(1);
+            }
         }
         Commands::Secrets { action } => match action {
             SecretsCommand::Set { key, value } => {
