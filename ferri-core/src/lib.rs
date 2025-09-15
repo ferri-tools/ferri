@@ -1,3 +1,4 @@
+pub mod context;
 pub mod models;
 pub mod secrets;
 
@@ -35,9 +36,32 @@ pub fn initialize_project(base_path: &Path) -> std::io::Result<()> {
 
     let context_path = ferri_dir.join("context.json");
     if !context_path.exists() {
-        fs::write(context_path, "[]")?;
+        fs::write(context_path, "{\n  \"files\": []\n}")?;
     }
 
+    Ok(())
+}
+
+
+use std::io::{Error, ErrorKind};
+
+/// Verifies that a `.ferri` directory exists in the given base path.
+///
+/// # Arguments
+///
+/// * `base_path` - The path to check for the `.ferri` directory.
+///
+/// # Errors
+///
+/// Returns an `io::Error` with `ErrorKind::NotFound` if the directory does not exist.
+pub fn verify_project_initialized(base_path: &Path) -> std::io::Result<()> {
+    let ferri_dir = base_path.join(".ferri");
+    if !ferri_dir.exists() || !ferri_dir.is_dir() {
+        return Err(Error::new(
+            ErrorKind::NotFound,
+            "Project not initialized. Please run `ferri init` first.",
+        ));
+    }
     Ok(())
 }
 
@@ -84,7 +108,7 @@ mod tests {
         // Check file contents
         assert_eq!(fs::read_to_string(&secrets_path).unwrap(), "{}");
         assert_eq!(fs::read_to_string(&models_path).unwrap(), "[]");
-        assert_eq!(fs::read_to_string(&context_path).unwrap(), "[]");
+        assert_eq!(fs::read_to_string(&context_path).unwrap(), "{\n  \"files\": []\n}");
 
         // Calling it again should also succeed and not overwrite existing files.
         fs::write(&secrets_path, "{{\"key\":\"value\"}}").unwrap();

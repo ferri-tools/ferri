@@ -35,14 +35,14 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",Done
 ,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",Done
 ,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",Done
-,T5,`ctx` Command,T5.1,"In `ferri-cli`, define `ctx` subcommand with `add <PATHS...>` and `ls` subcommands.",To Do
-,T5,`ctx` Command,T5.2,"In `ferri-core`, create a `context` module.",To Do
-,T5,`ctx` Command,T5.3,"In `context` module, implement `add_to_context(paths: Vec<PathBuf>)` function.",To Do
-,T5,`ctx` Command,T5.4,"`add_to_context` logic: Resolve file paths, verify existence, and add to `.ferri/context.json`.",To Do
-,T5,`ctx` Command,T5.5,"In `context` module, implement `list_context()` function.",To Do
-,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",To Do
-,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",To Do
-,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",To Do
+,T5,`ctx` Command,T5.1,"In `ferri-cli`, define `ctx` subcommand with `add <PATHS...>` and `ls` subcommands.",Done
+,T5,`ctx` Command,T5.2,"In `ferri-core`, create a `context` module.",Done
+,T5,`ctx` Command,T5.3,"In `context` module, implement `add_to_context(paths: Vec<PathBuf>)` function.",Done
+,T5,`ctx` Command,T5.4,"`add_to_context` logic: Resolve file paths, verify existence, and add to `.ferri/context.json`.",Done
+,T5,`ctx` Command,T5.5,"In `context` module, implement `list_context()` function.",Done
+,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",Done
+,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",Done
+,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",Done
 ,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",To Do
 ,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",To Do
 ,T6,`with` Command,T6.3,"`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.",To Do
