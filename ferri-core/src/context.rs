@@ -13,8 +13,21 @@ struct Context {
 fn read_context(base_path: &Path) -> io::Result<Context> {
     let context_path = base_path.join(".ferri").join("context.json");
     let file_content = fs::read_to_string(context_path)?;
+
+    // If the file is empty or invalid, treat it as a new context
+    if file_content.trim().is_empty() {
+        return Ok(Context { files: vec![] });
+    }
+
     serde_json::from_str(&file_content)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        .map_err(|e| {
+            // Provide a more helpful error message
+            let error_msg = format!(
+                "Failed to parse '.ferri/context.json'. It might be corrupted. Error: {}",
+                e
+            );
+            io::Error::new(io::ErrorKind::InvalidData, error_msg)
+        })
 }
 
 fn write_context(base_path: &Path, context: &Context) -> io::Result<()> {
