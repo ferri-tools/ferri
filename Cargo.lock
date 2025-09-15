@@ -172,6 +172,7 @@ dependencies = [
  "assert_cmd",
  "clap",
  "ferri-core",
+ "tempfile",
 ]
 
 [[package]]
