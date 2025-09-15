@@ -4,11 +4,11 @@ T1,Workspace Setup & CLI Scaffolding,T1.2,"In `ferri-cli/Cargo.toml`, add `clap`
 T1,Workspace Setup & CLI Scaffolding,T1.3,"In `ferri-cli/src/main.rs`, define the `Cli` and `Commands` structs/enums for all commands.",Done
 T1,Workspace Setup & CLI Scaffolding,T1.4,"In `ferri-cli/src/main.rs`, implement the `main` function with a `match` statement.",Done
 T1,Workspace Setup & CLI Scaffolding,T1.5,"For this ticket, all `match` arms should simply print an ""unimplemented"" message.",Done
-T2,`init` Command Implementation & Testing,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",To Do
-T2,`init` Command Implementation & Testing,T2.2,"The function's logic should create a `.ferri` directory in the current path. It should not fail if the directory exists.",To Do
-T2,`init` Command Implementation & Testing,T2.3,"In `ferri-core/src/lib.rs`, add a `#[cfg(test)]` module and write a unit test for `initialize_project()`.",To Do
-T2,`init` Command Implementation & Testing,T2.4,"In `ferri-cli/src/main.rs`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",To Do
-T2,`init` Command Implementation & Testing,T2.5,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies`.",To Do
+T2,`init` Command Implementation & Testing,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done
+T2,`init` Command Implementation & Testing,T2.2,"The function's logic should create a `.ferri` directory in the current path. It should not fail if the directory exists.",Done
+T2,`init` Command Implementation & Testing,T2.3,"In `ferri-core/src/lib.rs`, add a `#[cfg(test)]` module and write a unit test for `initialize_project()`.",Done
+T2,`init` Command Implementation & Testing,T2.4,"In `ferri-cli/src/main.rs`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
+T2,`init` Command Implementation & Testing,T2.5,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies`.",Done
 T2,`init` Command Implementation & Testing,T2.6,"In `ferri-cli/tests/`, create an integration test file `init.rs` that runs `cargo run -- init` and asserts success.",To Do
 T3,`ctx` Command Core Logic & Testing,T3.1,"In `ferri-core/Cargo.toml`, add `serde` and `serde_json`.",To Do
 T3,`ctx` Command Core Logic & Testing,T3.2,"In `ferri-core/src/lib.rs`, create a module `context`.",To Do
