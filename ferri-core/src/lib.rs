@@ -43,6 +43,28 @@ pub fn initialize_project(base_path: &Path) -> std::io::Result<()> {
 }
 
 
+use std::io::{Error, ErrorKind};
+
+/// Verifies that a `.ferri` directory exists in the given base path.
+///
+/// # Arguments
+///
+/// * `base_path` - The path to check for the `.ferri` directory.
+///
+/// # Errors
+///
+/// Returns an `io::Error` with `ErrorKind::NotFound` if the directory does not exist.
+pub fn verify_project_initialized(base_path: &Path) -> std::io::Result<()> {
+    let ferri_dir = base_path.join(".ferri");
+    if !ferri_dir.exists() || !ferri_dir.is_dir() {
+        return Err(Error::new(
+            ErrorKind::NotFound,
+            "Project not initialized. Please run `ferri init` first.",
+        ));
+    }
+    Ok(())
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }

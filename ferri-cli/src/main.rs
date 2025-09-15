@@ -45,7 +45,8 @@ enum CtxCommand {
         paths: Vec<String>,
     },
     /// List the current context
-    List,
+    #[clap(alias = "list")]
+    Ls,
 }
 
 #[derive(Subcommand)]
@@ -87,38 +88,60 @@ enum ModelsCommand {
 fn main() {
     let cli = Cli::parse();
 
-    match &cli.command {
-        Commands::Init => {
-            let current_path = env::current_dir().expect("Failed to get current directory");
-            match ferri_core::initialize_project(&current_path) {
-                Ok(_) => println!("Successfully initialized Ferri project in ./.ferri"),
-                Err(e) => eprintln!("Error: Failed to initialize project - {}", e),
+    // Get the current directory once for all commands that need it.
+    let current_path_result = env::current_dir();
+
+    // Handle commands that don't require initialization first.
+    if let Commands::Init = &cli.command {
+        let current_path = current_path_result.expect("Failed to get current directory");
+        match ferri_core::initialize_project(&current_path) {
+            Ok(_) => println!("Successfully initialized Ferri project in ./.ferri"),
+            Err(e) => {
+                eprintln!("Error: Failed to initialize project - {}", e);
+                std::process::exit(1);
             }
         }
-        Commands::Ctx { action } => {
-            let current_path = env::current_dir().expect("Failed to get current directory");
-            match action {
-                CtxCommand::Add { paths } => {
-                    let path_bufs = paths.iter().map(PathBuf::from).collect();
-                    match ferri_core::context::add_to_context(&current_path, path_bufs) {
-                        Ok(_) => println!("Successfully added {} path(s) to context.", paths.len()),
-                        Err(e) => eprintln!("Error: Failed to add to context - {}", e),
-                    }
+        return;
+    }
+
+    // For all other commands, ensure the project is initialized.
+    let current_path = match current_path_result {
+        Ok(path) => path,
+        Err(e) => {
+            eprintln!("Error: Failed to get current directory - {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(e) = ferri_core::verify_project_initialized(&current_path) {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+
+    // Proceed with the command logic.
+    match &cli.command {
+        Commands::Init => { /* This case is handled above */ }
+        Commands::Ctx { action } => match action {
+            CtxCommand::Add { paths } => {
+                let path_bufs = paths.iter().map(PathBuf::from).collect();
+                match ferri_core::context::add_to_context(&current_path, path_bufs) {
+                    Ok(_) => println!("Successfully added {} path(s) to context.", paths.len()),
+                    Err(e) => eprintln!("Error: Failed to add to context - {}", e),
                 }
-                CtxCommand::List => {
-                    match ferri_core::context::list_context(&current_path) {
-                        Ok(files) => {
-                            if files.is_empty() {
-                                println!("Context is empty.");
-                            } else {
-                                println!("Current context:");
-                                for file in files {
-                                    println!("- {}", file);
-                                }
+            }
+            CtxCommand::Ls => {
+                match ferri_core::context::list_context(&current_path) {
+                    Ok(files) => {
+                        if files.is_empty() {
+                            println!("Context is empty.");
+                        } else {
+                            println!("Current context:");
+                            for file in files {
+                                println!("- {}", file);
                             }
                         }
-                        Err(e) => eprintln!("Error: Failed to list context - {}", e),
                     }
+                    Err(e) => eprintln!("Error: Failed to list context - {}", e),
                 }
             }
         },
@@ -127,46 +150,42 @@ fn main() {
         }
         Commands::Secrets { action } => match action {
             SecretsCommand::Set { key, value } => {
-                let current_path = env::current_dir().expect("Failed to get current directory");
                 match ferri_core::secrets::set_secret(&current_path, key, value) {
                     Ok(_) => println!("Secret '{}' set successfully.", key),
                     Err(e) => eprintln!("Error: Failed to set secret - {}", e),
                 }
             }
         },
-        Commands::Models { action } => {
-            let current_path = env::current_dir().expect("Failed to get current directory");
-            match action {
-                ModelsCommand::Add { alias, provider, model_name, api_key_secret } => {
-                    let model = ferri_core::models::Model {
-                        alias: alias.clone(),
-                        provider: provider.clone(),
-                        model_name: model_name.clone(),
-                        api_key_secret: api_key_secret.clone(),
-                        discovered: false,
-                    };
-                    match ferri_core::models::add_model(&current_path, model) {
-                        Ok(_) => println!("Model '{}' added successfully.", alias),
-                        Err(e) => eprintln!("Error: Failed to add model - {}", e),
-                    }
+        Commands::Models { action } => match action {
+            ModelsCommand::Add { alias, provider, model_name, api_key_secret } => {
+                let model = ferri_core::models::Model {
+                    alias: alias.clone(),
+                    provider: provider.clone(),
+                    model_name: model_name.clone(),
+                    api_key_secret: api_key_secret.clone(),
+                    discovered: false,
+                };
+                match ferri_core::models::add_model(&current_path, model) {
+                    Ok(_) => println!("Model '{}' added successfully.", alias),
+                    Err(e) => eprintln!("Error: Failed to add model - {}", e),
                 }
-                ModelsCommand::Ls => {
-                    match ferri_core::models::list_models(&current_path) {
-                        Ok(models) => {
-                            println!("{:<20} {:<15} {:<30} {:<15}", "ALIAS", "PROVIDER", "ID/NAME", "TYPE");
-                            for model in models {
-                                let model_type = if model.discovered { "(discovered)" } else { "" };
-                                println!("{:<20} {:<15} {:<30} {:<15}", model.alias, model.provider, model.model_name, model_type);
-                            }
+            }
+            ModelsCommand::Ls => {
+                match ferri_core::models::list_models(&current_path) {
+                    Ok(models) => {
+                        println!("{:<20} {:<15} {:<30} {:<15}", "ALIAS", "PROVIDER", "ID/NAME", "TYPE");
+                        for model in models {
+                            let model_type = if model.discovered { "(discovered)" } else { "" };
+                            println!("{:<20} {:<15} {:<30} {:<15}", model.alias, model.provider, model.model_name, model_type);
                         }
-                        Err(e) => eprintln!("Error: Failed to list models - {}", e),
                     }
+                    Err(e) => eprintln!("Error: Failed to list models - {}", e),
                 }
-                ModelsCommand::Rm { alias } => {
-                    match ferri_core::models::remove_model(&current_path, alias) {
-                        Ok(_) => println!("Model '{}' removed successfully.", alias),
-                        Err(e) => eprintln!("Error: Failed to remove model - {}", e),
-                    }
+            }
+            ModelsCommand::Rm { alias } => {
+                match ferri_core::models::remove_model(&current_path, alias) {
+                    Ok(_) => println!("Model '{}' removed successfully.", alias),
+                    Err(e) => eprintln!("Error: Failed to remove model - {}", e),
                 }
             }
         },
