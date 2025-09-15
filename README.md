@@ -14,80 +14,113 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 | **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, monitors their status, retrieves their output, and orchestrates multi-step workflows. |
 | **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. Supports interactive debugging to pause and get user feedback on errors. |
 
+## A Typical Workflow
+
+Here's how you can go from zero to a context-aware AI query in four commands:
+
+1.  **Initialize your project:**
+    (This creates a secure `.ferri` directory for all state and secrets)
+    ```bash
+    ferri init
+    ```
+
+2.  **Securely store an API key:**
+    (The key is encrypted and never leaves your machine)
+    ```bash
+    ferri secrets set OPENAI_API_KEY="sk-..."
+    ```
+
+3.  **Define your context:**
+    (Tell Ferri which files are relevant for your AI tasks. Do this once.)
+    ```bash
+    ferri ctx add ./src README.md
+    ```
+
+4.  **Run commands with context injected:**
+    (Use `with` to run any command in a secure, context-aware environment.)
+
+    *Query a local model via Ollama:*
+    ```bash
+    ferri with --ctx -- ollama run llama3 "Based on the code, what is the primary goal of this project?"
+    ```
+
+    *Query a remote model by just changing a flag:*
+    ```bash
+    ferri with --ctx --model gpt-4o "Refactor the main function in my source code to be more modular."
+    ```
+
 ## Usage Examples
 
-### 1. Basic Execution (`with`)
+### `with`: The Universal Executor
 
-Run a one-shot command to get a quick answer from a local model.
+The `with` command is the workhorse of Ferri. It executes any command you give it, injecting secrets and context as needed.
+
+#### 1. Code Comprehension with a Local Model
+Ask questions about your codebase using a fast, local model running via Ollama.
 
 ```bash
-# Initialize project and add context
+# First, initialize Ferri and define the context for your project
 ferri init
-ferri ctx add ./src
+ferri ctx add ./src ./docs README.md
 
-# Query a local model via Ollama
-ferri with --ctx -- ollama run llama3 "Based on the code, what is the primary goal of this project?"
+# Now, ask a question. Ferri injects your context into the prompt automatically.
+ferri with --ctx -- ollama run llama3 "Based on the files in ./src, what is the primary purpose of this application?"
 ```
 
-### 2. The Asynchronous Workflow (`run`, `ps`, `yank`, `ctx`)
-
-For long-running tasks, submit a job, monitor it, and then "yank" the result directly into your context for the next step. This creates a powerful feedback loop.
+#### 2. Code Generation with a Remote Model
+Use a powerful remote model to generate a new file, saving the output directly.
 
 ```bash
-# Step 1: Run a job to generate documentation. It returns a Job ID instantly.
-ferri run -- ferri with --ctx src/main.rs --model gemma "Generate a summary of this Rust module"
-=> Job submitted: job-b4c5d6
+# Store your API key securely once
+ferri secrets set OPENAI_API_KEY="sk-..."
 
-# Step 2: Check the status of your job.
-ferri ps
-  JOB ID      STATUS      COMMAND
-  job-b4c5d6  COMPLETED   ferri with --ctx src/main.rs...
-
-# Step 3: Directly add the job's output to the context as a new virtual file.
-ferri ctx add --from-job job-b4c5d6 --as module_summary.md
-=> Added output from job-b4c5d6 to context as 'module_summary.md'
-
-# Step 4: Use the newly created context in your next command.
-ferri with --ctx --model gemma "Based on the summary, write three potential refactors for this module"
+# Use the '--model' flag to switch to a remote API.
+# Ferri handles auth and context injection for you.
+ferri with --ctx --model gpt-4o "Write a comprehensive test suite for the main function" > ./tests/main.test.js
 ```
 
-### 3. Advanced Workflow (`flow`)
-
-Define a multi-step process in a YAML file to automate repetitive tasks.
-
-`ci-prep.yml:`
-```yaml
-name: "Prepare for CI"
-jobs:
-  - id: generate-docs
-    description: "Generate documentation for all source files."
-    command: 'ferri with --ctx --model gpt-4o "Generate technical markdown docs for the codebase" > DOCS.md'
-
-  - id: write-tests
-    description: "Write unit tests based on the new documentation."
-    dependencies: [generate-docs]
-    command: 'ferri with --ctx DOCS.md --model gpt-4o "Write unit tests for the main module" > main.test.js'
-```
+#### 3. Using Ferri as a Secure Script Runner
+Run any local script or tool that needs secrets, without exposing them in your shell history or hardcoding them.
 
 ```bash
-# Execute the entire workflow
-ferri flow run ci-prep.yml
+# Your python script can now access the API key via standard environment variables.
+ferri with -- python ./scripts/deploy.py
+
+# (Inside deploy.py)
+# import os
+# api_key = os.getenv("OPENAI_API_KEY")
 ```
 
-### 4. Agentic Task (`do`)
+### `secrets`: Secure and Simple Secret Management
 
-Give Ferri a high-level objective and let it figure out the steps.
+The `secrets` command manages sensitive data like API keys. Secrets are encrypted and stored locally in the `.ferri` directory.
+
+#### 1. Set a Secret
+You can set a secret directly, from a file, or from an environment variable.
 
 ```bash
-# Tell Ferri what you want to achieve
-ferri do "Add a new '/api/users' endpoint to my Express app. It should have a route, a controller with a placeholder function, and be registered in the main app file."
+# Set a secret directly
+ferri secrets set GITHUB_TOKEN="ghp_..."
 
-# Ferri will generate and propose a plan for your approval:
-# PLAN:
-# 1. Create file: src/routes/users.js
-# 2. Create file: src/controllers/users.js
-# 3. Modify file: src/app.js to import and use the new router.
-# Proceed? [y/N]
+# Set from a file
+ferri secrets set MY_SECRET --from-file ./secret.txt
+
+# Set from an environment variable
+ferri secrets set MY_SECRET --from-env MY_ENV_VAR
+```
+If you omit the value, Ferri will prompt you to enter it securely.
+
+#### 2. List Secrets
+List the names of all secrets stored for the project.
+
+```bash
+ferri secrets ls
+```
+
+#### 3. Remove a Secret
+Remove a secret by its key.
+```bash
+ferri secrets rm GITHUB_TOKEN
 ```
 
 ## Commands
