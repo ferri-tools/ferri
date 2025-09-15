@@ -108,7 +108,7 @@ mod tests {
         // Check file contents
         assert_eq!(fs::read_to_string(&secrets_path).unwrap(), "{}");
         assert_eq!(fs::read_to_string(&models_path).unwrap(), "[]");
-        assert_eq!(fs::read_to_string(&context_path).unwrap(), "[]");
+        assert_eq!(fs::read_to_string(&context_path).unwrap(), "{\n  \"files\": []\n}");
 
         // Calling it again should also succeed and not overwrite existing files.
         fs::write(&secrets_path, "{{\"key\":\"value\"}}").unwrap();
