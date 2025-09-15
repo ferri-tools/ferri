@@ -8,11 +8,13 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T2,`init` Command,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done
 ,T2,`init` Command,T2.2,"`initialize_project` logic: Create a `.ferri` directory in the current path.",Done
 ,T2,`init` Command,T2.3,"`initialize_project` logic: Ensure it does not fail if the directory already exists.",Done
-,T2,`init` Command,T2.4,"In `ferri-core`, add a `#[cfg(test)]` module with a unit test for `initialize_project()` success case.",Done
-,T2,`init` Command,T2.5,"In `ferri-core`, add a unit test for `initialize_project()` when the directory already exists.",Done
-,T2,`init` Command,T2.6,"In `ferri-cli`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
-,T2,`init` Command,T2.7,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies` for integration testing.",Done
-,T2,`init` Command,T2.8,"In `ferri-cli/tests/`, create an integration test that runs `ferri init` and asserts a successful exit code and directory creation.",To Do
+,T2,`init` Command,T2.4,"`initialize_project` logic: Create an empty `.ferri/secrets.json` with initial structure (e.g., `{}`).",To Do
+,T2,`init` Command,T2.5,"`initialize_project` logic: Create an empty `.ferri/models.json` with initial structure (e.g., `[]`).",To Do
+,T2,`init` Command,T2.6,"`initialize_project` logic: Create an empty `.ferri/context.json` with initial structure (e.g., `[]`).",To Do
+,T2,`init` Command,T2.7,"In `ferri-core`, update unit tests to verify the creation of the `.ferri` directory and all default JSON files.",To Do
+,T2,`init` Command,T2.8,"In `ferri-cli`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
+,T2,`init` Command,T2.9,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies` for integration testing.",Done
+,T2,`init` Command,T2.10,"In `ferri-cli/tests/`, create an integration test that runs `ferri init` and asserts the creation of the directory and all default files.",To Do
 ,T3,`secrets` Command,T3.1,"In `ferri-cli`, define the `secrets` subcommand with `set <KEY> <VALUE>` arguments.",To Do
 ,T3,`secrets` Command,T3.2,"In `ferri-core`, add `serde` and `serde_json` dependencies for serialization.",To Do
 ,T3,`secrets` Command,T3.3,"In `ferri-core`, add a dependency for encryption (e.g., `magic-crypt`).",To Do
