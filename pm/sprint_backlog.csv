@@ -1,27 +1,52 @@
 JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
-,T1,Workspace Setup & CLI Scaffolding,T1.1,"Create a new Rust workspace with `cargo new ferri --lib` and `cargo new ferri-cli` inside.",Done
-,T1,Workspace Setup & CLI Scaffolding,T1.2,"In `ferri-cli/Cargo.toml`, add `clap` (with `derive`) and a path dependency on `ferri-core`.",Done
-,T1,Workspace Setup & CLI Scaffolding,T1.3,"In `ferri-cli/src/main.rs`, define the `Cli` and `Commands` structs/enums for all commands.",Done
-,T1,Workspace Setup & CLI Scaffolding,T1.4,"In `ferri-cli/src/main.rs`, implement the `main` function with a `match` statement.",Done
-,T1,Workspace Setup & CLI Scaffolding,T1.5,"For this ticket, all `match` arms should simply print an ""unimplemented"" message.",Done
-,T2,`init` Command Implementation & Testing,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done
-,T2,`init` Command Implementation & Testing,T2.2,"The function's logic should create a `.ferri` directory in the current path. It should not fail if the directory exists.",Done
-,T2,`init` Command Implementation & Testing,T2.3,"In `ferri-core/src/lib.rs`, add a `#[cfg(test)]` module and write a unit test for `initialize_project()`.",Done
-,T2,`init` Command Implementation & Testing,T2.4,"In `ferri-cli/src/main.rs`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
-,T2,`init` Command Implementation & Testing,T2.5,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies`.",Done
-,T2,`init` Command Implementation & Testing,T2.6,"In `ferri-cli/tests/`, create an integration test file `init.rs` that runs `cargo run -- init` and asserts success.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.1,"In `ferri-core/Cargo.toml`, add `serde` and `serde_json`.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.2,"In `ferri-core/src/lib.rs`, create a module `context`.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.3,"In `context.rs`, define public functions: `add_to_context` and `list_context`.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.4,"Implement the JSON read/write logic for the context functions inside `ferri-core`.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.5,"In `context.rs`, write unit tests for both functions to verify they correctly manipulate the `context.json` file.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.6,"In `ferri-cli/src/main.rs`, call the new `ferri_core::context` functions from the `ctx add` and `ctx list` match arms.",To Do
-,T3,`ctx` Command Core Logic & Testing,T3.7,"In `ferri-cli/tests/`, create an integration test file `ctx.rs` that verifies `ctx add` and `ctx list` work.",To Do
-,T4,`with` Command Implementation & Testing,T4.1,"In `ferri-core/src/lib.rs`, create a public function `execute_with_context(command: Vec<String>) -> std::io::Result<()>`.",To Do
-,T4,`with` Command Implementation & Testing,T4.2,"Implement logic to read context, prepend to prompt, and execute command via `std::process::Command`.",To Do
-,T4,`with` Command Implementation & Testing,T4.3,"In `ferri-cli/src/main.rs`, call `execute_with_context` from the `with` command's `match` arm.",To Do
-,T4,`with` Command Implementation & Testing,T4.4,"In `ferri-cli/tests/`, create an integration test `with.rs` to verify context injection.",To Do
-,T5,Improve `ferri-cli` Test Coverage,T5.1,"Create integration test for the `init` command.",To Do
-,T5,Improve `ferri-cli` Test Coverage,T5.2,"Create integration test for the `ctx add` command.",To Do
-,T5,Improve `ferri-cli` Test Coverage,T5.3,"Create integration test for the `ctx list` command.",To Do
-,T5,Improve `ferri-cli` Test Coverage,T5.4,"Create integration test for the `with` command.",To Do
+,T1,Workspace & CLI Scaffolding,T1.1,"Create Rust workspace with `ferri-core` (lib) and `ferri-cli` (bin).",Done
+,T1,Workspace & CLI Scaffolding,T1.2,"Add `clap` with `derive` feature to `ferri-cli` dependencies.",Done
+,T1,Workspace & CLI Scaffolding,T1.3,"Add `ferri-core` as a path dependency in `ferri-cli`'s Cargo.toml.",Done
+,T1,Workspace & CLI Scaffolding,T1.4,"In `ferri-cli/src/main.rs`, define the top-level `Cli` struct and `Commands` enum for L1 features.",Done
+,T1,Workspace & CLI Scaffolding,T1.5,"In `ferri-cli/src/main.rs`, implement the `main` function with a `match` statement for all L1 commands.",Done
+,T1,Workspace & CLI Scaffolding,T1.6,"Ensure all `match` arms for unimplemented commands print a clear ""unimplemented"" message.",Done
+,T2,`init` Command,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done
+,T2,`init` Command,T2.2,"`initialize_project` logic: Create a `.ferri` directory in the current path.",Done
+,T2,`init` Command,T2.3,"`initialize_project` logic: Ensure it does not fail if the directory already exists.",Done
+,T2,`init` Command,T2.4,"In `ferri-core`, add a `#[cfg(test)]` module with a unit test for `initialize_project()` success case.",Done
+,T2,`init` Command,T2.5,"In `ferri-core`, add a unit test for `initialize_project()` when the directory already exists.",Done
+,T2,`init` Command,T2.6,"In `ferri-cli`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
+,T2,`init` Command,T2.7,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies` for integration testing.",Done
+,T2,`init` Command,T2.8,"In `ferri-cli/tests/`, create an integration test that runs `ferri init` and asserts a successful exit code and directory creation.",To Do
+,T3,`secrets` Command,T3.1,"In `ferri-cli`, define the `secrets` subcommand with `set <KEY> <VALUE>` arguments.",To Do
+,T3,`secrets` Command,T3.2,"In `ferri-core`, add `serde` and `serde_json` dependencies for serialization.",To Do
+,T3,`secrets` Command,T3.3,"In `ferri-core`, add a dependency for encryption (e.g., `magic-crypt`).",To Do
+,T3,`secrets` Command,T3.4,"In `ferri-core`, create a `secrets` module.",To Do
+,T3,`secrets` Command,T3.5,"In `secrets` module, implement `set_secret(key: &str, value: &str)` function.",To Do
+,T3,`secrets` Command,T3.6,"`set_secret` logic: Read `.ferri/secrets.json`, decrypt, insert/update value, encrypt, and write back.",To Do
+,T3,`secrets` Command,T3.7,"In `ferri-core`, write unit tests for `set_secret` (new key and existing key).",To Do
+,T3,`secrets` Command,T3.8,"In `ferri-cli`, call `ferri_core::secrets::set_secret` from the `secrets set` match arm.",To Do
+,T3,`secrets` Command,T3.9,"In `ferri-cli/tests/`, write an integration test for `ferri secrets set`.",To Do
+,T4,`models` Command,T4.1,"In `ferri-cli`, define `models` subcommand with `add`, `ls`, and `rm` subcommands.",To Do
+,T4,`models` Command,T4.2,"In `ferri-cli`, define arguments for `models add` (alias, provider, name, etc.).",To Do
+,T4,`models` Command,T4.3,"In `ferri-core`, create a `models` module.",To Do
+,T4,`models` Command,T4.4,"In `models` module, define a `Model` struct that can be serialized.",To Do
+,T4,`models` Command,T4.5,"In `models` module, implement `add_model(model: Model)` function.",To Do
+,T4,`models` Command,T4.6,"In `models` module, implement `list_models()` function.",To Do
+,T4,`models` Command,T4.7,"In `models` module, implement `remove_model(alias: &str)` function.",To Do
+,T4,`models` Command,T4.8,"`list_models` logic: Implement auto-discovery of local Ollama models.",To Do
+,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",To Do
+,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",To Do
+,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",To Do
+,T5,`ctx` Command,T5.1,"In `ferri-cli`, define `ctx` subcommand with `add <PATHS...>` and `ls` subcommands.",To Do
+,T5,`ctx` Command,T5.2,"In `ferri-core`, create a `context` module.",To Do
+,T5,`ctx` Command,T5.3,"In `context` module, implement `add_to_context(paths: Vec<PathBuf>)` function.",To Do
+,T5,`ctx` Command,T5.4,"`add_to_context` logic: Resolve file paths, verify existence, and add to `.ferri/context.json`.",To Do
+,T5,`ctx` Command,T5.5,"In `context` module, implement `list_context()` function.",To Do
+,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",To Do
+,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",To Do
+,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",To Do
+,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",To Do
+,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",To Do
+,T6,`with` Command,T6.3,"`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.",To Do
+,T6,`with` Command,T6.4,"`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.",To Do
+,T6,`with` Command,T6.5,"`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.",To Do
+,T6,`with` Command,T6.6,"`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.",To Do
+,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",To Do
+,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",To Do
+,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",To Do
