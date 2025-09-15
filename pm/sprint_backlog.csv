@@ -21,3 +21,7 @@ T4,`with` Command Implementation & Testing,T4.1,"In `ferri-core/src/lib.rs`, cre
 T4,`with` Command Implementation & Testing,T4.2,"Implement logic to read context, prepend to prompt, and execute command via `std::process::Command`.",To Do
 T4,`with` Command Implementation & Testing,T4.3,"In `ferri-cli/src/main.rs`, call `execute_with_context` from the `with` command's `match` arm.",To Do
 T4,`with` Command Implementation & Testing,T4.4,"In `ferri-cli/tests/`, create an integration test `with.rs` to verify context injection.",To Do
+T5,Improve `ferri-cli` Test Coverage,T5.1,"Create integration test for the `init` command.",To Do
+T5,Improve `ferri-cli` Test Coverage,T5.2,"Create integration test for the `ctx add` command.",To Do
+T5,Improve `ferri-cli` Test Coverage,T5.3,"Create integration test for the `ctx list` command.",To Do
+T5,Improve `ferri-cli` Test Coverage,T5.4,"Create integration test for the `with` command.",To Do
