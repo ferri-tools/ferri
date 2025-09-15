@@ -60,6 +60,29 @@ pub fn set_secret(base_path: &Path, key: &str, value: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Reads and decrypts all secrets.
+pub fn read_all_secrets(base_path: &Path) -> io::Result<HashMap<String, String>> {
+    let secrets_path = base_path.join(".ferri").join("secrets.json");
+    let crypt = new_magic_crypt!(ENCRYPTION_KEY, 256);
+
+    let file_content = match fs::read_to_string(&secrets_path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
+        Err(e) => return Err(e),
+    };
+
+    if file_content.trim().is_empty() || file_content == "{}" {
+        return Ok(HashMap::new());
+    }
+
+    let container: SecretsContainer = serde_json::from_str(&file_content)?;
+    let decrypted_string = crypt.decrypt_base64_to_string(&container.encrypted_data)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    
+    serde_json::from_str(&decrypted_string)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

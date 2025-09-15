@@ -43,12 +43,12 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",Done
 ,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",Done
 ,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",Done
-,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",To Do
-,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",To Do
-,T6,`with` Command,T6.3,"`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.",To Do
-,T6,`with` Command,T6.4,"`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.",To Do
+,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",Done
+,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",Done
+,T6,`with` Command,T6.3,"`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.",Done
+,T6,`with` Command,T6.4,"`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.",Done
 ,T6,`with` Command,T6.5,"`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.",To Do
-,T6,`with` Command,T6.6,"`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.",To Do
-,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",To Do
-,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",To Do
-,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",To Do
+,T6,`with` Command,T6.6,"`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.",Done
+,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",Done
+,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",Done
+,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",Done
