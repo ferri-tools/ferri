@@ -52,3 +52,9 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",Done
 ,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",Done
 ,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",Done
+,T7,L1 Interoperability,T7.1,"In `ferri-core`, implement context injection logic in the `execute_with_context` function.",Done
+,T7,L1 Interoperability,T7.2,"In `ferri-core`, update unit tests for `execute_with_context` to verify context injection.",Done
+,T7,L1 Interoperability,T7.3,"In `ferri-cli/tests/`, create a new `interop.rs` integration test file.",Done
+,T7,L1 Interoperability,T7.4,"In `interop.rs`, write a test to verify `ctx add` and `with` work together to inject file content into a command.",Done
+,T7,L1 Interoperability,T7.5,"In `interop.rs`, write a test to verify `secrets`, `models`, and `with` work together to inject an API key as an environment variable.",Done
+,T7,L1 Interoperability,T7.6,"Create `qa/l1_interop_test_plan.md` summarizing the manual end-to-end tests.",Done
