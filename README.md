@@ -11,11 +11,37 @@ Ferri creates secure, project-based environments with portable context, unifying
 *   **Secure:** Secrets like API keys are encrypted and automatically made available to commands, so you never have to expose them in your shell.
 *   **Layered Architecture:** Start with simple commands and gradually adopt more powerful, automated, and agentic features as you need them.
 
+## The Ferri Architecture
+
+Ferri is built in layers, allowing you to choose the right level of power for your task.
+
+| Layer | Command(s) | Description |
+|---|---|---|
+| **L1: Core Execution** | `init`, `secrets`, `ctx`, `with` | The foundation. Manages your environment and executes synchronous, single-shot commands with injected context and secrets. |
+| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, monitors their status, retrieves their output, and orchestrates multi-step workflows. |
+| **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. Supports interactive debugging to pause and get user feedback on errors. |
+
 ---
 
-## Command Reference & Use Cases
+## Command Reference
 
-This guide provides a command-by-command breakdown of Ferri's capabilities, each with practical, real-world examples.
+| Command | Description |
+|---|---|
+| `init` | Initialize a new Ferri project in the current directory. |
+| `secrets` | Manage encrypted, project-specific secrets like API keys. |
+| `ctx` | Manage the project's context from files or job outputs. |
+| `with` | Execute a command within a context-aware, synchronous environment. |
+| `run` | Run a command as a long-running background job. |
+| `ps` | List and manage active background jobs. |
+| `yank` | Fetch the output (stdout) of a completed background job. |
+| `flow` | Define and run multi-step, declarative AI workflows from a file. |
+| `do` | Execute a high-level goal with an AI-powered agentic engine. |
+
+---
+
+## Use Cases & Examples
+
+This section provides a command-by-command breakdown of Ferri's capabilities, each with practical, real-world examples.
 
 ### `ferri init`
 
