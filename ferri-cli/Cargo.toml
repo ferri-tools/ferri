@@ -3,6 +3,10 @@ name = "ferri-cli"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "ferri"
+path = "src/main.rs"
+
 [dependencies]
 ferri-core = { path = "../ferri-core" }
 clap = { version = "4.5.4", features = ["derive"] }
