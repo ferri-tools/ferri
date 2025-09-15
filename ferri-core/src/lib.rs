@@ -1,3 +1,4 @@
+pub mod context;
 pub mod models;
 pub mod secrets;
 
@@ -35,11 +36,12 @@ pub fn initialize_project(base_path: &Path) -> std::io::Result<()> {
 
     let context_path = ferri_dir.join("context.json");
     if !context_path.exists() {
-        fs::write(context_path, "[]")?;
+        fs::write(context_path, "{\n  \"files\": []\n}")?;
     }
 
     Ok(())
 }
+
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right

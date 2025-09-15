@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::env;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -37,10 +38,11 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum CtxCommand {
-    /// Add a file or directory to the context
+    /// Add one or more files/directories to the context
     Add {
-        /// The path to the file or directory
-        path: String,
+        /// The paths to the files or directories
+        #[arg(required = true, num_args = 1..)]
+        paths: Vec<String>,
     },
     /// List the current context
     List,
@@ -87,21 +89,37 @@ fn main() {
 
     match &cli.command {
         Commands::Init => {
-            // Get the current directory
             let current_path = env::current_dir().expect("Failed to get current directory");
-
-            // Call the core logic
             match ferri_core::initialize_project(&current_path) {
                 Ok(_) => println!("Successfully initialized Ferri project in ./.ferri"),
                 Err(e) => eprintln!("Error: Failed to initialize project - {}", e),
             }
         }
-        Commands::Ctx { action } => match action {
-            CtxCommand::Add { path } => {
-                println!("unimplemented: ctx add {}", path);
-            }
-            CtxCommand::List => {
-                println!("unimplemented: ctx list");
+        Commands::Ctx { action } => {
+            let current_path = env::current_dir().expect("Failed to get current directory");
+            match action {
+                CtxCommand::Add { paths } => {
+                    let path_bufs = paths.iter().map(PathBuf::from).collect();
+                    match ferri_core::context::add_to_context(&current_path, path_bufs) {
+                        Ok(_) => println!("Successfully added {} path(s) to context.", paths.len()),
+                        Err(e) => eprintln!("Error: Failed to add to context - {}", e),
+                    }
+                }
+                CtxCommand::List => {
+                    match ferri_core::context::list_context(&current_path) {
+                        Ok(files) => {
+                            if files.is_empty() {
+                                println!("Context is empty.");
+                            } else {
+                                println!("Current context:");
+                                for file in files {
+                                    println!("- {}", file);
+                                }
+                            }
+                        }
+                        Err(e) => eprintln!("Error: Failed to list context - {}", e),
+                    }
+                }
             }
         },
         Commands::With { command } => {
@@ -135,7 +153,6 @@ fn main() {
                 ModelsCommand::Ls => {
                     match ferri_core::models::list_models(&current_path) {
                         Ok(models) => {
-                            // Simple printout for now. Can be improved with better formatting.
                             println!("{:<20} {:<15} {:<30} {:<15}", "ALIAS", "PROVIDER", "ID/NAME", "TYPE");
                             for model in models {
                                 let model_type = if model.discovered { "(discovered)" } else { "" };
