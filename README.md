@@ -39,6 +39,64 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 
 ---
 
+## Model Management
+
+While Ferri works with local models (like Ollama) out-of-the-box, it needs to be configured to handle remote models from different API providers. This is managed through a simple configuration file and a dedicated command suite.
+
+### The Model Configuration File
+
+Remote models are registered in a `.ferri/config.toml` file within your project. This allows you to define aliases for different models and providers, specifying which secret holds the API key.
+
+**IMPORTANT:** Raw API keys are **never** stored in this file. You always reference a key that has been securely stored with `ferri secrets`.
+
+**Example `.ferri/config.toml`:**
+```toml
+# This is the alias you pass to the --model flag
+[models.gpt-4o]
+# The provider tells Ferri how to format the API request
+provider = "openai"
+# The name of the secret stored with 'ferri secrets set OPENAI_API_KEY'
+api_key_secret = "OPENAI_API_KEY"
+# The actual model identifier used by the provider's API
+model_name = "gpt-4o"
+
+[models.gemini-1.5-pro]
+provider = "google"
+api_key_secret = "GOOGLE_API_KEY"
+model_name = "gemini-1.5-pro"
+
+[models.claude-3-opus]
+provider = "anthropic"
+api_key_secret = "ANTHROPIC_API_KEY"
+model_name = "claude-3-opus-20240229"
+```
+
+### The `ferri models` Command (Coming Soon)
+
+While you can edit the `config.toml` file manually, the intended workflow is to use the `ferri models` command to manage your model registry.
+
+*   `ferri models ls`: Lists all registered model aliases.
+*   `ferri models add <alias> --provider <provider> --api-key-secret <secret_name> --model-name <api_model_name>`: Adds a new model to the configuration.
+*   `ferri models rm <alias>`: Removes a model from the configuration.
+
+### Example: Running a Query with a Registered Gemini Model
+
+1.  **Store the API key securely:**
+    ```bash
+    ferri secrets set GOOGLE_API_KEY "AIza..."
+    ```
+
+2.  **Register the model:**
+    Add the corresponding entry to your `.ferri/config.toml` file (or use the future `ferri models add` command).
+
+3.  **Use the model:**
+    Now you can seamlessly switch to the Gemini model using the alias you defined.
+    ```bash
+    ferri with --ctx --model gemini-1.5-pro "Explain this Rust code snippet and suggest improvements."
+    ```
+
+---
+
 ## Use Cases & Examples
 
 This section provides a command-by-command breakdown of Ferri's capabilities, each with practical, real-world examples.
