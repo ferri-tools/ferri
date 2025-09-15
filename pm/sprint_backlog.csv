@@ -15,15 +15,15 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T2,`init` Command,T2.8,"In `ferri-cli`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
 ,T2,`init` Command,T2.9,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies` for integration testing.",Done
 ,T2,`init` Command,T2.10,"In `ferri-cli/tests/`, create an integration test that runs `ferri init` and asserts the creation of the directory and all default files.",Done
-,T3,`secrets` Command,T3.1,"In `ferri-cli`, define the `secrets` subcommand with `set <KEY> <VALUE>` arguments.",To Do
-,T3,`secrets` Command,T3.2,"In `ferri-core`, add `serde` and `serde_json` dependencies for serialization.",To Do
-,T3,`secrets` Command,T3.3,"In `ferri-core`, add a dependency for encryption (e.g., `magic-crypt`).",To Do
-,T3,`secrets` Command,T3.4,"In `ferri-core`, create a `secrets` module.",To Do
-,T3,`secrets` Command,T3.5,"In `secrets` module, implement `set_secret(key: &str, value: &str)` function.",To Do
-,T3,`secrets` Command,T3.6,"`set_secret` logic: Read `.ferri/secrets.json`, decrypt, insert/update value, encrypt, and write back.",To Do
-,T3,`secrets` Command,T3.7,"In `ferri-core`, write unit tests for `set_secret` (new key and existing key).",To Do
-,T3,`secrets` Command,T3.8,"In `ferri-cli`, call `ferri_core::secrets::set_secret` from the `secrets set` match arm.",To Do
-,T3,`secrets` Command,T3.9,"In `ferri-cli/tests/`, write an integration test for `ferri secrets set`.",To Do
+,T3,`secrets` Command,T3.1,"In `ferri-cli`, define the `secrets` subcommand with `set <KEY> <VALUE>` arguments.",Done
+,T3,`secrets` Command,T3.2,"In `ferri-core`, add `serde` and `serde_json` dependencies for serialization.",Done
+,T3,`secrets` Command,T3.3,"In `ferri-core`, add a dependency for encryption (e.g., `magic-crypt`).",Done
+,T3,`secrets` Command,T3.4,"In `ferri-core`, create a `secrets` module.",Done
+,T3,`secrets` Command,T3.5,"In `secrets` module, implement `set_secret(key: &str, value: &str)` function.",Done
+,T3,`secrets` Command,T3.6,"`set_secret` logic: Read `.ferri/secrets.json`, decrypt, insert/update value, encrypt, and write back.",Done
+,T3,`secrets` Command,T3.7,"In `ferri-core`, write unit tests for `set_secret` (new key and existing key).",Done
+,T3,`secrets` Command,T3.8,"In `ferri-cli`, call `ferri_core::secrets::set_secret` from the `secrets set` match arm.",Done
+,T3,`secrets` Command,T3.9,"In `ferri-cli/tests/`, write an integration test for `ferri secrets set`.",Done
 ,T4,`models` Command,T4.1,"In `ferri-cli`, define `models` subcommand with `add`, `ls`, and `rm` subcommands.",To Do
 ,T4,`models` Command,T4.2,"In `ferri-cli`, define arguments for `models add` (alias, provider, name, etc.).",To Do
 ,T4,`models` Command,T4.3,"In `ferri-core`, create a `models` module.",To Do

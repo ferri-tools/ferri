@@ -23,6 +23,11 @@ enum Commands {
         #[arg(required = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
+    /// Manage encrypted secrets
+    Secrets {
+        #[command(subcommand)]
+        action: SecretsCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -34,6 +39,17 @@ enum CtxCommand {
     },
     /// List the current context
     List,
+}
+
+#[derive(Subcommand)]
+enum SecretsCommand {
+    /// Set a secret
+    Set {
+        /// The name of the secret
+        key: String,
+        /// The value of the secret
+        value: String,
+    },
 }
 
 fn main() {
@@ -61,5 +77,14 @@ fn main() {
         Commands::With { command } => {
             println!("unimplemented: with {:?}", command);
         }
+        Commands::Secrets { action } => match action {
+            SecretsCommand::Set { key, value } => {
+                let current_path = env::current_dir().expect("Failed to get current directory");
+                match ferri_core::secrets::set_secret(&current_path, key, value) {
+                    Ok(_) => println!("Secret '{}' set successfully.", key),
+                    Err(e) => eprintln!("Error: Failed to set secret - {}", e),
+                }
+            }
+        },
     }
 }
