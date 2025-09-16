@@ -1,13 +1,13 @@
 JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
-,T1,Workspace & CLI Scaffolding,T1.1,"Create Rust workspace with `ferri-core` (lib) and `ferri-cli` (bin).",Done
-,T1,Workspace & CLI Scaffolding,T1.2,"Add `clap` with `derive` feature to `ferri-cli` dependencies.",Done
-,T1,Workspace & CLI Scaffolding,T1.3,"Add `ferri-core` as a path dependency in `ferri-cli`'s Cargo.toml.",Done
+,T1,Workspace & CLI Scaffolding,T1.1,Create Rust workspace with `ferri-core` (lib) and `ferri-cli` (bin).,Done
+,T1,Workspace & CLI Scaffolding,T1.2,Add `clap` with `derive` feature to `ferri-cli` dependencies.,Done
+,T1,Workspace & CLI Scaffolding,T1.3,Add `ferri-core` as a path dependency in `ferri-cli`'s Cargo.toml.,Done
 ,T1,Workspace & CLI Scaffolding,T1.4,"In `ferri-cli/src/main.rs`, define the top-level `Cli` struct and `Commands` enum for L1 features.",Done
 ,T1,Workspace & CLI Scaffolding,T1.5,"In `ferri-cli/src/main.rs`, implement the `main` function with a `match` statement for all L1 commands.",Done
 ,T1,Workspace & CLI Scaffolding,T1.6,"Ensure all `match` arms for unimplemented commands print a clear ""unimplemented"" message.",Done
 ,T2,`init` Command,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done
-,T2,`init` Command,T2.2,"`initialize_project` logic: Create a `.ferri` directory in the current path.",Done
-,T2,`init` Command,T2.3,"`initialize_project` logic: Ensure it does not fail if the directory already exists.",Done
+,T2,`init` Command,T2.2,`initialize_project` logic: Create a `.ferri` directory in the current path.,Done
+,T2,`init` Command,T2.3,`initialize_project` logic: Ensure it does not fail if the directory already exists.,Done
 ,T2,`init` Command,T2.4,"`initialize_project` logic: Create an empty `.ferri/secrets.json` with initial structure (e.g., `{}`).",Done
 ,T2,`init` Command,T2.5,"`initialize_project` logic: Create an empty `.ferri/models.json` with initial structure (e.g., `[]`).",Done
 ,T2,`init` Command,T2.6,"`initialize_project` logic: Create an empty `.ferri/context.json` with initial structure (e.g., `[]`).",Done
@@ -31,7 +31,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T4,`models` Command,T4.5,"In `models` module, implement `add_model(model: Model)` function.",Done
 ,T4,`models` Command,T4.6,"In `models` module, implement `list_models()` function.",Done
 ,T4,`models` Command,T4.7,"In `models` module, implement `remove_model(alias: &str)` function.",Done
-,T4,`models` Command,T4.8,"`list_models` logic: Implement auto-discovery of local Ollama models.",Done
+,T4,`models` Command,T4.8,`list_models` logic: Implement auto-discovery of local Ollama models.,Done
 ,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",Done
 ,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",Done
 ,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",Done
@@ -45,10 +45,10 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",Done
 ,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",Done
 ,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",Done
-,T6,`with` Command,T6.3,"`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.",Done
-,T6,`with` Command,T6.4,"`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.",Done
-,T6,`with` Command,T6.5,"`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.",Done
-,T6,`with` Command,T6.6,"`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.",Done
+,T6,`with` Command,T6.3,`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.,Done
+,T6,`with` Command,T6.4,`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.,Done
+,T6,`with` Command,T6.5,`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.,Done
+,T6,`with` Command,T6.6,`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.,Done
 ,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",Done
 ,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",Done
 ,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",Done
@@ -57,29 +57,38 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T7,L1 Interoperability,T7.3,"In `ferri-cli/tests/`, create a new `interop.rs` integration test file.",Done
 ,T7,L1 Interoperability,T7.4,"In `interop.rs`, write a test to verify `ctx add` and `with` work together to inject file content into a command.",Done
 ,T7,L1 Interoperability,T7.5,"In `interop.rs`, write a test to verify `secrets`, `models`, and `with` work together to inject an API key as an environment variable.",Done
-,T7,L1 Interoperability,T7.6,"Create `qa/l1_interop_test_plan.md` summarizing the manual end-to-end tests.",Done
+,T7,L1 Interoperability,T7.6,Create `qa/l1_interop_test_plan.md` summarizing the manual end-to-end tests.,Done
 ,T8,`run` Command,T8.1,"In `ferri-cli`, define the `run` command to accept a command to execute (e.g., `ferri run -- echo 'hello'`).",Done
 ,T8,`run` Command,T8.2,"In `ferri-core`, create a `jobs` module for managing background processes.",Done
 ,T8,`run` Command,T8.3,"In `jobs` module, define a `Job` struct with fields for ID, status, command, and output.",Done
 ,T8,`run` Command,T8.4,"In `jobs` module, implement `submit_job(command: &str)` function.",Done
 ,T8,`run` Command,T8.5,"`submit_job` logic: Generate a unique job ID (e.g., `job-xxxxxx`).",Done
-,T8,`run` Command,T8.6,"`submit_job` logic: Spawn the command as a detached background process.",Done
+,T8,`run` Command,T8.6,`submit_job` logic: Spawn the command as a detached background process.,Done
 ,T8,`run` Command,T8.7,"`submit_job` logic: Store job metadata (ID, command, status) in a new `.ferri/jobs.json` file.",Done
-,T8,`run` Command,T8.8,"`submit_job` logic: Redirect the background process's stdout and stderr to files in `.ferri/jobs/<job-id>/`.",Done
+,T8,`run` Command,T8.8,`submit_job` logic: Redirect the background process's stdout and stderr to files in `.ferri/jobs/<job-id>/`.,Done
 ,T8,`run` Command,T8.9,"In `ferri-core`, write unit tests for `submit_job`.",Done
 ,T8,`run` Command,T8.10,"In `ferri-cli`, call `ferri_core::jobs::submit_job` from the `run` match arm.",Done
 ,T8,`run` Command,T8.11,"In `ferri-cli/tests/`, write an integration test for `ferri run` that checks for the job ID output.",Done
 ,T9,`ps` Command,T9.1,"In `ferri-cli`, define the `ps` command.",Done
 ,T9,`ps` Command,T9.2,"In `ferri-core`'s `jobs` module, implement `list_jobs()` function.",Done
-,T9,`ps` Command,T9.3,"`list_jobs` logic: Read `.ferri/jobs.json` and deserialize the job list.",Done
+,T9,`ps` Command,T9.3,`list_jobs` logic: Read `.ferri/jobs.json` and deserialize the job list.,Done
 ,T9,`ps` Command,T9.4,"`list_jobs` logic: For each job, check the status of the background process.",Done
 ,T9,`ps` Command,T9.5,"In `ferri-core`, write unit tests for `list_jobs`.",Done
 ,T9,`ps` Command,T9.6,"In `ferri-cli`, call `ferri_core::jobs::list_jobs` from the `ps` match arm and format the output as a table.",Done
 ,T9,`ps` Command,T9.7,"In `ferri-cli/tests/`, write an integration test for `ferri ps` that runs a background job and checks the `ps` output.",Done
 ,T10,`yank` Command,T10.1,"In `ferri-cli`, define the `yank` command to accept a `JOB_ID` argument.",Not Started
 ,T10,`yank` Command,T10.2,"In `ferri-core`'s `jobs` module, implement `get_job_output(job_id: &str)` function.",Not Started
-,T10,`yank` Command,T10.3,"`get_job_output` logic: Find the job in `.ferri/jobs.json`.",Not Started
-,T10,`yank` Command,T10.4,"`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.",Not Started
+,T10,`yank` Command,T10.3,`get_job_output` logic: Find the job in `.ferri/jobs.json`.,Not Started
+,T10,`yank` Command,T10.4,`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.,Not Started
 ,T10,`yank` Command,T10.5,"In `ferri-core`, write unit tests for `get_job_output` for a valid and invalid job ID.",Not Started
 ,T10,`yank` Command,T10.6,"In `ferri-cli`, call `ferri_core::jobs::get_job_output` from the `yank` match arm.",Not Started
 ,T10,`yank` Command,T10.7,"In `ferri-cli/tests/`, write an integration test for `ferri yank` that retrieves the output of a completed job.",Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Refactor `ferri-cli/src/main.rs` to define shared argument parsing logic for `run` and `with` commands.,Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Create a new struct (e.g., `SharedArgs`) to hold common flags like `--model` and `--ctx`.",Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Integrate the `SharedArgs` struct into both the `Run` and `With` command structs in `main.rs`.,Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Create a new unified execution function in `ferri-core` that accepts the shared arguments and can be called by both `run` and `with`.,Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Update the `with` command handler in `main.rs` to use the new unified execution function.,Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Update the `run` command handler in `main.rs` to use the new unified execution function, ensuring it runs in the background.",Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Ensure secrets and context are correctly injected based on the flags for both commands in the new unified logic.,Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Update `README.md` examples to reflect the new, consistent syntax for `run` and `with`.",Not Started
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Add and/or update integration tests to validate the unified command behavior.,Not Started

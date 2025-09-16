@@ -19,6 +19,12 @@ At the start of each session, I will:
 
 **3. Create a new ticket:** I will help you add a new row to `pm/sprint_backlog.csv`, ensuring the goal and subtasks match the existing style and granularity.
 
+    *   **Ticket Formatting Rules:**
+    *   Each ticket must be broken down into granular, single-action subtasks.
+    *   Each subtask must have its own row in the CSV.
+    *   The `TicketID` and `Goal` fields must be repeated for every subtask row to ensure traceability.
+
+
 **4. Mark a ticket as done:** Tell me the subtask ID you've completed (e.g., "T5.8 is done"), and I will update its status in the CSV.
 
 **5. Something else:** If you have a different task in mind, just let me know.

@@ -83,6 +83,15 @@ pub fn read_all_secrets(base_path: &Path) -> io::Result<HashMap<String, String>>
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
+/// Reads and decrypts a single secret by its key.
+pub fn read_secret(base_path: &Path, key: &str) -> io::Result<String> {
+    let secrets = read_all_secrets(base_path)?;
+    secrets
+        .get(key)
+        .cloned()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("Secret '{}' not found.", key)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
