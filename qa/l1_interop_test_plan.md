@@ -1,20 +1,19 @@
 # Manual QA Test Plan: L1 Command Interoperability
 
-This document outlines a manual, end-to-end test case to verify that all the core L1 commands (`init`, `secrets`, `models`, `ctx`, `with`) work together seamlessly for a realistic remote AI model use case.
+This document outlines a manual, end-to-end test case to verify that the core L1 commands (`init`, `secrets`, `ctx`, `with`, `run`) work together seamlessly.
 
 **Prerequisites:**
-1.  You must have a valid Google AI (Gemini) API key.
-2.  You must have `curl` installed on your system.
-3.  Be in a clean test directory (e.g., `~/ferri-e2e-test`).
+1.  Be in a clean test directory (e.g., `~/ferri-e2e-test`).
 
 ---
 
 ### The Goal
 
-We will use `ferri` to construct and send a request to the Gemini API. We will use:
-- `ferri secrets` to store our API key.
-- `ferri ctx` to define a file that will be our prompt.
-- `ferri with` to execute a `curl` command that uses both the secret key and the context file.
+We will verify that `ferri with` and `ferri run` can correctly use secrets and context together. We will use:
+- `ferri secrets` to store a value.
+- `ferri ctx` to define a file that will be our context.
+- `ferri with` to execute a command that prints both the secret and the context.
+- `ferri run` to do the same in the background.
 
 ---
 
@@ -26,66 +25,59 @@ ferri init
 ```
 *Verification: Should see the success message.*
 
-**2. Store the API Key**
-*   Replace `YOUR_GOOGLE_API_KEY` with your actual key.
+**2. Store a Secret**
 ```bash
-ferri secrets set GOOGLE_API_KEY "YOUR_GOOGLE_API_KEY"
+ferri secrets set MY_TEST_SECRET "hello_secret"
 ```
 *Verification: Should see the "Secret... set successfully" message.*
 
-**3. Create the Prompt File**
-*   We will create a simple text file that contains our prompt.
+**3. Create and Add a Context File**
 ```bash
-echo "Explain the significance of the Rust programming language in 5 words." > my_prompt.txt
+echo "hello_context" > my_context.txt
+ferri ctx add my_context.txt
 ```
-*Verification: Check the file content with `cat my_prompt.txt`.*
+*Verification: Run `ferri ctx ls` to confirm the file was added.*
 
-**4. Add the Prompt File to the Context**
+**4. Execute and Verify with `ferri with`**
+*   This command will print the environment variable to show the secret was injected, and it will use `cat` to receive the context via stdin.
 ```bash
-ferri ctx add my_prompt.txt
+ferri with --ctx -- sh -c 'echo $MY_TEST_SECRET && cat'
 ```
-*Verification: Should see the "Successfully added 1 path(s)" message. You can also run `ferri ctx ls` to confirm.*
+*   **Important:** After running the command, you must manually type `prompt` and press Enter to provide the final argument that the context will be prepended to.
 
-**5. Execute the `curl` Command with `ferri with`**
-*   This is the final step that ties everything together. We will run a `curl` command.
-*   `ferri with` will automatically inject `$GOOGLE_API_KEY` into the command's environment.
-*   `ferri with` will also take the content from `my_prompt.txt` and prepend it to the final argument of our command (the `{"contents":...}` JSON string).
+*   **Verification:** The output should be:
+    ```
+    hello_secret
+    ---
+    File: my_context.txt
+    ---
+    hello_context
 
-*   **Copy and paste this entire command block into your terminal:**
+    prompt
+    ```
+*   This confirms that `with` injects both secrets (as env vars) and context (into the arguments).
+
+**5. Execute and Verify with `ferri run`**
+*   Now we run the same logic as a background job.
 ```bash
-ferri with -- \
-  curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=$GOOGLE_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"contents":[{"parts":[{"text": " "}]}]}'
+ferri run --ctx -- sh -c 'echo $MY_TEST_SECRET && echo "background_prompt"'
 ```
+*Verification: You should get a job ID, e.g., `job-xxxxxx`.*
 
-### Verification
-
-If successful, you will see a JSON response directly from the Google Gemini API in your terminal. The response should contain an answer similar to this:
-
-```json
-{
-  "candidates": [
-    {
-      "content": {
-        "parts": [
-          {
-            "text": "Memory-safe, concurrent, fast, reliable."
-          }
-        ],
-        "role": "model"
-      },
-      // ... more fields
-    }
-  ],
-  // ... more fields
-}
+*   Wait a moment for the job to complete, then check the status:
+```bash
+ferri ps
 ```
+*Verification: The job should be marked as `Completed`.*
 
-Seeing this response confirms that:
-- `ferri secrets` correctly stored and decrypted the key.
-- `ferri with` correctly injected the key as an environment variable (`$GOOGLE_API_KEY`).
-- `ferri ctx` correctly identified the context file.
-- `ferri with` correctly read the context file and injected its content into the `curl` command's data payload.
+*   Finally, retrieve the output:
+```bash
+ferri yank <your_job_id>
+```
+*   **Verification:** The output should contain both the secret and the prompt:
+    ```
+    hello_secret
+    background_prompt
+    ```
 
-This completes the end-to-end test of the L1 toolkit.
+This completes the end-to-end test of the unified `with` and `run` command interoperability.

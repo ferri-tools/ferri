@@ -156,19 +156,19 @@ ferri with -- python ./scripts/deploy.py
 
 ### `ferri run`, `ps`, and `yank`
 
-Manages long-running, asynchronous background jobs.
+Manages long-running, asynchronous background jobs. The `run` command shares the exact same syntax as `with` for model and context flags.
 
 **Use Case: Generating Documentation in the Background**
 ```bash
 # Step 1: Start a long-running job with 'ferri run'
-ferri run -- ferri with --ctx --model gpt-4o "Generate a complete project summary in Markdown"
+ferri run --ctx --model gpt-4o "Generate a complete project summary in Markdown"
 # Output: Job submitted: job-b4c5d6
 
 # Step 2: Check the status with 'ferri ps'
 ferri ps
 # Output:
 # JOB ID      STATUS      COMMAND
-# job-b4c5d6  COMPLETED   ferri with --ctx --model gpt-4o...
+# job-b4c5d6  COMPLETED   ollama run gpt-4o...
 
 # Step 3: Retrieve the output with 'ferri yank'
 ferri yank job-b4c5d6 > PROJECT_SUMMARY.md

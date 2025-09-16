@@ -45,16 +45,14 @@ fn write_jobs(base_path: &Path, jobs: &[Job]) -> std::io::Result<()> {
     fs::write(jobs_file, content)
 }
 
+use std::collections::HashMap;
 use std::os::unix::process::CommandExt;
 
-pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<Job> {
-    if command_args.is_empty() {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidInput,
-            "Command cannot be empty.",
-        ));
-    }
-
+pub fn submit_job(
+    base_path: &Path,
+    mut command: Command,
+    secrets: HashMap<String, String>,
+) -> std::io::Result<Job> {
     let job_id = generate_job_id();
     let ferri_dir = base_path.join(".ferri");
     let jobs_dir = ferri_dir.join("jobs");
@@ -67,9 +65,18 @@ pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<
     let stdout_file = fs::File::create(stdout_path)?;
     let stderr_file = fs::File::create(stderr_path)?;
 
-    let mut command = Command::new(&command_args[0]);
-    command.args(&command_args[1..]);
+    // Construct the command string for logging before we move `command`
+    let command_string = format!(
+        "{} {}",
+        command.get_program().to_string_lossy(),
+        command
+            .get_args()
+            .map(|s| s.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
 
+    command.envs(secrets);
     command.stdout(Stdio::from(stdout_file));
     command.stderr(Stdio::from(stderr_file));
 
@@ -87,7 +94,7 @@ pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<
 
     let new_job = Job {
         id: job_id.clone(),
-        command: command_args.join(" "),
+        command: command_string,
         status: "Running".to_string(),
         pid,
         pgid,

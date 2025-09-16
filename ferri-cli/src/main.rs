@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::env;
 use std::path::PathBuf;
 
@@ -7,6 +7,19 @@ use std::path::PathBuf;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+#[derive(Args, Debug)]
+struct SharedArgs {
+    /// The model to use for the command
+    #[arg(long)]
+    model: Option<String>,
+    /// Inject context into the command
+    #[arg(long)]
+    ctx: bool,
+    /// The command to execute
+    #[arg(required = true, trailing_var_arg = true)]
+    command: Vec<String>,
 }
 
 #[derive(Subcommand)]
@@ -20,15 +33,13 @@ enum Commands {
     },
     /// Execute a command with the current context
     With {
-        /// The command to execute
-        #[arg(required = true, trailing_var_arg = true)]
-        command: Vec<String>,
+        #[command(flatten)]
+        args: SharedArgs,
     },
     /// Run a command as a background job
     Run {
-        /// The command to execute
-        #[arg(required = true, trailing_var_arg = true)]
-        command: Vec<String>,
+        #[command(flatten)]
+        args: SharedArgs,
     },
     /// List running and completed jobs
     Ps,
@@ -163,10 +174,31 @@ fn main() {
                 }
             }
         },
-        Commands::With { command } => {
-            if let Err(e) = ferri_core::execute::execute_with_context(&current_path, command) {
-                eprintln!("Error: Command execution failed - {}", e);
-                std::process::exit(1);
+        Commands::With { args } => {
+            let exec_args = ferri_core::execute::ExecutionArgs {
+                model: args.model.clone(),
+                use_context: args.ctx,
+                command_with_args: args.command.clone(),
+            };
+
+            match ferri_core::execute::prepare_command(&current_path, &exec_args) {
+                Ok((mut command, secrets)) => {
+                    let status = command
+                        .envs(secrets)
+                        .stdout(std::process::Stdio::inherit())
+                        .stderr(std::process::Stdio::inherit())
+                        .spawn()
+                        .and_then(|mut child| child.wait());
+
+                    if let Err(e) = status {
+                        eprintln!("Error: Command execution failed - {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error: Failed to prepare command - {}", e);
+                    std::process::exit(1);
+                }
             }
         }
         Commands::Secrets { action } => match action {
@@ -210,16 +242,32 @@ fn main() {
                 }
             }
         },
-        Commands::Run { command } => {
-            match ferri_core::jobs::submit_job(&current_path, command) {
-                Ok(job) => {
-                    println!("Successfully submitted job '{}'.", job.id);
-                    if let Some(pid) = job.pid {
-                        println!("Process ID: {}", pid);
+        Commands::Run { args } => {
+            let exec_args = ferri_core::execute::ExecutionArgs {
+                model: args.model.clone(),
+                use_context: args.ctx,
+                command_with_args: args.command.clone(),
+            };
+
+            match ferri_core::execute::prepare_command(&current_path, &exec_args) {
+                Ok((command, secrets)) => {
+                    // The `submit_job` function will need to be updated to accept
+                    // a `Command` object and a secrets map.
+                    match ferri_core::jobs::submit_job(&current_path, command, secrets) {
+                        Ok(job) => {
+                            println!("Successfully submitted job '{}'.", job.id);
+                            if let Some(pid) = job.pid {
+                                println!("Process ID: {}", pid);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error: Failed to submit job - {}", e);
+                            std::process::exit(1);
+                        }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Error: Failed to submit job - {}", e);
+                    eprintln!("Error: Failed to prepare command - {}", e);
                     std::process::exit(1);
                 }
             }
