@@ -47,7 +47,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",Done
 ,T6,`with` Command,T6.3,"`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.",Done
 ,T6,`with` Command,T6.4,"`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.",Done
-,T6,`with` Command,T6.5,"`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.",To Do
+,T6,`with` Command,T6.5,"`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.",Done
 ,T6,`with` Command,T6.6,"`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.",Done
 ,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",Done
 ,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",Done
