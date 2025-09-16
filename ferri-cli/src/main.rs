@@ -32,6 +32,16 @@ enum Commands {
     },
     /// List running and completed jobs
     Ps,
+    /// Terminate a running job
+    Kill {
+        /// The ID of the job to terminate
+        job_id: String,
+    },
+    /// Retrieve the output of a completed job
+    Yank {
+        /// The ID of the job to retrieve
+        job_id: String,
+    },
     /// Manage encrypted secrets
     Secrets {
         #[command(subcommand)]
@@ -220,15 +230,36 @@ fn main() {
                     if jobs.is_empty() {
                         println!("No jobs found.");
                     } else {
-                        println!("{:<15} {:<15} {:<10} {}", "JOB ID", "PID", "STATUS", "COMMAND");
+                        println!("{:<15} {:<15} {:<15} {:<10} {}", "JOB ID", "PID", "PGID", "STATUS", "COMMAND");
                         for job in jobs {
                             let pid_str = job.pid.map_or("N/A".to_string(), |p| p.to_string());
-                            println!("{:<15} {:<15} {:<10} {}", job.id, pid_str, job.status, job.command);
+                            let pgid_str = job.pgid.map_or("N/A".to_string(), |p| p.to_string());
+                            println!("{:<15} {:<15} {:<15} {:<10} {}", job.id, pid_str, pgid_str, job.status, job.command);
                         }
                     }
                 }
                 Err(e) => {
                     eprintln!("Error: Failed to list jobs - {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Kill { job_id } => {
+            match ferri_core::jobs::kill_job(&current_path, job_id) {
+                Ok(_) => println!("Successfully terminated job '{}'.", job_id),
+                Err(e) => {
+                    eprintln!("Error: Failed to terminate job - {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Yank { job_id } => {
+            match ferri_core::jobs::get_job_output(&current_path, job_id) {
+                Ok(output) => {
+                    print!("{}", output);
+                }
+                Err(e) => {
+                    eprintln!("Error: Failed to get job output - {}", e);
                     std::process::exit(1);
                 }
             }

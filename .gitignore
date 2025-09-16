@@ -4,5 +4,6 @@
 /ai_resources/
 /testbox/
 /target
+.idea
 .ferri
 dev.log
