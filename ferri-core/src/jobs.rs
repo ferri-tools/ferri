@@ -5,6 +5,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use sysinfo::{Pid, System};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Job {
@@ -66,9 +67,6 @@ pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<
     let mut command = Command::new(&command_args[0]);
     command.args(&command_args[1..]);
 
-    // Detach the process from the parent.
-    // On Unix, this is the default behavior. For cross-platform compatibility,
-    // one might use libraries, but for now, standard library behavior is sufficient.
     command.stdout(Stdio::from(stdout_file));
     command.stderr(Stdio::from(stderr_file));
 
@@ -89,6 +87,42 @@ pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<
     Ok(new_job)
 }
 
+pub fn list_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
+    let mut jobs = read_jobs(base_path)?;
+    let mut needs_write = false;
+    let s = System::new_all();
+
+    for job in jobs.iter_mut() {
+        if job.status == "Running" {
+            if let Some(pid) = job.pid {
+                if s.process(Pid::from(pid as usize)).is_none() {
+                    let stderr_path = base_path
+                        .join(".ferri/jobs")
+                        .join(&job.id)
+                        .join("stderr.log");
+                    let stderr_content = fs::read_to_string(stderr_path).unwrap_or_default();
+
+                    if stderr_content.trim().is_empty() {
+                        job.status = "Completed".to_string();
+                    } else {
+                        job.status = "Failed".to_string();
+                    }
+                    needs_write = true;
+                }
+            } else {
+                job.status = "Failed".to_string();
+                needs_write = true;
+            }
+        }
+    }
+
+    if needs_write {
+        write_jobs(base_path, &jobs)?;
+    }
+
+    Ok(jobs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,7 +135,6 @@ mod tests {
         let base_path = dir.path();
         let command = vec!["echo".to_string(), "hello".to_string()];
 
-        // Initialize the .ferri directory
         fs::create_dir_all(base_path.join(".ferri")).unwrap();
 
         let job = submit_job(base_path, &command).unwrap();
@@ -122,5 +155,27 @@ mod tests {
         assert!(job_dir.exists());
         assert!(job_dir.join("stdout.log").exists());
         assert!(job_dir.join("stderr.log").exists());
+    }
+
+    #[test]
+    fn test_list_jobs_updates_status() {
+        let dir = tempdir().unwrap();
+        let base_path = dir.path();
+        let command = vec!["sleep".to_string(), "0.1".to_string()];
+
+        fs::create_dir_all(base_path.join(".ferri")).unwrap();
+
+        let job = submit_job(base_path, &command).unwrap();
+        assert_eq!(job.status, "Running");
+
+        let jobs_running = list_jobs(base_path).unwrap();
+        assert_eq!(jobs_running.len(), 1);
+        assert_eq!(jobs_running[0].status, "Running");
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        let jobs_completed = list_jobs(base_path).unwrap();
+        assert_eq!(jobs_completed.len(), 1);
+        assert_eq!(jobs_completed[0].status, "Completed");
     }
 }

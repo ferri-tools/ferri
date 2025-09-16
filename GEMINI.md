@@ -31,3 +31,5 @@ To inform our work, I will always refer to:
 *   **`README.md`**: For understanding the project's architecture and goals.
 *   **`pm/sprint_backlog.csv`**: As the single source of truth for all development tasks.
 *   **The source code**: To verify implementation status.
+
+This should go without saying but always confirm if changing the .gitignore it already happened before and it made things go crazy for a bit.

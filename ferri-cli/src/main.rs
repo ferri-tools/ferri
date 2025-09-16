@@ -30,6 +30,8 @@ enum Commands {
         #[arg(required = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
+    /// List running and completed jobs
+    Ps,
     /// Manage encrypted secrets
     Secrets {
         #[command(subcommand)]
@@ -208,6 +210,25 @@ fn main() {
                 }
                 Err(e) => {
                     eprintln!("Error: Failed to submit job - {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Ps => {
+            match ferri_core::jobs::list_jobs(&current_path) {
+                Ok(jobs) => {
+                    if jobs.is_empty() {
+                        println!("No jobs found.");
+                    } else {
+                        println!("{:<15} {:<15} {:<10} {}", "JOB ID", "PID", "STATUS", "COMMAND");
+                        for job in jobs {
+                            let pid_str = job.pid.map_or("N/A".to_string(), |p| p.to_string());
+                            println!("{:<15} {:<15} {:<10} {}", job.id, pid_str, job.status, job.command);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error: Failed to list jobs - {}", e);
                     std::process::exit(1);
                 }
             }
