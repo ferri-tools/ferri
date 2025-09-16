@@ -58,3 +58,28 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T7,L1 Interoperability,T7.4,"In `interop.rs`, write a test to verify `ctx add` and `with` work together to inject file content into a command.",Done
 ,T7,L1 Interoperability,T7.5,"In `interop.rs`, write a test to verify `secrets`, `models`, and `with` work together to inject an API key as an environment variable.",Done
 ,T7,L1 Interoperability,T7.6,"Create `qa/l1_interop_test_plan.md` summarizing the manual end-to-end tests.",Done
+,T8,`run` Command,T8.1,"In `ferri-cli`, define the `run` command to accept a command to execute (e.g., `ferri run -- echo 'hello'`).",Not Started
+,T8,`run` Command,T8.2,"In `ferri-core`, create a `jobs` module for managing background processes.",Not Started
+,T8,`run` Command,T8.3,"In `jobs` module, define a `Job` struct with fields for ID, status, command, and output.",Not Started
+,T8,`run` Command,T8.4,"In `jobs` module, implement `submit_job(command: &str)` function.",Not Started
+,T8,`run` Command,T8.5,"`submit_job` logic: Generate a unique job ID (e.g., `job-xxxxxx`).",Not Started
+,T8,`run` Command,T8.6,"`submit_job` logic: Spawn the command as a detached background process.",Not Started
+,T8,`run` Command,T8.7,"`submit_job` logic: Store job metadata (ID, command, status) in a new `.ferri/jobs.json` file.",Not Started
+,T8,`run` Command,T8.8,"`submit_job` logic: Redirect the background process's stdout and stderr to files in `.ferri/jobs/<job-id>/`.",Not Started
+,T8,`run` Command,T8.9,"In `ferri-core`, write unit tests for `submit_job`.",Not Started
+,T8,`run` Command,T8.10,"In `ferri-cli`, call `ferri_core::jobs::submit_job` from the `run` match arm.",Not Started
+,T8,`run` Command,T8.11,"In `ferri-cli/tests/`, write an integration test for `ferri run` that checks for the job ID output.",Not Started
+,T9,`ps` Command,T9.1,"In `ferri-cli`, define the `ps` command.",Not Started
+,T9,`ps` Command,T9.2,"In `ferri-core`'s `jobs` module, implement `list_jobs()` function.",Not Started
+,T9,`ps` Command,T9.3,"`list_jobs` logic: Read `.ferri/jobs.json` and deserialize the job list.",Not Started
+,T9,`ps` Command,T9.4,"`list_jobs` logic: For each job, check the status of the background process.",Not Started
+,T9,`ps` Command,T9.5,"In `ferri-core`, write unit tests for `list_jobs`.",Not Started
+,T9,`ps` Command,T9.6,"In `ferri-cli`, call `ferri_core::jobs::list_jobs` from the `ps` match arm and format the output as a table.",Not Started
+,T9,`ps` Command,T9.7,"In `ferri-cli/tests/`, write an integration test for `ferri ps` that runs a background job and checks the `ps` output.",Not Started
+,T10,`yank` Command,T10.1,"In `ferri-cli`, define the `yank` command to accept a `JOB_ID` argument.",Not Started
+,T10,`yank` Command,T10.2,"In `ferri-core`'s `jobs` module, implement `get_job_output(job_id: &str)` function.",Not Started
+,T10,`yank` Command,T10.3,"`get_job_output` logic: Find the job in `.ferri/jobs.json`.",Not Started
+,T10,`yank` Command,T10.4,"`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.",Not Started
+,T10,`yank` Command,T10.5,"In `ferri-core`, write unit tests for `get_job_output` for a valid and invalid job ID.",Not Started
+,T10,`yank` Command,T10.6,"In `ferri-cli`, call `ferri_core::jobs::get_job_output` from the `yank` match arm.",Not Started
+,T10,`yank` Command,T10.7,"In `ferri-cli/tests/`, write an integration test for `ferri yank` that retrieves the output of a completed job.",Not Started
