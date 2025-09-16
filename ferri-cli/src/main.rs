@@ -249,11 +249,25 @@ fn main() {
                 command_with_args: args.command.clone(),
             };
 
+            // Reconstruct the original command for logging purposes
+            let mut original_command_parts = Vec::new();
+            if let Some(model) = &args.model {
+                original_command_parts.push(format!("--model {}", model));
+            }
+            if args.ctx {
+                original_command_parts.push("--ctx".to_string());
+            }
+            original_command_parts.push("--".to_string());
+            original_command_parts.extend(args.command.iter().cloned());
+
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
                 Ok((command, secrets)) => {
-                    // The `submit_job` function will need to be updated to accept
-                    // a `Command` object and a secrets map.
-                    match ferri_core::jobs::submit_job(&current_path, command, secrets) {
+                    match ferri_core::jobs::submit_job(
+                        &current_path,
+                        command,
+                        secrets,
+                        &original_command_parts,
+                    ) {
                         Ok(job) => {
                             println!("Successfully submitted job '{}'.", job.id);
                             if let Some(pid) = job.pid {
