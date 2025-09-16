@@ -24,6 +24,12 @@ enum Commands {
         #[arg(required = true, trailing_var_arg = true)]
         command: Vec<String>,
     },
+    /// Run a command as a background job
+    Run {
+        /// The command to execute
+        #[arg(required = true, trailing_var_arg = true)]
+        command: Vec<String>,
+    },
     /// Manage encrypted secrets
     Secrets {
         #[command(subcommand)]
@@ -192,5 +198,19 @@ fn main() {
                 }
             }
         },
+        Commands::Run { command } => {
+            match ferri_core::jobs::submit_job(&current_path, command) {
+                Ok(job) => {
+                    println!("Successfully submitted job '{}'.", job.id);
+                    if let Some(pid) = job.pid {
+                        println!("Process ID: {}", pid);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error: Failed to submit job - {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
     }
 }
