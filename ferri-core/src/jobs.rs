@@ -13,6 +13,7 @@ pub struct Job {
     pub command: String,
     pub status: String,
     pub pid: Option<u32>,
+    pub pgid: Option<u32>,
 }
 
 fn generate_job_id() -> String {
@@ -44,6 +45,8 @@ fn write_jobs(base_path: &Path, jobs: &[Job]) -> std::io::Result<()> {
     fs::write(jobs_file, content)
 }
 
+use std::os::unix::process::CommandExt;
+
 pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<Job> {
     if command_args.is_empty() {
         return Err(std::io::Error::new(
@@ -70,14 +73,24 @@ pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<
     command.stdout(Stdio::from(stdout_file));
     command.stderr(Stdio::from(stderr_file));
 
+    unsafe {
+        command.pre_exec(|| {
+            nix::unistd::setpgid(nix::unistd::Pid::from_raw(0), nix::unistd::Pid::from_raw(0))
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            Ok(())
+        });
+    }
+
     let child = command.spawn()?;
     let pid = Some(child.id());
+    let pgid = pid; // In a new process group, pgid is the same as pid
 
     let new_job = Job {
         id: job_id.clone(),
         command: command_args.join(" "),
         status: "Running".to_string(),
         pid,
+        pgid,
     };
 
     let mut jobs = read_jobs(base_path)?;
@@ -90,7 +103,8 @@ pub fn submit_job(base_path: &Path, command_args: &[String]) -> std::io::Result<
 pub fn list_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
     let mut jobs = read_jobs(base_path)?;
     let mut needs_write = false;
-    let s = System::new_all();
+    let mut s = System::new_all();
+    s.refresh_processes();
 
     for job in jobs.iter_mut() {
         if job.status == "Running" {
@@ -121,6 +135,63 @@ pub fn list_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
     }
 
     Ok(jobs)
+}
+
+pub fn get_job_output(base_path: &Path, job_id: &str) -> std::io::Result<String> {
+    let jobs = read_jobs(base_path)?;
+    let job = jobs.iter().find(|j| j.id == job_id).ok_or_else(|| {
+        std::io::Error::new(ErrorKind::NotFound, format!("Job '{}' not found.", job_id))
+    })?;
+
+    let stdout_path = base_path
+        .join(".ferri/jobs")
+        .join(&job.id)
+        .join("stdout.log");
+
+    if !stdout_path.exists() {
+        return Err(std::io::Error::new(
+            ErrorKind::NotFound,
+            "Job output not found.",
+        ));
+    }
+
+    fs::read_to_string(stdout_path)
+}
+
+pub fn kill_job(base_path: &Path, job_id: &str) -> std::io::Result<()> {
+    let mut jobs = read_jobs(base_path)?;
+    let job_index = jobs.iter().position(|j| j.id == job_id).ok_or_else(|| {
+        std::io::Error::new(ErrorKind::NotFound, format!("Job '{}' not found.", job_id))
+    })?;
+
+    let job = &mut jobs[job_index];
+
+    if job.status != "Running" {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            format!("Job '{}' is not running.", job_id),
+        ));
+    }
+
+    if let Some(pgid) = job.pgid {
+        let pgid_to_kill = nix::unistd::Pid::from_raw(pgid as i32);
+        match nix::sys::signal::killpg(pgid_to_kill, nix::sys::signal::Signal::SIGTERM) {
+            Ok(_) => {
+                job.status = "Terminated".to_string();
+                write_jobs(base_path, &jobs)?;
+                Ok(())
+            }
+            Err(e) => Err(std::io::Error::new(
+                ErrorKind::Other,
+                format!("Failed to kill process group {}: {}", pgid, e),
+            )),
+        }
+    } else {
+        Err(std::io::Error::new(
+            ErrorKind::Other,
+            "Job does not have a process group ID.",
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -177,5 +248,29 @@ mod tests {
         let jobs_completed = list_jobs(base_path).unwrap();
         assert_eq!(jobs_completed.len(), 1);
         assert_eq!(jobs_completed[0].status, "Completed");
+    }
+
+    #[test]
+    fn test_get_job_output() {
+        let dir = tempdir().unwrap();
+        let base_path = dir.path();
+        let command = vec!["echo".to_string(), "hello job".to_string()];
+
+        fs::create_dir_all(base_path.join(".ferri")).unwrap();
+
+        // Submit a job and get its ID.
+        let job = submit_job(base_path, &command).unwrap();
+
+        // Wait for the job to complete.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Yank the output with the correct ID.
+        let output = get_job_output(base_path, &job.id).unwrap();
+        assert_eq!(output.trim(), "hello job");
+
+        // Try to yank with an invalid ID.
+        let result = get_job_output(base_path, "job-invalid");
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().kind(), ErrorKind::NotFound);
     }
 }
