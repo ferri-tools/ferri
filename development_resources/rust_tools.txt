@@ -1,0 +1,9 @@
+ripgrep: An extremely fast and efficient grep alternative for searching text patterns.
+bat: A "cat clone with wings" that offers syntax highlighting, Git integration, and automatic paging.
+exa: A modern replacement for the ls command, providing enhanced features and improved output.
+fd: A fast and user-friendly alternative to the find command.
+sd: A simpler and more intuitive alternative to the sed command for text manipulation.
+dust: A directory usage scanner that helps visualize disk space usage.
+procs: A modern replacement for the ps command, offering a tree view and easier-to-use flags.
+hyperfine: A powerful command-line benchmarking tool.
+zoxide: A smart cd command alternative that remembers frequently visited directories.

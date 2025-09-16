@@ -1,0 +1,55 @@
+$ ferri --help
+
+Usage: ferri [OPTIONS] COMMAND [ARGS]...
+
+  Ferri is a local-first toolkit for AI developers that streamlines building,
+  testing, and running AI-powered applications directly from your terminal.
+
+  It provides secure secret management, reproducible project environments,
+  powerful context handling, and a unified interface for both local models
+  (via Ollama) and remote APIs (e.g., OpenAI, Anthropic).
+
+Options:
+  -v, --verbose    Enable verbose output for debugging.
+  --version        Show the version number and exit.
+  -h, --help       Show this message and exit.
+
+Commands:
+  init       Initialize a new Ferri project in the current directory.
+  run        Run a command as a long-running, asynchronous job.
+  secrets    Manage encrypted, project-specific secrets like API keys.
+  with       Execute a command with secrets and/or context injected.
+  ctx        Manage the context (files, directories) for the project.
+  ps         List and manage active background jobs.
+  flow       (Coming Soon) Define and run multi-step, declarative AI workflows.
+
+-----------------------------------------------------------------------------
+
+HOW TO USE (A TYPICAL WORKFLOW):
+
+Ferri is designed to get out of your way. Here's how you can go from zero
+to a context-aware AI query in four commands:
+
+1. Initialize your project:
+   (This creates a secure .ferri directory for all state and secrets)
+   $ ferri init
+
+2. Securely store an API key:
+   (The key is encrypted with a master password and never leaves your machine)
+   $ ferri secrets set OPENAI_API_KEY="sk-..."
+
+3. Define your context:
+   (Tell Ferri which files are relevant for your AI tasks. Do this once.)
+   $ ferri ctx add ./src README.md
+
+4. Run commands with context injected:
+   (Use 'with' to run any command in a secure, context-aware environment.
+   Ferri automatically stuffs your context into the prompt.)
+
+   // Query a local model via Ollama
+   $ ferri with --ctx -- ollama run llama3 "Based on the code, what is the primary goal of this project?"
+
+   // Query a remote model by just changing a flag
+   $ ferri with --ctx --model gpt-4o "Refactor the main function in my source code to be more modular."
+
+For more detailed help on a specific command, run 'ferri <COMMAND> --help'.

@@ -52,6 +52,7 @@ pub fn submit_job(
     base_path: &Path,
     mut command: Command,
     secrets: HashMap<String, String>,
+    original_command: &[String],
 ) -> std::io::Result<Job> {
     let job_id = generate_job_id();
     let ferri_dir = base_path.join(".ferri");
@@ -64,17 +65,6 @@ pub fn submit_job(
 
     let stdout_file = fs::File::create(stdout_path)?;
     let stderr_file = fs::File::create(stderr_path)?;
-
-    // Construct the command string for logging before we move `command`
-    let command_string = format!(
-        "{} {}",
-        command.get_program().to_string_lossy(),
-        command
-            .get_args()
-            .map(|s| s.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
 
     command.envs(secrets);
     command.stdout(Stdio::from(stdout_file));
@@ -94,7 +84,7 @@ pub fn submit_job(
 
     let new_job = Job {
         id: job_id.clone(),
-        command: command_string,
+        command: original_command.join(" "),
         status: "Running".to_string(),
         pid,
         pgid,
@@ -117,16 +107,25 @@ pub fn list_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
         if job.status == "Running" {
             if let Some(pid) = job.pid {
                 if s.process(Pid::from(pid as usize)).is_none() {
-                    let stderr_path = base_path
+                    let stdout_path = base_path
                         .join(".ferri/jobs")
                         .join(&job.id)
-                        .join("stderr.log");
-                    let stderr_content = fs::read_to_string(stderr_path).unwrap_or_default();
+                        .join("stdout.log");
+                    let stdout_content = fs::read_to_string(stdout_path).unwrap_or_default();
 
-                    if stderr_content.trim().is_empty() {
+                    if !stdout_content.trim().is_empty() {
                         job.status = "Completed".to_string();
                     } else {
-                        job.status = "Failed".to_string();
+                        let stderr_path = base_path
+                            .join(".ferri/jobs")
+                            .join(&job.id)
+                            .join("stderr.log");
+                        let stderr_content = fs::read_to_string(stderr_path).unwrap_or_default();
+                        if stderr_content.trim().is_empty() {
+                            job.status = "Completed".to_string();
+                        } else {
+                            job.status = "Failed".to_string();
+                        }
                     }
                     needs_write = true;
                 }
@@ -211,11 +210,13 @@ mod tests {
     fn test_submit_job_creates_job_and_files() {
         let dir = tempdir().unwrap();
         let base_path = dir.path();
-        let command = vec!["echo".to_string(), "hello".to_string()];
+        let command_args = vec!["echo".to_string(), "hello".to_string()];
+        let mut command = Command::new(&command_args[0]);
+        command.args(&command_args[1..]);
 
         fs::create_dir_all(base_path.join(".ferri")).unwrap();
 
-        let job = submit_job(base_path, &command).unwrap();
+        let job = submit_job(base_path, command, HashMap::new(), &command_args).unwrap();
 
         assert!(job.id.starts_with("job-"));
         assert_eq!(job.command, "echo hello");
@@ -239,11 +240,13 @@ mod tests {
     fn test_list_jobs_updates_status() {
         let dir = tempdir().unwrap();
         let base_path = dir.path();
-        let command = vec!["sleep".to_string(), "0.1".to_string()];
+        let command_args = vec!["sleep".to_string(), "0.1".to_string()];
+        let mut command = Command::new(&command_args[0]);
+        command.args(&command_args[1..]);
 
         fs::create_dir_all(base_path.join(".ferri")).unwrap();
 
-        let job = submit_job(base_path, &command).unwrap();
+        let job = submit_job(base_path, command, HashMap::new(), &command_args).unwrap();
         assert_eq!(job.status, "Running");
 
         let jobs_running = list_jobs(base_path).unwrap();
@@ -261,12 +264,14 @@ mod tests {
     fn test_get_job_output() {
         let dir = tempdir().unwrap();
         let base_path = dir.path();
-        let command = vec!["echo".to_string(), "hello job".to_string()];
+        let command_args = vec!["echo".to_string(), "hello job".to_string()];
+        let mut command = Command::new(&command_args[0]);
+        command.args(&command_args[1..]);
 
         fs::create_dir_all(base_path.join(".ferri")).unwrap();
 
         // Submit a job and get its ID.
-        let job = submit_job(base_path, &command).unwrap();
+        let job = submit_job(base_path, command, HashMap::new(), &command_args).unwrap();
 
         // Wait for the job to complete.
         std::thread::sleep(std::time::Duration::from_millis(100));
