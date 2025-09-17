@@ -15,6 +15,7 @@ struct AppState {
     steps: Vec<(String, StepStatus)>,
     outputs: HashMap<String, Vec<String>>,
     receiver: Receiver<StepUpdate>,
+    active_step_name: String,
     is_done: bool,
 }
 
@@ -22,10 +23,13 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
     let mut terminal = setup_terminal()?;
     let (tx, rx) = unbounded();
 
+    let initial_active_step = pipeline.steps.first().map_or(String::new(), |s| s.name.clone());
+
     let mut app_state = AppState {
         steps: pipeline.steps.iter().map(|s| (s.name.clone(), StepStatus::Pending)).collect(),
         outputs: HashMap::new(),
         receiver: rx,
+        active_step_name: initial_active_step,
         is_done: false,
     };
 
@@ -46,6 +50,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
         }
 
         if let Ok(update) = app_state.receiver.try_recv() {
+            app_state.active_step_name = update.name.clone();
             if let Some(step) = app_state.steps.iter_mut().find(|(name, _)| name == &update.name) {
                 step.1 = update.status.clone();
             }
@@ -54,7 +59,6 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
             }
         }
         
-        // Check if all steps are completed or failed
         if !app_state.steps.iter().any(|(_, s)| matches!(s, StepStatus::Pending | StepStatus::Running)) {
             app_state.is_done = true;
         }
@@ -83,8 +87,7 @@ fn ui(f: &mut Frame, state: &AppState) {
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
         .split(f.size());
 
-    let title = Block::default().title("Ferri Flow Execution").borders(Borders::TOP);
-    f.render_widget(title, chunks[0]);
+    f.render_widget(Block::default().title("Ferri Flow Execution").borders(Borders::TOP), chunks[0]);
 
     let step_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -98,27 +101,39 @@ fn ui(f: &mut Frame, state: &AppState) {
             StepStatus::Completed => ("Completed", Color::Green),
             StepStatus::Failed(_) => ("Failed", Color::Red),
         };
-        let line = Line::from(vec![
-            Span::styled(format!("[{}]", status_text), Style::default().fg(color)),
+        let style = if name == &state.active_step_name {
+            Style::default().bg(Color::DarkGray)
+        } else {
+            Style::default()
+        };
+        ListItem::new(Line::from(vec![
+            Span::styled(format!("[{}]"), Style::default().fg(color)),
             Span::raw(format!(" {}", name)),
-        ]);
-        ListItem::new(line)
+        ])).style(style)
     }).collect();
 
-    let steps_widget = List::new(step_list)
-        .block(Block::default().title("Steps").borders(Borders::ALL));
-    f.render_widget(steps_widget, step_chunks[0]);
+    f.render_widget(List::new(step_list).block(Block::default().title("Steps").borders(Borders::ALL)), step_chunks[0]);
 
-    let output_text = if let Some((name, _)) = state.steps.iter().find(|(_, s)| matches!(s, StepStatus::Running)) {
-        state.outputs.get(name).map_or(vec![], |v| v.clone()).join("\n")
-    } else if let Some((name, _)) = state.steps.iter().find(|(_, s)| matches!(s, StepStatus::Failed(_))) {
-        state.outputs.get(name).map_or(vec![], |v| v.clone()).join("\n")
-    } else {
-        "No step running. Press 'q' to quit when flow is complete.".to_string()
-    };
-    
+    let (output_title, output_block, output_text) = 
+        if let Some((_, status)) = state.steps.iter().find(|(name, _)| name == &state.active_step_name) {
+            match status {
+                StepStatus::Failed(err) => (
+                    "Error",
+                    Block::default().title("Error").borders(Borders::ALL).border_style(Style::default().fg(Color::Red)),
+                    err.clone()
+                ),
+                _ => (
+                    "Output",
+                    Block::default().title("Output").borders(Borders::ALL),
+                    state.outputs.get(&state.active_step_name).cloned().unwrap_or_default().join("\n")
+                )
+            }
+        } else {
+            ("Output", Block::default().title("Output").borders(Borders::ALL), "No active step.".to_string())
+        };
+
     let output_widget = Paragraph::new(output_text)
-        .block(Block::default().title("Output").borders(Borders::ALL))
+        .block(output_block)
         .wrap(Wrap { trim: false });
     f.render_widget(output_widget, step_chunks[1]);
 }
