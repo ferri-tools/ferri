@@ -149,16 +149,14 @@ steps:
     let flow_file = base_path.join("show-flow.yml");
     fs::write(flow_file, flow_content)?;
 
-    // 3. Run `ferri flow show`
-    // We can't easily test the output of `treetrunk`, so we'll just
-    // ensure the command runs successfully and produces non-empty output.
+    // 3. Run `ferri flow show` and pipe 'q' to stdin to quit the TUI
     let mut flow_cmd = Command::cargo_bin("ferri")?;
     flow_cmd
         .current_dir(base_path)
         .args(["flow", "show", "show-flow.yml"])
+        .write_stdin("q")
         .assert()
-        .success()
-        .stdout(predicate::str::is_empty().not());
+        .success();
 
     Ok(())
 }

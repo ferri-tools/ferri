@@ -1,5 +1,7 @@
 //! Core logic for parsing and executing AI pipelines from YAML files.
 
+mod tui;
+
 use serde::Deserialize;
 use std::fs;
 use std::io;
@@ -277,23 +279,5 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
 }
 
 pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
-    println!("{}", pipeline.name);
-    for (i, step) in pipeline.steps.iter().enumerate() {
-        let is_last = i == pipeline.steps.len() - 1;
-        let prefix = if is_last { "└───" } else { "├───" };
-
-        let mut step_details = match &step.kind {
-            StepKind::Model(model_step) => {
-                let mut prompt = model_step.prompt.replace('\n', " ");
-                if prompt.len() > 40 {
-                    prompt.truncate(37);
-                    prompt.push_str("...");
-                }
-                format!("Model: {} - Prompt: '{}'", model_step.model, prompt)
-            }
-            StepKind::Process(process_step) => format!("Process: '{}'", process_step.process),
-        };
-        println!("{} {}: {}", prefix, step.name, step_details);
-    }
-    Ok(())
+    tui::run_tui(pipeline)
 }
