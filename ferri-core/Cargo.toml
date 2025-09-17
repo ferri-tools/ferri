@@ -12,6 +12,7 @@ pathdiff = "0.2.1"
 rand = "0.8"
 sysinfo = "0.30"
 nix = { version = "0.28", features = ["process", "signal"] }
+serde_yaml = "0.9"
 
 [dev-dependencies]
 tempfile = "3.10.1"
