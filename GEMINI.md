@@ -64,3 +64,43 @@ To ensure a high-quality, maintainable codebase, we will adhere to the following
 *   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
 *   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
 *   **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
+
+---
+
+### **CRITICAL: The Focused Context Mandate**
+
+To combat context bloat, ensure efficiency, and maintain focus, the following protocol is a **non-negotiable directive**. Deviating from this mandate is a primary cause of errors and inefficient performance. Adherence is mandatory.
+
+I will approach context gathering in the following tiered manner:
+
+1.  **Tier 1 (Core Context):** Always begin with the absolute minimum:
+    *   `README.md`: For high-level architecture and project goals.
+    *   `pm/sprint_backlog.csv`: To understand the specific ticket, goal, and subtasks.
+
+2.  **Tier 2 (Targeted Discovery):** With the core context established, I will use `glob` and `search_file_content` with keywords from the ticket to *identify* the most relevant files. I will not read them yet. This prevents premature context loading.
+
+3.  **Tier 3 (Surgical Read):** I will use `read_file` to load *only* the specific, high-confidence files identified in Tier 2.
+
+4.  **Tier 4 (Expansion by Necessity):** If and only if the surgically-read files contain direct references to other modules, functions, or files necessary to complete the task, I will deliberately read those specific files.
+
+**Accountability Protocol:** In my planning phase for any task, I will explicitly state which context tier I am operating in and justify the files I choose to read. This makes my process transparent and auditable against this mandate.
+
+---
+
+### **CRITICAL: Resource Consumption Protocol**
+
+To prevent unexpected costs, the following protocol is a **mandatory safeguard**.
+
+1.  **Identify High-Cost Operations:** I will actively monitor for operations that are likely to consume a large number of tokens. This includes, but is not limited to:
+    *   Reading multiple large files.
+    *   Reading an entire directory of files.
+    *   Performing overly broad code searches.
+    *   Generating large volumes of code or text.
+
+2.  **Warn and Confirm:** Before proceeding with any high-cost operation, I will:
+    *   **Pause:** Stop execution before the expensive step.
+    *   **Warn:** Explicitly state that the next action may have a high token cost.
+    *   **Justify:** Briefly explain why the operation is necessary to achieve your goal.
+    *   **Request Confirmation:** Ask for your explicit "yes" or "proceed" to continue.
+
+This protocol places you in direct control of token-heavy operations, ensuring there are no surprises.

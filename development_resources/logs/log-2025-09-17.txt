@@ -26,3 +26,23 @@ This session focused on fixing a broken `ferri flow run` command. The initial st
     *   The "Device not configured" error has reappeared, as expected.
     *   We have systematically re-implemented the TTY check (T43) and confirmed that the plain-text streaming now works correctly.
     *   We are now properly positioned to tackle the original goal: implementing true, visible streaming for remote models (T44).
+
+---
+SESSION END: 2025-09-17
+GOAL: Create and implement ticket for `ferri models rm` feature.
+
+KEY EVENTS:
+- Created Ticket T45 to track the implementation of `ferri models rm`.
+- Modified `ferri-core/src/models.rs` to have the `remove_model` function execute `ollama rm` for models with the `ollama` provider.
+- Updated `ferri-cli/src/main.rs` to include an interactive "y/N" confirmation prompt before deleting a model.
+- Updated the corresponding integration tests in `ferri-cli/tests/models.rs` to handle the new interactive prompt.
+
+FAILURES & LEARNING:
+- The test suite was in a broken state, leading to a significant debugging effort.
+- Initial test failures were caused by incorrect imports (`PathBuf`, `assert_cmd::Command`) and incorrect binary names (`ferri-cli` vs. `ferri`) within various test files. These were fixed.
+- A major, unresolved issue was discovered: all tests in `ferri-cli/tests/flow.rs` are failing due to a `serde_yaml` parsing error. This indicates a breaking change was made to the `flow.yml` structure (likely the `process` step), but the tests were not updated accordingly.
+
+OUTCOME:
+- The core functionality for T45 was completed and is working, according to user confirmation.
+- The session was concluded before the unrelated `flow.rs` test failures could be resolved. The overall test suite remains in a failing state.
+---
