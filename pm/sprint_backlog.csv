@@ -124,3 +124,11 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T16,`flow` Security Hardening,T16.2,"Update the failing integration test (`test_flow_run_shell_injection_vulnerability`) to assert success after the fix.",Done
 ,T17,`flow` Visualization Bug,T17.1,"In `show_pipeline`, improve the text formatting to correctly handle multi-line prompts and other special characters.",Done
 ,T17,`flow` Visualization Bug,T17.2,"Add a unit test to verify that a pipeline with a multi-line prompt is visualized correctly.",Done
+,T18,Fix `ferri init` bug,T18.1,Modify `ferri_core::initialize_project` to write `[]` to `models.json` instead of an empty file.,Pending
+,T18,Fix `ferri init` bug,T18.2,Add a unit test to `ferri-core` to verify `models.json` is created with the correct `[]` content.,Pending
+,T19,Implement `ferri flow show`,T19.1,Remove the external `treetrunk` dependency from `ferri_core::flow::show_pipeline`.,Pending
+,T19,Implement `ferri flow show`,T19.2,Implement a text-based visualization for `ferri flow show` directly within the `show_pipeline` function.,Pending
+,T19,Implement `ferri flow show`,T19.3,Update `qa/flow_pipeline_test_plan.md` to remove the `treetrunk` prerequisite and reflect the new output.,Pending
+,T20,Update `flow` documentation,T20.1,Update `qa/flow_pipeline_test_plan.md` with the correct YAML syntax for all `ferri flow` test cases.,Pending
+,T20,Update `flow` documentation,T20.2,Add a note to `qa/flow_pipeline_test_plan.md` clarifying that `ferri init` must be run from the project root.,Pending
+,T20,Update `flow` documentation,T20.3,Update the expected output for the model step in `qa/flow_pipeline_test_plan.md` to be more realistic.,Pending
