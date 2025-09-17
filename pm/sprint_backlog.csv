@@ -120,7 +120,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T15,`flow` Command Visualization,T15.5,"Create a `qa/flow_visualization_test_plan.md` with manual test steps.",Done
 ,T15,`flow` Command Visualization,T15.6,"Add two sample flow files (`sample-flow-simple.yml`, `sample-flow-complex.yml`) for testing.",Done
 ,T15,`flow` Command Visualization,T15.7,"In `ferri-cli/tests`, add an integration test for `ferri flow show` that checks for non-empty output.",Done
-,T16,`flow` Security Hardening,T16.1,"In `run_pipeline`, modify the `ProcessStep` execution to use `sh -c` to prevent shell injection vulnerabilities.",Not Started
-,T16,`flow` Security Hardening,T16.2,"Update the failing integration test (`test_flow_run_shell_injection_vulnerability`) to assert success after the fix.",Not Started
-,T17,`flow` Visualization Bug,T17.1,"In `show_pipeline`, improve the text formatting to correctly handle multi-line prompts and other special characters.",Not Started
-,T17,`flow` Visualization Bug,T17.2,"Add a unit test to verify that a pipeline with a multi-line prompt is visualized correctly.",Not Started
+,T16,`flow` Security Hardening,T16.1,"In `run_pipeline`, modify the `ProcessStep` execution to use `sh -c` to prevent shell injection vulnerabilities.",Done
+,T16,`flow` Security Hardening,T16.2,"Update the failing integration test (`test_flow_run_shell_injection_vulnerability`) to assert success after the fix.",Done
+,T17,`flow` Visualization Bug,T17.1,"In `show_pipeline`, improve the text formatting to correctly handle multi-line prompts and other special characters.",Done
+,T17,`flow` Visualization Bug,T17.2,"Add a unit test to verify that a pipeline with a multi-line prompt is visualized correctly.",Done
