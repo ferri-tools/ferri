@@ -275,11 +275,11 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
 }
 
 pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
-    use std::process::{Command, Stdio};
-    use std::io::Write;
+    println!("{}", pipeline.name);
+    for (i, step) in pipeline.steps.iter().enumerate() {
+        let is_last = i == pipeline.steps.len() - 1;
+        let prefix = if is_last { "└───" } else { "├───" };
 
-    let mut viz_input = format!("{}\n", pipeline.name);
-    for step in &pipeline.steps {
         let mut step_details = match &step.kind {
             StepKind::Model(model_step) => {
                 let mut prompt = model_step.prompt.replace('\n', " ");
@@ -291,26 +291,7 @@ pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
             }
             StepKind::Process(process_step) => format!("Process: '{}'", process_step.process),
         };
-        viz_input.push_str(&format!("  - {}: {}\n", step.name, step_details));
+        println!("{} {}: {}", prefix, step.name, step_details);
     }
-
-    let mut child = Command::new("treetrunk")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(viz_input.as_bytes())?;
-    }
-
-    let status = child.wait()?;
-    if !status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Failed to execute 'treetrunk' visualization tool. Is it installed and in your PATH?",
-        ));
-    }
-
     Ok(())
 }
