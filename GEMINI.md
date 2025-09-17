@@ -41,8 +41,13 @@ To inform our work, I will always refer to:
 This should go without saying but always confirm if changing the .gitignore. It already happened before and it made things go crazy for a bit.
 
 ---
-## Development Process
+## Development Best Practices
 
-*   **Commits:** All commits must reference the ticket number(s) they address in the commit subject line. For example: `feat(flow): T12 - Implement flow command foundation`.
-*   **Check-in Frequency:** I will commit working code after each logical feature or ticket is complete to create safe checkpoints.
-*   **Testing:** When a feature is ready for you to test, I will run `cargo install --path ferri-cli` to ensure the binary is updated with the latest changes.
+To ensure a high-quality, maintainable codebase, we will adhere to the following practices:
+
+*   **Ticket-Driven Development:** All work, from new features to bug fixes, must begin with a ticket in `pm/sprint_backlog.csv`. This ensures every change is tracked and justified.
+*   **Atomic Commits:** Each commit should represent a single, logical change. Commits must reference their corresponding ticket ID (e.g., `fix(auth): T21 - Fix login redirect bug`).
+*   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
+*   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
+*   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
+
