@@ -1,0 +1,24 @@
+name: "Merge Test Flow"
+steps:
+  - name: "start-pipeline"
+    process:
+      process: "echo 'start'"
+    output: "initial_data"
+
+  - name: "start-branch-a"
+    process:
+      process: "cat initial_data"
+    input: "initial_data"
+    output: "branch_a_output"
+
+  - name: "start-branch-b"
+    process:
+      process: "cat initial_data"
+    input: "initial_data"
+    output: "branch_b_output"
+
+  - name: "merge-branches"
+    process:
+      process: "cat branch_a_output branch_b_output"
+    input: "branch_a_output" # Simplified for visualization
+    output: "final_output"

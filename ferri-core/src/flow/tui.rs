@@ -185,7 +185,7 @@ fn ui(f: &mut Frame, app: &App) {
                         let prev_x_base = (prev_rs.lane * 4) as f64 + 2.0;
                         if prev_rs.lane != rs.lane { // It's a merge
                             ctx.print(x_base, y - 0.5, "╰".fg(rs.color));
-                            ctx.draw(&canvas::Line { x1: prev_x_base, y1: y - 0.5, x2: x_base, y2: y - 0.5, color: rs.color });
+                            ctx.draw(&canvas::Line { x1: prev_x_base, y1: y - 0.5, x2: x_base, y2: y - 0.5, color: prev_rs.color });
                         }
                     }
                 }
