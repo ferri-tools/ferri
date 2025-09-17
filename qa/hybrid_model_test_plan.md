@@ -37,62 +37,62 @@ This document outlines the manual testing steps for a `ferri flow` that uses bot
     ```
 
 4.  **Create the Demo Python Script:**
-    *   This script has intentional flaws for the models to find.
-    ```bash
-    cat << 'EOF' > demo_script.py
-"""
-A simple Flask application to demonstrate Ferri's code review capabilities.
-This script contains intentional flaws for the demo.
-"""
-from flask import Flask, request
-import os
+    *   Create a new file named `demo_script.py` and paste the following code into it. This script has intentional flaws for the models to find.
 
-app = Flask(__name__)
+    ```python
+    """
+    A simple Flask application to demonstrate Ferri's code review capabilities.
+    This script contains intentional flaws for the demo.
+    """
+    from flask import Flask, request
+    import os
 
-@app.route('/')
-def index():
-    name = request.args.get('name', 'World')
-    return "Hello, " + name + "!"
+    app = Flask(__name__)
 
-# Flaw: This endpoint is vulnerable to command injection
-@app.route('/files')
-def list_files():
-    directory = request.args.get('dir', '.')
-    # This is dangerous!
-    file_list = os.popen("ls " + directory).read()
-    return f"<pre>{file_list}</pre>"
+    @app.route('/')
+    def index():
+        name = request.args.get('name', 'World')
+        return "Hello, " + name + "!"
 
-if __name__ == '__main__':
-    app.run(debug=True)
-EOF
+    # Flaw: This endpoint is vulnerable to command injection
+    @app.route('/files')
+    def list_files():
+        directory = request.args.get('dir', '.')
+        # This is dangerous!
+        file_list = os.popen("ls " + directory).read()
+        return f"<pre>{file_list}</pre>"
+
+    if __name__ == '__main__':
+        app.run(debug=True)
     ```
 
 5.  **Create the Hybrid Flow File:**
-    ```bash
-    cat << 'EOF' > code_review_flow.yml
-name: "AI-Powered Code Review & Enhancement"
-steps:
-  - name: "triage-code"
-    model:
-      model: "gemma" # Local model for speed
-      prompt: "You are a code triager. Summarize the following Python script, identify any obvious flaws or style issues, and create a checklist for a senior developer to perform a deeper review. Focus on security and performance."
-    input: "demo_script.py"
-    output: "triage_report.txt"
+    *   Create a new file named `code_review_flow.yml` and paste the following YAML into it.
+    *   Notice how the `input:` fields tell `ferri` to pipe the content of each file into the model prompts.
 
-  - name: "expert-review-and-enhance"
-    model:
-      model: "gemini-pro" # Remote model for power
-      prompt: "You are an expert Python developer. Using the original code and the triage report, perform a deep code review based on the checklist. Then, generate an enhanced, production-ready version of the script that fixes all identified issues."
-    input: "triage_report.txt" # Conceptually also uses the original script
-    output: "enhanced_script.py"
+    ```yaml
+    name: "AI-Powered Code Review & Enhancement"
+    steps:
+      - name: "triage-code"
+        model:
+          model: "gemma" # Local model for speed
+          prompt: "You are a code triager. Summarize the following Python script, identify any obvious flaws or style issues, and create a checklist for a senior developer to perform a deeper review. Focus on security and performance."
+        input: "demo_script.py"
+        output: "triage_report.txt"
 
-  - name: "generate-commit-message"
-    model:
-      model: "gemma" # Local model for speed
-      prompt: "You are a git expert. Based on the enhanced code, write a concise and conventional commit message."
-    input: "enhanced_script.py"
-    output: "commit_message.txt"
-EOF
+      - name: "expert-review-and-enhance"
+        model:
+          model: "gemini-pro" # Remote model for power
+          prompt: "You are an expert Python developer. Using the original code and the triage report, perform a deep code review based on the checklist. Then, generate an enhanced, production-ready version of the script that fixes all identified issues."
+        input: "triage_report.txt" # Conceptually also uses the original script
+        output: "enhanced_script.py"
+
+      - name: "generate-commit-message"
+        model:
+          model: "gemma" # Local model for speed
+          prompt: "You are a git expert. Based on the enhanced code, write a concise and conventional commit message."
+        input: "enhanced_script.py"
+        output: "commit_message.txt"
     ```
 
 6.  **Run the Flow:**
