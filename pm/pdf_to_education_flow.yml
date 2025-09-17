@@ -1,0 +1,46 @@
+name: "PDF Book to Educational Resource Pipeline"
+steps:
+  - name: "extract-text-from-pdf"
+    process:
+      process: "pdftotext 'The_Rust_Programming_Language.pdf' text_content.txt"
+    output: "raw_text"
+
+  - name: "split-into-chapters"
+    process:
+      process: "csplit text_content.txt '/^Chapter [0-9]+:/' '{*}'"
+    input: "raw_text"
+    output: "chapters"
+
+  - name: "summarize-chapter-1"
+    model:
+      model: "gemma"
+      prompt: "Summarize the key concepts from the following chapter text:"
+    input: "chapters/chap01.txt"
+    output: "summary_chap_1.txt"
+
+  - name: "summarize-chapter-2"
+    model:
+      model: "gemma"
+      prompt: "Summarize the key concepts from the following chapter text:"
+    input: "chapters/chap02.txt"
+    output: "summary_chap_2.txt"
+
+  - name: "generate-quiz-chapter-1"
+    model:
+      model: "gemma"
+      prompt: "Generate a 5-question multiple-choice quiz based on this chapter summary:"
+    input: "summary_chap_1.txt"
+    output: "quiz_chap_1.json"
+
+  - name: "generate-flashcards-chapter-2"
+    model:
+      model: "gemma"
+      prompt: "Generate 10 flashcards (term/definition) from this chapter summary:"
+    input: "summary_chap_2.txt"
+    output: "flashcards_chap_2.json"
+
+  - name: "compile-final-markdown"
+    process:
+      process: "cat summary_chap_1.txt quiz_chap_1.json summary_chap_2.txt flashcards_chap_2.json > final_resource.md"
+    input: "quiz_chap_1.json" # Simplified input for graph linearity
+    output: "final_resource.md"
