@@ -1,0 +1,12 @@
+name: "Simple Sequential Flow"
+jobs:
+  - id: "step-1"
+    command: "echo 'This is the first step.'"
+  - id: "step-2"
+    command: "echo 'This is the second step, running after the first.'"
+    dependencies:
+      - "step-1"
+  - id: "step-3"
+    command: "echo 'This is the final step.'"
+    dependencies:
+      - "step-2"

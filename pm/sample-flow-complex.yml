@@ -1,0 +1,30 @@
+name: "Complex Flow with Parallel Execution"
+jobs:
+  - id: "setup"
+    command: "echo 'Starting setup...'"
+
+  - id: "build-backend"
+    command: "echo 'Building backend services...'"
+    dependencies:
+      - "setup"
+
+  - id: "build-frontend"
+    command: "echo 'Building frontend assets...'"
+    dependencies:
+      - "setup"
+
+  - id: "test-backend"
+    command: "echo 'Running backend tests...'"
+    dependencies:
+      - "build-backend"
+
+  - id: "test-frontend"
+    command: "echo 'Running frontend tests...'"
+    dependencies:
+      - "build-frontend"
+
+  - id: "deploy"
+    command: "echo 'Deploying application...'"
+    dependencies:
+      - "test-backend"
+      - "test-frontend"

@@ -1,7 +1,7 @@
 .DS_Store
 /target/
 /testbox/
-/target
+**/target
 .idea
 .ferri
 dev.log
