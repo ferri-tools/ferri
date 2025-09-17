@@ -117,6 +117,44 @@ steps:
     }
 
     #[test]
+    fn test_show_pipeline_handles_multiline_prompt() {
+        let pipeline = Pipeline {
+            name: "Multiline Test".to_string(),
+            steps: vec![
+                Step {
+                    name: "step-1".to_string(),
+                    kind: StepKind::Model(ModelStep {
+                        model: "gemma".to_string(),
+                        prompt: "This is a very long prompt\nthat contains newlines\nand should be truncated.".to_string(),
+                    }),
+                    input: None,
+                    output: None,
+                }
+            ],
+        };
+        // We can't test the `treetrunk` output directly, but we can test the input string
+        // that `show_pipeline` generates.
+        let mut viz_input = format!("{}\n", pipeline.name);
+        for step in &pipeline.steps {
+            let mut step_details = match &step.kind {
+                StepKind::Model(model_step) => {
+                    let mut prompt = model_step.prompt.replace('\n', " ");
+                    if prompt.len() > 40 {
+                        prompt.truncate(37);
+                        prompt.push_str("...");
+                    }
+                    format!("Model: {} - Prompt: '{}'", model_step.model, prompt)
+                }
+                StepKind::Process(process_step) => format!("Process: '{}'", process_step.process),
+            };
+            viz_input.push_str(&format!("  - {}: {}\n", step.name, step_details));
+        }
+
+        assert!(!viz_input.contains('\n'));
+        assert!(viz_input.contains("..."));
+    }
+
+    #[test]
     fn test_parse_pipeline_with_io() {
         let yaml = r#"
 name: "Test I/O Pipeline"
@@ -189,11 +227,9 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
                 crate::execute::prepare_command(base_path, &exec_args)?
             }
             StepKind::Process(process_step) => {
-                let mut parts = process_step.process.split_whitespace();
-                let program = parts.next().unwrap_or("");
-                let args = parts.collect::<Vec<_>>();
-                let mut cmd = Command::new(program);
-                cmd.args(args);
+                let mut cmd = Command::new("sh");
+                cmd.arg("-c");
+                cmd.arg(&process_step.process);
                 (cmd, HashMap::new()) // Process steps don't have secrets
             }
         };
@@ -244,8 +280,15 @@ pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
 
     let mut viz_input = format!("{}\n", pipeline.name);
     for step in &pipeline.steps {
-        let step_details = match &step.kind {
-            StepKind::Model(model_step) => format!("Model: {} - Prompt: '{}'", model_step.model, model_step.prompt),
+        let mut step_details = match &step.kind {
+            StepKind::Model(model_step) => {
+                let mut prompt = model_step.prompt.replace('\n', " ");
+                if prompt.len() > 40 {
+                    prompt.truncate(37);
+                    prompt.push_str("...");
+                }
+                format!("Model: {} - Prompt: '{}'", model_step.model, prompt)
+            }
             StepKind::Process(process_step) => format!("Process: '{}'", process_step.process),
         };
         viz_input.push_str(&format!("  - {}: {}\n", step.name, step_details));
