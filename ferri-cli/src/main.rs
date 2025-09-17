@@ -63,6 +63,20 @@ enum Commands {
         #[command(subcommand)]
         action: ModelsCommand,
     },
+    /// Manage and execute multi-step AI workflows
+    Flow {
+        #[command(subcommand)]
+        action: FlowCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum FlowCommand {
+    /// Run a workflow from a file
+    Run {
+        /// The path to the workflow file
+        file: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -326,5 +340,22 @@ fn main() {
                 }
             }
         }
+        Commands::Flow { action } => match action {
+            FlowCommand::Run { file } => {
+                let file_path = PathBuf::from(file);
+                match ferri_core::flow::parse_pipeline_file(&file_path) {
+                    Ok(pipeline) => {
+                        if let Err(e) = ferri_core::flow::run_pipeline(&current_path, &pipeline) {
+                            eprintln!("Error: Flow execution failed - {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: Failed to parse flow file - {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
     }
 }
