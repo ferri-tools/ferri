@@ -1,0 +1,30 @@
+name: "Git-Style Feature Branch Flow"
+steps:
+  - name: "initial-commit"
+    process:
+      process: "echo 'Project Setup'"
+    output: "main_branch_state_1"
+
+  - name: "start-feature-branch"
+    process:
+      process: "cat main_branch_state_1"
+    input: "main_branch_state_1"
+    output: "feature_branch_state_1"
+
+  - name: "main-branch-refactor"
+    process:
+      process: "echo 'Refactor core API on main'"
+    input: "main_branch_state_1"
+    output: "main_branch_state_2"
+
+  - name: "implement-feature"
+    process:
+      process: "echo 'Implement new feature'"
+    input: "feature_branch_state_1"
+    output: "feature_branch_state_2"
+
+  - name: "merge-feature-branch"
+    process:
+      process: "cat main_branch_state_2 feature_branch_state_2"
+    input: "main_branch_state_2" # Simplified for visualization
+    output: "final_state"

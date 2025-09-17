@@ -1,0 +1,44 @@
+name: "Advanced PDF Education Resource Pipeline"
+steps:
+  # --- Main Track ---
+  - name: "extract-all-text"
+    process:
+      process: "pdftotext book.pdf"
+    output: "raw_text.txt"
+
+  # --- Fork to Summary Branch ---
+  - name: "start-summary-branch"
+    process:
+      process: "cat raw_text.txt" # Pass-through to define the branch
+    input: "extract-all-text"
+    output: "summary_input"
+
+  # --- Continue on Main Track (Creates Horizontal Displacement) ---
+  - name: "extract-images"
+    process:
+      process: "pdfimages book.pdf ./images"
+    input: "extract-all-text"
+    output: "image_assets"
+
+  # --- Continue on Summary Branch ---
+  - name: "generate-summaries"
+    model:
+      model: "gemma"
+      prompt: "Generate a summary for each chapter."
+    input: "start-summary-branch"
+    output: "chapter_summaries.txt"
+
+  # --- Continue on Main Track ---
+  - name: "label-images"
+    model:
+      model: "gemma"
+      prompt: "Provide descriptive labels for these diagrams."
+    input: "extract-images"
+    output: "labeled_images.json"
+
+  # --- Merge Summary Branch back to Main ---
+  - name: "compile-final-resource"
+    process:
+      process: "cat chapter_summaries.txt labeled_images.json > final_resource.md"
+    input: "label-images" # This step conceptually also uses 'generate-summaries'
+    output: "final_resource.md"
