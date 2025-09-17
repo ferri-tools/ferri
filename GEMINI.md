@@ -49,5 +49,6 @@ To ensure a high-quality, maintainable codebase, we will adhere to the following
 *   **Atomic Commits:** Each commit should represent a single, logical change. Commits must reference their corresponding ticket ID (e.g., `fix(auth): T21 - Fix login redirect bug`).
 *   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
 *   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
+*   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
 *   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
 
