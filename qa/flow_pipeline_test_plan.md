@@ -26,9 +26,11 @@ This document outlines the manual testing steps for the `ferri flow` command.
     name: "Simple Piped Flow"
     steps:
       - name: "add-hello"
-        process: "sed 's/^/Hello, /'"
+        process:
+          process: "sed 's/^/Hello, /'"
       - name: "add-excitement"
-        process: "sed 's/$/!!!/'"
+        process:
+          process: "sed 's/$/!!!/'"
     ```
 
 3.  **Run the flow with piped input:**
@@ -61,10 +63,12 @@ This document outlines the manual testing steps for the `ferri flow` command.
     name: "File I/O Flow"
     steps:
       - name: "read-from-file"
-        process: "cat"
+        process:
+          process: "cat"
         input: "input.txt"
       - name: "capitalize"
-        process: "tr 'a-z' 'A-Z'"
+        process:
+          process: "tr 'a-z' 'A-Z'"
         input: "read-from-file"
         output: "output.txt"
     ```
@@ -107,7 +111,8 @@ This document outlines the manual testing steps for the `ferri flow` command.
           model: "gemma"
           prompt: "Summarize the following text in exactly three words:"
       - name: "final-touch"
-        process: "sed 's/$/... a summary./'"
+        process:
+          process: "sed 's/$/... a summary./'"
     ```
 
 3.  **Run the flow with piped input:**
