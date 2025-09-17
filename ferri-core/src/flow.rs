@@ -175,27 +175,26 @@ pub fn run_pipeline(
 
                     let mut reader = BufReader::new(response);
                     let mut accumulated_stdout = Vec::new();
-                    let mut buffer = String::new();
+                    let mut buffer = Vec::new();
 
-                    // Read the stream line by line
-                    while let Ok(bytes_read) = reader.read_line(&mut buffer) {
+                    // Read the stream chunk by chunk
+                    loop {
+                        buffer.clear();
+                        let bytes_read = reader.read_until(b'\n', &mut buffer)?;
                         if bytes_read == 0 {
                             break; // End of stream
                         }
                         
-                        // Gemini streaming API prefixes chunks with "data: "
-                        if buffer.starts_with("data: ") {
-                            let json_str = &buffer[6..].trim();
+                        let line = String::from_utf8_lossy(&buffer);
+                        if line.starts_with("data: ") {
+                            let json_str = &line[6..].trim();
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
                                 if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                    // Send the chunk to the TUI immediately
                                     sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
-                                    // Also accumulate it for the final output file
                                     accumulated_stdout.extend_from_slice(text.as_bytes());
                                 }
                             }
                         }
-                        buffer.clear();
                     }
 
                     std::process::Output {
