@@ -126,3 +126,39 @@ steps:
 
     Ok(())
 }
+
+#[test]
+fn test_flow_show() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let base_path = dir.path();
+
+    // 1. Initialize project
+    Command::cargo_bin("ferri")?.current_dir(base_path).arg("init").assert().success();
+
+    // 2. Create a flow file
+    let flow_content = r#"
+name: "Show Test Flow"
+steps:
+  - name: "step-a"
+    process: "echo 'a'"
+  - name: "step-b"
+    model:
+      model: "gemma"
+      prompt: "b"
+"#;
+    let flow_file = base_path.join("show-flow.yml");
+    fs::write(flow_file, flow_content)?;
+
+    // 3. Run `ferri flow show`
+    // We can't easily test the output of `treetrunk`, so we'll just
+    // ensure the command runs successfully and produces non-empty output.
+    let mut flow_cmd = Command::cargo_bin("ferri")?;
+    flow_cmd
+        .current_dir(base_path)
+        .args(["flow", "show", "show-flow.yml"])
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty().not());
+
+    Ok(())
+}

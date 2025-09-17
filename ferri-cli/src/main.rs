@@ -77,6 +77,11 @@ enum FlowCommand {
         /// The path to the workflow file
         file: String,
     },
+    /// Display a visual representation of a workflow
+    Show {
+        /// The path to the workflow file
+        file: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -347,6 +352,21 @@ fn main() {
                     Ok(pipeline) => {
                         if let Err(e) = ferri_core::flow::run_pipeline(&current_path, &pipeline) {
                             eprintln!("Error: Flow execution failed - {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: Failed to parse flow file - {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            FlowCommand::Show { file } => {
+                let file_path = PathBuf::from(file);
+                match ferri_core::flow::parse_pipeline_file(&file_path) {
+                    Ok(pipeline) => {
+                        if let Err(e) = ferri_core::flow::show_pipeline(&pipeline) {
+                            eprintln!("Error: Flow visualization failed - {}", e);
                             std::process::exit(1);
                         }
                     }
