@@ -119,4 +119,30 @@ mod tests {
         assert!(result_again.is_ok());
         assert_eq!(fs::read_to_string(&secrets_path).unwrap(), "{{\"key\":\"value\"}}");
     }
+
+    #[test]
+    fn test_add_and_remove_from_context() {
+        let dir = tempdir().unwrap();
+        let base_path = dir.path();
+        initialize_project(base_path).unwrap();
+
+        let path1 = PathBuf::from("file1.txt");
+        let path2 = PathBuf::from("dir/file2.txt");
+        fs::create_dir_all(base_path.join("dir")).unwrap();
+        fs::write(base_path.join(&path1), "content1").unwrap();
+        fs::write(base_path.join(&path2), "content2").unwrap();
+
+        // Add paths
+        context::add_to_context(base_path, vec![path1.clone(), path2.clone()]).unwrap();
+        let mut current_context = context::list_context(base_path).unwrap();
+        assert_eq!(current_context.len(), 2);
+        assert!(current_context.contains(&"file1.txt".to_string()));
+
+        // Remove one path
+        context::remove_from_context(base_path, vec![path1]).unwrap();
+        current_context = context::list_context(base_path).unwrap();
+        assert_eq!(current_context.len(), 1);
+        assert!(!current_context.contains(&"file1.txt".to_string()));
+        assert!(current_context.contains(&"dir/file2.txt".to_string()));
+    }
 }

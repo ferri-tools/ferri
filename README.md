@@ -212,3 +212,40 @@ ferri do "Add a new '/api/users' endpoint to my Express app. It needs a route, a
 ## Command Modifiers
 
 For a detailed list of all command modifiers and advanced options (e.g., `--stream`, `--dry-run`, `--interactive`), see [COMMAND_MODIFIERS.md](./COMMAND_MODIFIERS.md).
+
+---
+
+## Demo: AI-Powered Code Review
+
+This demo showcases a workflow where a fast, local model (Gemma) and a powerful, remote model (Gemini Pro) work together to perform a code review.
+
+**1. Setup:**
+
+First, add your Google API key to Ferri's secrets and register the Gemini Pro model.
+
+```bash
+# Store your API key
+ferri secrets set GOOGLE_API_KEY "your-api-key-here"
+
+# Register the Gemini Pro model
+ferri models add gemini-pro \
+  --provider google \
+  --api-key-secret GOOGLE_API_KEY \
+  --model-name gemini-pro
+```
+
+**2. Run the Flow:**
+
+Execute the `code_review_flow.yml` pipeline. This flow uses the `pm/demo_script.py` file as its input.
+
+```bash
+ferri flow run pm/code_review_flow.yml
+```
+
+**3. What it Does:**
+
+*   **Step 1 (Local - Gemma):** Performs a quick "triage" on `demo_script.py` and writes a summary to `triage_report.txt`.
+*   **Step 2 (Remote - Gemini Pro):** Uses the triage report to perform a deep analysis and writes an enhanced, secure version of the script to `enhanced_script.py`.
+*   **Step 3 (Local - Gemma):** Reads the final code and generates a git commit message in `commit_message.txt`.
+
+```
