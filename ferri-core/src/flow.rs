@@ -89,11 +89,20 @@ pub fn run_pipeline(
         let handle = thread::spawn(move || -> io::Result<()> {
             let mut input_data: Option<Vec<u8>> = None;
             if let Some(input_source) = &step_clone.input {
-                let outputs = outputs_clone.lock().unwrap();
-                if let Some(output) = outputs.get(input_source) {
-                    input_data = Some(output.clone());
-                } else if Path::new(input_source).exists() {
-                    input_data = Some(fs::read(input_source)?);
+                let mut combined_input = Vec::new();
+                let sources: Vec<&str> = input_source.split(',').map(|s| s.trim()).collect();
+                for source in sources {
+                    let outputs = outputs_clone.lock().unwrap();
+                    if let Some(output) = outputs.get(source) {
+                        combined_input.extend_from_slice(output);
+                        combined_input.push(b'\n');
+                    } else if Path::new(source).exists() {
+                        combined_input.extend_from_slice(&fs::read(source)?);
+                        combined_input.push(b'\n');
+                    }
+                }
+                if !combined_input.is_empty() {
+                    input_data = Some(combined_input);
                 }
             }
 

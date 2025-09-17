@@ -181,13 +181,17 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T32,Create Demo Flow,T32.1,"Create a sample Python file (`demo_script.py`) with intentional flaws for the code review.",Done
 ,T32,Create Demo Flow,T32.2,"Create the `code_review_flow.yml` file in the `pm` directory, defining the three-step workflow.",Done
 ,T32,Create Demo Flow,T32.3,"Update `README.md` with instructions on how to set up and run the new demo, including adding a `GOOGLE_API_KEY` secret.",Done
-,T33,Real-Time Flow UI Foundation,T33.1,"In `ferri-cli/src/main.rs`, create a new `flow_run_tui` module.",Pending
-,T33,Real-Time Flow UI Foundation,T33.2,"In the new module, implement a `ratatui` TUI that displays a list of steps and their initial 'Pending' status.",Pending
-,T33,Real-Time Flow UI Foundation,T33.3,"Refactor the `flow run` command in `main.rs` to launch this new TUI.",Pending
-,T34,Stream Command Output,T34.1,"In `ferri-core/src/flow.rs`, modify `run_pipeline` to accept a sender channel for real-time updates.",Pending
-,T34,Stream Command Output,T34.2,"For `ProcessStep`, spawn the command and read its stdout/stderr line-by-line, sending each line through the channel.",Pending
-,T34,Stream Command Output,T34.3,"For remote `ModelStep`, use `reqwest`'s streaming API to read the response body in chunks and send them through the channel.",Pending
-,T35,Integrate Streaming into TUI,T35.1,"In the `flow_run_tui` module, create a receiver for the channel from the core logic.",Pending
-,T35,Integrate Streaming into TUI,T35.2,"Update the TUI event loop to be non-blocking, checking for both user input and new messages from the channel.",Pending
-,T35,Integrate Streaming into TUI,T35.3,"When a message is received, update the corresponding step's status (e.g., 'Running') and display the output in a dedicated panel.",Pending
-,T35,Integrate Streaming into TUI,T35.4,"Update the step status to 'Completed' or 'Failed' when the step finishes.",Pending
+,T33,Real-Time Flow UI Foundation,T33.1,"In `ferri-cli/src/main.rs`, create a new `flow_run_tui` module.",Done
+,T33,Real-Time Flow UI Foundation,T33.2,"In the new module, implement a `ratatui` TUI that displays a list of steps and their initial 'Pending' status.",Done
+,T33,Real-Time Flow UI Foundation,T33.3,"Refactor the `flow run` command in `main.rs` to launch this new TUI.",Done
+,T34,Stream Command Output,T34.1,"In `ferri-core/src/flow.rs`, modify `run_pipeline` to accept a sender channel for real-time updates.",Done
+,T34,Stream Command Output,T34.2,"For `ProcessStep`, spawn the command and read its stdout/stderr line-by-line, sending each line through the channel.",Done
+,T34,Stream Command Output,T34.3,"For remote `ModelStep`, use `reqwest`'s streaming API to read the response body in chunks and send them through the channel.",Done
+,T35,Integrate Streaming into TUI,T35.1,"In the `flow_run_tui` module, create a receiver for the channel from the core logic.",Done
+,T35,Integrate Streaming into TUI,T35.2,"Update the TUI event loop to be non-blocking, checking for both user input and new messages from the channel.",Done
+,T35,Integrate Streaming into TUI,T35.3,"When a message is received, update the corresponding step's status (e.g., 'Running') and display the output in a dedicated panel.",Done
+,T35,Integrate Streaming into TUI,T35.4,"Update the step status to 'Completed' or 'Failed' when the step finishes.",Done
+,T36,Improve TUI Error Display,T36.1,"In `ferri-cli/src/flow_run_tui.rs`, add a state field to track the currently active/selected step.",Pending
+,T36,Improve TUI Error Display,T36.2,"When a step fails, store its detailed error message from the `StepStatus::Failed` variant.",Pending
+,T36,Improve TUI Error Display,T36.3,"Modify the 'Output' panel to display the stored error message in a formatted block when a failed step is active.",Pending
+,T36,Improve TUI Error Display,T36.4,"Style the error block with a red title and border to clearly indicate failure.",Pending
