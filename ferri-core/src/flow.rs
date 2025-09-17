@@ -186,10 +186,12 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
 
     // Read initial input from stdin if there's something to pipe in
     let mut initial_input = Vec::new();
-    let mut stdin = io::stdin();
-    if let Ok(len) = stdin.read_to_end(&mut initial_input) {
-        if len > 0 {
-            previous_stdout = Some(initial_input);
+    if !atty::is(atty::Stream::Stdin) {
+        let mut stdin = io::stdin();
+        if let Ok(len) = stdin.read_to_end(&mut initial_input) {
+            if len > 0 {
+                previous_stdout = Some(initial_input);
+            }
         }
     }
 
