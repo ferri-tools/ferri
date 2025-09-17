@@ -51,4 +51,5 @@ To ensure a high-quality, maintainable codebase, we will adhere to the following
 *   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
 *   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
 *   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
+*   **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
 

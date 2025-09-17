@@ -4,6 +4,7 @@ pub mod jobs;
 pub mod models;
 pub mod secrets;
 pub mod flow;
+pub mod logging;
 
 use std::fs;
 use std::path::Path;
