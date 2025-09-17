@@ -14,6 +14,8 @@ sysinfo = "0.30"
 nix = { version = "0.28", features = ["process", "signal"] }
 serde_yaml = "0.9"
 atty = "0.2.14"
+ratatui = "0.26.1"
+crossterm = "0.27.0"
 
 [dev-dependencies]
 tempfile = "3.10.1"

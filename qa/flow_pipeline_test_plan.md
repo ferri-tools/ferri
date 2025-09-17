@@ -143,11 +143,12 @@ This document outlines the manual testing steps for the `ferri flow` command.
     ```
 
 3.  **Verify the Output:**
-    *   You should see a tree-like visualization of the workflow printed to your terminal, similar to this:
-        ```
-        File I/O Flow
-        ├─── read-from-file: Process: 'cat'
-        └─── capitalize: Process: 'tr 'a-z' 'A-Z''
-        ```
+    *   A full-screen terminal UI should appear.
+    *   You should see a title "Pipeline: File I/O Flow".
+    *   Two colored blocks should be displayed vertically:
+        *   A green block for the `read-from-file` (Process) step.
+        *   A cyan block for the `capitalize` (Process) step.
+    *   A yellow arrow (`▼`) should be pointing from the first block to the second.
+    *   Press 'q' to exit the visualization.
 
 This confirms that the `flow` command is working correctly and is ready for your demo.
