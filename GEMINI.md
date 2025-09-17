@@ -39,3 +39,9 @@ To inform our work, I will always refer to:
 *   **The source code**: To verify implementation status.
 
 This should go without saying but always confirm if changing the .gitignore. It already happened before and it made things go crazy for a bit.
+
+---
+## Development Process
+
+*   **Commits:** All commits must reference the ticket number(s) they address in the commit subject line. For example: `feat(flow): T12 - Implement flow command foundation`.
+*   **Check-in Frequency:** I will commit working code after each logical feature or ticket is complete to create safe checkpoints.
