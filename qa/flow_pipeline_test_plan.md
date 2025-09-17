@@ -6,6 +6,7 @@ This document outlines the manual testing steps for the `ferri flow` command.
 1.  `ferri` is installed globally.
 2.  Ollama is running with the `gemma:2b` model pulled.
 3.  You are in a clean test directory (e.g., `~/ferri-flow-test`).
+4.  The `ferri init` command has been run at the root of the project.
 
 ---
 
@@ -123,7 +124,7 @@ This document outlines the manual testing steps for the `ferri flow` command.
 4.  **Verify the Output:**
     *   You should see a three-word summary from the model, followed by the text from the `sed` command. The output will be similar to this (the model's summary may vary slightly):
         ```
-        Safe, fast, concurrent... a summary.
+        Sure, here is a summary of the text in exactly three words:... a summary.
         ```
 
 ---
@@ -131,9 +132,6 @@ This document outlines the manual testing steps for the `ferri flow` command.
 ### Test Case 4: Flow Visualization
 
 **Goal:** Verify that the `ferri flow show` command can visualize a workflow.
-
-**Prerequisites:**
-*   The `treetrunk` binary must be installed and in your system's PATH. You can install it from `development_resources/treetrunk`.
 
 **Steps:**
 
@@ -148,7 +146,7 @@ This document outlines the manual testing steps for the `ferri flow` command.
     *   You should see a tree-like visualization of the workflow printed to your terminal, similar to this:
         ```
         File I/O Flow
-        └─── read-from-file: Process: 'cat'
+        ├─── read-from-file: Process: 'cat'
         └─── capitalize: Process: 'tr 'a-z' 'A-Z''
         ```
 
