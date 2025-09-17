@@ -76,7 +76,7 @@ impl<'a> App<'a> {
                 if fork_index == 0 {
                     parent_lane
                 } else {
-                    let mut new_lane = parent_lane + 1;
+                    let mut new_lane = parent_lane + fork_index; // Use fork_index for spacing
                     while active_lanes.iter().any(|&l| l == Some(new_lane)) {
                         new_lane += 1;
                     }
