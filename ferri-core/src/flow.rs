@@ -133,13 +133,19 @@ pub fn run_pipeline(
                     let stdout = BufReader::new(child.stdout.take().unwrap());
                     let stderr = BufReader::new(child.stderr.take().unwrap());
 
+                    let sender_clone_err = sender_clone.clone();
+                    let step_name_clone_err = step_clone.name.clone();
+                    let stderr_thread = thread::spawn(move || {
+                        for line in stderr.lines() {
+                            sender_clone_err.send(StepUpdate { name: step_name_clone_err.clone(), status: StepStatus::Running, output: Some(line.unwrap_or_default()) }).unwrap();
+                        }
+                    });
+
                     for line in stdout.lines() {
                         sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(line?) }).unwrap();
                     }
-                    for line in stderr.lines() {
-                        sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(line?) }).unwrap();
-                    }
                     
+                    stderr_thread.join().unwrap();
                     child.wait_with_output()? 
                 }
                 PreparedCommand::Remote(request) => {

@@ -15,7 +15,7 @@ struct AppState {
     steps: Vec<(String, StepStatus)>,
     outputs: HashMap<String, Vec<String>>,
     receiver: Receiver<StepUpdate>,
-    active_step_name: String,
+    active_step_index: usize,
     is_done: bool,
 }
 
@@ -23,13 +23,11 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
     let mut terminal = setup_terminal()?;
     let (tx, rx) = unbounded();
 
-    let initial_active_step = pipeline.steps.first().map_or(String::new(), |s| s.name.clone());
-
     let mut app_state = AppState {
         steps: pipeline.steps.iter().map(|s| (s.name.clone(), StepStatus::Pending)).collect(),
         outputs: HashMap::new(),
         receiver: rx,
-        active_step_name: initial_active_step,
+        active_step_index: 0,
         is_done: false,
     };
 
@@ -43,16 +41,23 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('q') {
-                    break;
+                match key.code {
+                    KeyCode::Char('q') => break,
+                    KeyCode::Up => {
+                        app_state.active_step_index = app_state.active_step_index.saturating_sub(1);
+                    }
+                    KeyCode::Down => {
+                        app_state.active_step_index = (app_state.active_step_index + 1).min(app_state.steps.len() - 1);
+                    }
+                    _ => {}
                 }
             }
         }
 
         if let Ok(update) = app_state.receiver.try_recv() {
-            app_state.active_step_name = update.name.clone();
-            if let Some(step) = app_state.steps.iter_mut().find(|(name, _)| name == &update.name) {
+            if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
                 step.1 = update.status.clone();
+                app_state.active_step_index = idx;
             }
             if let Some(output) = update.output {
                 app_state.outputs.entry(update.name).or_default().push(output);
@@ -84,53 +89,50 @@ fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io
 fn ui(f: &mut Frame, state: &AppState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(1)].as_ref())
         .split(f.size());
 
     f.render_widget(Block::default().title("Ferri Flow Execution").borders(Borders::TOP), chunks[0]);
+    f.render_widget(Paragraph::new("Use ↑/↓ to select a step. Press 'q' to quit.").alignment(Alignment::Center), chunks[2]);
 
     let step_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .split(chunks[1]);
 
-    let step_list: Vec<ListItem> = state.steps.iter().map(|(name, status)| {
+    let step_list_items: Vec<ListItem> = state.steps.iter().enumerate().map(|(i, (name, status))| {
         let (status_text, color) = match status {
             StepStatus::Pending => ("Pending", Color::DarkGray),
             StepStatus::Running => ("Running", Color::Blue),
             StepStatus::Completed => ("Completed", Color::Green),
             StepStatus::Failed(_) => ("Failed", Color::Red),
         };
-        let style = if name == &state.active_step_name {
+        let style = if i == state.active_step_index {
             Style::default().bg(Color::DarkGray)
         } else {
             Style::default()
         };
         ListItem::new(Line::from(vec![
-            Span::styled(format!("[{}]"), Style::default().fg(color)),
+            Span::styled(format!("[{}]", status_text), Style::default().fg(color)),
             Span::raw(format!(" {}", name)),
         ])).style(style)
     }).collect();
 
-    f.render_widget(List::new(step_list).block(Block::default().title("Steps").borders(Borders::ALL)), step_chunks[0]);
+    f.render_widget(List::new(step_list_items).block(Block::default().title("Steps").borders(Borders::ALL)), step_chunks[0]);
 
-    let (output_title, output_block, output_text) = 
-        if let Some((_, status)) = state.steps.iter().find(|(name, _)| name == &state.active_step_name) {
-            match status {
-                StepStatus::Failed(err) => (
-                    "Error",
-                    Block::default().title("Error").borders(Borders::ALL).border_style(Style::default().fg(Color::Red)),
-                    err.clone()
-                ),
-                _ => (
-                    "Output",
-                    Block::default().title("Output").borders(Borders::ALL),
-                    state.outputs.get(&state.active_step_name).cloned().unwrap_or_default().join("\n")
-                )
-            }
-        } else {
-            ("Output", Block::default().title("Output").borders(Borders::ALL), "No active step.".to_string())
-        };
+    let (active_step_name, active_status) = &state.steps[state.active_step_index];
+    let (_output_title, output_block, output_text) = match active_status {
+        StepStatus::Failed(err) => (
+            "Error",
+            Block::default().title("Error").borders(Borders::ALL).border_style(Style::default().fg(Color::Red)),
+            err.clone()
+        ),
+        _ => (
+            "Output",
+            Block::default().title(format!("Output for '{}'", active_step_name)).borders(Borders::ALL),
+            state.outputs.get(active_step_name).cloned().unwrap_or_default().join("\n")
+        )
+    };
 
     let output_widget = Paragraph::new(output_text)
         .block(output_block)
