@@ -132,6 +132,7 @@ pub fn run_pipeline(
                     let mut child = command.envs(secrets).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
                     let stdout = BufReader::new(child.stdout.take().unwrap());
                     let stderr = BufReader::new(child.stderr.take().unwrap());
+                    let mut accumulated_stdout = Vec::new();
 
                     let sender_clone_err = sender_clone.clone();
                     let step_name_clone_err = step_clone.name.clone();
@@ -142,45 +143,56 @@ pub fn run_pipeline(
                     });
 
                     for line in stdout.lines() {
-                        sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(line?) }).unwrap();
+                        let line = line?;
+                        sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(line.clone()) }).unwrap();
+                        accumulated_stdout.extend_from_slice(line.as_bytes());
+                        accumulated_stdout.push(b'\n');
                     }
                     
                     stderr_thread.join().unwrap();
-                    child.wait_with_output()? 
+                    let status = child.wait()?;
+                    let final_output = std::process::Output {
+                        status,
+                        stdout: accumulated_stdout,
+                        stderr: vec![], // Stderr is streamed, not captured here
+                    };
+                    final_output
                 }
                 PreparedCommand::Remote(request) => {
                     let response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     let status = response.status();
-                    let body = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    
-                    let (exit_status, stdout_bytes, stderr_bytes) = if status.is_success() {
-                        let stdout = if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body) {
-                            if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                text.as_bytes().to_vec()
-                            } else {
-                                body.to_vec()
-                            }
-                        } else {
-                            body.to_vec()
-                        };
-                        (Command::new("true").status()?, stdout, vec![])
-                    } else {
+
+                    if !status.is_success() {
+                        let body = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                         let stderr = if let Ok(json_err) = serde_json::from_slice::<serde_json::Value>(&body) {
                             if let Some(msg) = json_err["error"]["message"].as_str() {
-                                format!("API Error: {}", msg).as_bytes().to_vec()
-                            } else {
-                                body.to_vec()
+                                format!("API Error: {}", msg)
+                            } else { String::from_utf8_lossy(&body).to_string() }
+                        } else { String::from_utf8_lossy(&body).to_string() };
+                        sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Failed(stderr.clone()), output: None }).unwrap();
+                        return Err(io::Error::new(io::ErrorKind::Other, stderr));
+                    }
+
+                    let mut reader = BufReader::new(response);
+                    let mut accumulated_stdout = Vec::new();
+                    let mut line = String::new();
+                    while reader.read_line(&mut line)? > 0 {
+                        if line.starts_with("data: ") {
+                            let json_str = &line[6..];
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                    sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
+                                    accumulated_stdout.extend_from_slice(text.as_bytes());
+                                }
                             }
-                        } else {
-                            body.to_vec()
-                        };
-                        (Command::new("false").status()?, vec![], stderr)
-                    };
+                        }
+                        line.clear();
+                    }
 
                     std::process::Output {
-                        status: exit_status,
-                        stdout: stdout_bytes,
-                        stderr: stderr_bytes,
+                        status: Command::new("true").status()?,
+                        stdout: accumulated_stdout,
+                        stderr: vec![],
                     }
                 }
             };

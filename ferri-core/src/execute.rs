@@ -107,7 +107,7 @@ pub fn prepare_command(
             }
             ModelProvider::Google => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
-                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model.model_name, api_key);
+                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?key={}", model.model_name, api_key);
                 
                 let body = json!({
                     "contents": [{
