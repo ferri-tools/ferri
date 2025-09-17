@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::Path;
+use std::process::Command;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Model {
@@ -55,7 +56,49 @@ pub fn add_model(base_path: &Path, model: Model) -> io::Result<()> {
 /// Removes a model from the registry by its alias.
 pub fn remove_model(base_path: &Path, alias: &str) -> io::Result<()> {
     let mut models = read_registered_models(base_path)?;
+
+    // Find the model to get its details before removing it from the list
+    if let Some(model_to_remove) = models.iter().find(|m| m.alias == alias).cloned() {
+        // If the provider is ollama, attempt to remove the model using the ollama CLI
+        if model_to_remove.provider == "ollama" {
+            let status = Command::new("ollama")
+                .arg("rm")
+                .arg(&model_to_remove.model_name)
+                .status();
+
+            match status {
+                Ok(exit_status) => {
+                    if !exit_status.success() {
+                        // We don't return an error here, just print a warning,
+                        // as the model might not be installed locally anyway.
+                        eprintln!(
+                            "Warning: `ollama rm {}` failed. The model may not be installed locally.",
+                            model_to_remove.model_name
+                        );
+                    }
+                }
+                Err(e) => {
+                    // Ollama CLI might not be installed or in the PATH
+                    eprintln!(
+                        "Warning: Failed to execute `ollama rm`. Is the Ollama CLI installed and in your PATH? Error: {}",
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    // Remove the model from the registry regardless of whether the CLI command succeeded
+    let initial_len = models.len();
     models.retain(|m| m.alias != alias);
+
+    if models.len() == initial_len {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Model with alias '{}' not found in the registry.", alias),
+        ));
+    }
+
     write_registered_models(base_path, &models)
 }
 

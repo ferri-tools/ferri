@@ -1,5 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 use std::env;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 mod flow_run_tui;
@@ -316,9 +317,18 @@ fn main() {
                 }
             }
             ModelsCommand::Rm { alias } => {
-                match ferri_core::models::remove_model(&current_path, alias) {
-                    Ok(_) => println!("Model '{}' removed successfully.", alias),
-                    Err(e) => eprintln!("Error: Failed to remove model - {}", e),
+                print!("Are you sure you want to remove model '{}'? [y/N] ", alias);
+                io::stdout().flush().unwrap();
+                let mut confirmation = String::new();
+                io::stdin().read_line(&mut confirmation).unwrap();
+
+                if confirmation.trim().eq_ignore_ascii_case("y") {
+                    match ferri_core::models::remove_model(&current_path, alias) {
+                        Ok(_) => println!("Model '{}' removed successfully.", alias),
+                        Err(e) => eprintln!("Error: Failed to remove model - {}", e),
+                    }
+                } else {
+                    println!("Removal cancelled.");
                 }
             }
         },

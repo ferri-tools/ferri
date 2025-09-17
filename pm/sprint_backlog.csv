@@ -243,3 +243,10 @@ line2'`).",Pending
 ,T44,Implement true streaming for remote models,T44.1,"In `ferri-core/src/flow.rs`, modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
 ,T44,Implement true streaming for remote models,T44.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",Done
 ,T44,Implement true streaming for remote models,T44.3,"Send `StepUpdate` messages for each chunk of the remote response.",In Progress
+
+,T45,Implement `models rm` Command,T45.1,"In `ferri-cli`, verify `models rm <ALIAS>` subcommand is defined.",Done
+,T45,Implement `models rm` Command,T45.2,"In `ferri-core`, implement `remove_model` logic to delete from `.ferri/models.json`.",Done
+,T45,Implement `models rm` Command,T45.3,"In `ferri-core`, `remove_model` should also delete the model file from disk.",Done
+,T45,Implement `models rm` Command,T45.4,"In `ferri-cli`, add a confirmation prompt before deleting a model.",Done
+,T45,Implement `models rm` Command,T45.5,"Add unit tests for `remove_model` in `ferri-core`.",Done
+,T45,Implement `models rm` Command,T45.6,"Add integration tests for `ferri models rm` in `ferri-cli`.",Done
