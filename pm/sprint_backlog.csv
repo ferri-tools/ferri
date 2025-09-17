@@ -76,19 +76,19 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T9,`ps` Command,T9.5,"In `ferri-core`, write unit tests for `list_jobs`.",Done
 ,T9,`ps` Command,T9.6,"In `ferri-cli`, call `ferri_core::jobs::list_jobs` from the `ps` match arm and format the output as a table.",Done
 ,T9,`ps` Command,T9.7,"In `ferri-cli/tests/`, write an integration test for `ferri ps` that runs a background job and checks the `ps` output.",Done
-,T10,`yank` Command,T10.1,"In `ferri-cli`, define the `yank` command to accept a `JOB_ID` argument.",Not Started
-,T10,`yank` Command,T10.2,"In `ferri-core`'s `jobs` module, implement `get_job_output(job_id: &str)` function.",Not Started
-,T10,`yank` Command,T10.3,`get_job_output` logic: Find the job in `.ferri/jobs.json`.,Not Started
-,T10,`yank` Command,T10.4,`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.,Not Started
-,T10,`yank` Command,T10.5,"In `ferri-core`, write unit tests for `get_job_output` for a valid and invalid job ID.",Not Started
-,T10,`yank` Command,T10.6,"In `ferri-cli`, call `ferri_core::jobs::get_job_output` from the `yank` match arm.",Not Started
-,T10,`yank` Command,T10.7,"In `ferri-cli/tests/`, write an integration test for `ferri yank` that retrieves the output of a completed job.",Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Refactor `ferri-cli/src/main.rs` to define shared argument parsing logic for `run` and `with` commands.,Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Create a new struct (e.g., `SharedArgs`) to hold common flags like `--model` and `--ctx`.",Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Integrate the `SharedArgs` struct into both the `Run` and `With` command structs in `main.rs`.,Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Create a new unified execution function in `ferri-core` that accepts the shared arguments and can be called by both `run` and `with`.,Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Update the `with` command handler in `main.rs` to use the new unified execution function.,Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Update the `run` command handler in `main.rs` to use the new unified execution function, ensuring it runs in the background.",Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Ensure secrets and context are correctly injected based on the flags for both commands in the new unified logic.,Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Update `README.md` examples to reflect the new, consistent syntax for `run` and `with`.",Not Started
-,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Add and/or update integration tests to validate the unified command behavior.,Not Started
+,T10,`yank` Command,T10.1,"In `ferri-cli`, define the `yank` command to accept a `JOB_ID` argument.",Done
+,T10,`yank` Command,T10.2,"In `ferri-core`'s `jobs` module, implement `get_job_output(job_id: &str)` function.",Done
+,T10,`yank` Command,T10.3,`get_job_output` logic: Find the job in `.ferri/jobs.json`.,Done
+,T10,`yank` Command,T10.4,`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.,Done
+,T10,`yank` Command,T10.5,"In `ferri-core`, write unit tests for `get_job_output` for a valid and invalid job ID.",Done
+,T10,`yank` Command,T10.6,"In `ferri-cli`, call `ferri_core::jobs::get_job_output` from the `yank` match arm.",Done
+,T10,`yank` Command,T10.7,"In `ferri-cli/tests/`, write an integration test for `ferri yank` that retrieves the output of a completed job.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Refactor `ferri-cli/src/main.rs` to define shared argument parsing logic for `run` and `with` commands.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Create a new struct (e.g., `SharedArgs`) to hold common flags like `--model` and `--ctx`.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Integrate the `SharedArgs` struct into both the `Run` and `With` command structs in `main.rs`.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Create a new unified execution function in `ferri-core` that accepts the shared arguments and can be called by both `run` and `with`.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Update the `with` command handler in `main.rs` to use the new unified execution function.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Update the `run` command handler in `main.rs` to use the new unified execution function, ensuring it runs in the background.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Ensure secrets and context are correctly injected based on the flags for both commands in the new unified logic.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,"Update `README.md` examples to reflect the new, consistent syntax for `run` and `with`.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,Unify `run` and `with` command syntax for intuitive use,Add and/or update integration tests to validate the unified command behavior.,Done
