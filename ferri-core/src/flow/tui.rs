@@ -186,11 +186,11 @@ fn ui(f: &mut Frame, app: &App) {
                     if let Some(prev_rs) = app.steps.iter().find(|s| s.step.name == *input_name) {
                         let prev_x_base = (prev_rs.lane * 4) as f64 + 2.0;
                         if prev_rs.lane != rs.lane { // It's a merge
-                            ctx.print(x_base, y - 0.5, "╰".fg(rs.color));
-                            ctx.draw(&canvas::Line { x1: prev_x_base, y1: y - 0.5, x2: x_base, y2: y - 0.5, color: prev_rs.color });
+                            ctx.print(x_base, y, "╰".fg(rs.color));
+                            ctx.draw(&canvas::Line { x1: prev_x_base, y1: y, x2: x_base, y2: y, color: prev_rs.color });
                             // Add label for merge
                             let label = input_name.to_string();
-                            ctx.print(prev_x_base + 1.0, y - 1.5, label.fg(Color::DarkGray));
+                            ctx.print(prev_x_base + 1.0, y - 1.0, label.fg(Color::DarkGray));
                         }
                     }
                 }
@@ -201,8 +201,8 @@ fn ui(f: &mut Frame, app: &App) {
                     for (fork_idx, child_rs) in children.iter().enumerate() {
                         if fork_idx > 0 {
                             let child_x_base = (child_rs.lane * 4) as f64 + 2.0;
-                            ctx.print(x_base, y + 0.5, "╭".fg(rs.color));
-                            ctx.draw(&canvas::Line { x1: x_base, y1: y + 0.5, x2: child_x_base, y2: y + 0.5, color: rs.color });
+                            ctx.print(x_base, y, "╭".fg(rs.color));
+                            ctx.draw(&canvas::Line { x1: x_base, y1: y, x2: child_x_base, y2: y, color: rs.color });
                         }
                     }
                 }
