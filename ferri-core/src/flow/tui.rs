@@ -92,10 +92,12 @@ impl<'a> App<'a> {
             active_lanes[lane] = Some(i);
             lanes.insert(i, lane);
 
+            let parent_color = parent_index.and_then(|p| steps.iter().find(|s| s.step.name == pipeline.steps[*p].name)).map(|s| s.color).unwrap_or(colors[lane % colors.len()]);
+
             steps.push(RenderableStep {
                 step: &pipeline.steps[i],
                 lane,
-                color: colors[lane % colors.len()],
+                color: parent_color,
                 graph_info: GraphInfo { dot: true },
             });
         }
