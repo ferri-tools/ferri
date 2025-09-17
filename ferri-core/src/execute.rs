@@ -10,31 +10,37 @@ use std::process::Command;
 use std::fs;
 
 // --- Structs for deserializing Gemini API responses ---
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct GeminiResponse {
     candidates: Vec<Candidate>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Candidate {
     content: Content,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Content {
     parts: Vec<Part>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Part {
     text: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct GoogleApiErrorResponse {
     error: GoogleApiError,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct GoogleApiError {
     message: String,
