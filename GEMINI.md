@@ -31,6 +31,18 @@ At the start of each session, I will:
 
 ---
 
+## Session Logging
+
+At the end of a session, or when a major pivot in strategy occurs, I will write a summary of our progress to a log file.
+
+*   **Location:** `development_resources/logs/`
+*   **Filename:** `log-YYYY-MM-DD.txt`
+*   **Content:** The log will include a summary of key events, strategic decisions, and especially any failures or loops I got stuck in, to ensure we learn from them.
+
+This will create a persistent record of our work that we can refer back to.
+
+---
+
 ## Core Reference Files
 
 To inform our work, I will always refer to:
@@ -52,4 +64,3 @@ To ensure a high-quality, maintainable codebase, we will adhere to the following
 *   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
 *   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
 *   **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
-

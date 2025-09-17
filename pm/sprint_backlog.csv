@@ -112,7 +112,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T14,`flow` Ferri Integration,T14.2,"Ensure `ModelStep` automatically handles model resolution, secret injection, and context injection via the `prepare_command` function.",Done
 ,T14,`flow` Ferri Integration,T14.3,"Update `run_pipeline` to correctly handle the `Command` object returned by `prepare_command`.",Done
 ,T14,`flow` Ferri Integration,T14.4,"In `ferri-core`, add unit tests to verify that `prepare_command` is called correctly for `ModelStep`s.",Done
-,T14,`flow` Ferri Integration,T14.5,"In `ferri-cli/tests`, add an integration test for a flow that uses a model requiring a secret.",Done
+,T14,`flow` Ferri Integration,T14.5,"In `ferri-cli/tests/`, add an integration test for a flow that uses a model requiring a secret.",Done
 ,T15,`flow` Command Visualization,T15.1,"In `ferri-cli`, add `show <FILE>` subcommand to the `flow` command.",Done
 ,T15,`flow` Command Visualization,T15.2,"In `flow` module, create a function to transform a parsed `Pipeline` struct into a `treetrunk`-compatible format.",Done
 ,T15,`flow` Command Visualization,T15.3,"In `flow` module, implement the logic to execute the `treetrunk` binary with the transformed data.",Done
@@ -127,7 +127,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T18,Fix `ferri init` bug,T18.1,Modify `ferri_core::initialize_project` to write `[]` to `models.json` instead of an empty file.,Done
 ,T18,Fix `ferri init` bug,T18.2,Add a unit test to `ferri-core` to verify `models.json` is created with the correct `[]` content.,Done
 ,T19,Implement `ferri flow show`,T19.1,Remove the external `treetrunk` dependency from `ferri_core::flow::show_pipeline`.,Done
-,T19,Implement `ferri flow show`,T19.2,Implement a text-based visualization for `ferri flow show` directly within the `show_pipeline` function.,Done
+,T19,Implement `ferri flow show`,T19.2,Implement a text-based visualization for `ferri flow show` directly within the `show_pipeline` function.",Done
 ,T19,Implement `ferri flow show`,T19.3,Update `qa/flow_pipeline_test_plan.md` to remove the `treetrunk` prerequisite and reflect the new output.,Done
 ,T20,Update `flow` documentation,T20.1,Update `qa/flow_pipeline_test_plan.md` with the correct YAML syntax for all `ferri flow` test cases.,Done
 ,T20,Update `flow` documentation,T20.2,Add a note to `qa/flow_pipeline_test_plan.md` clarifying that `ferri init` must be run from the project root.,Done
@@ -199,3 +199,47 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T37,Finalize Streaming and I/O,T37.2,"In `flow.rs`, refactor the `Remote` command logic to read the response as a stream.",Pending
 ,T37,Finalize Streaming and I/O,T37.3,"In `flow.rs`, parse the streamed JSON chunks from the Gemini API and send the `text` field through the channel.",Pending
 ,T37,Finalize Streaming and I/O,T37.4,"In `flow.rs`, refactor the `Local` command logic to accumulate streamed output before writing to a file.",Pending
+,T38,Implement True Streaming for Local Models,T38.1,"In execute.rs, modify the Ollama provider to use the /api/generate endpoint with stream: true.",Done
+,T38,Implement True Streaming for Local Models,T38.2,"In flow.rs, adapt the Local command logic to handle a line-by-line JSON stream from the Ollama API.",Done
+,T38,Implement True Streaming for Local Models,T38.3,"In flow.rs, parse each JSON object to extract the 'response' token and send it to the TUI.",Done
+,T38,Implement True Streaming for Local Models,T38.4,"In flow.rs, ensure accumulated_stdout correctly assembles the full response for file output.",Done
+,T38,Implement True Streaming for Local Models,T38.5,Verify that non-model process steps and remote models still function correctly after the changes.,Done
+,T39,Add `secrets rm` Command,T39.1,"In main.rs, add a 'rm <KEY>' subcommand to the 'secrets' command enum.",Pending
+,T39,Add `secrets rm` Command,T39.2,"In secrets.rs, implement the logic to read, decrypt, remove the key, re-encrypt, and write the secrets file.",Pending
+,T39,Add `secrets rm` Command,T39.3,"In secrets.rs, ensure the command fails gracefully if the key does not exist.",Pending
+,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Pending
+,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Pending
+,T22,Refactor `run_pipeline` for true remote streaming,T22.1,"Modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
+,T22,Refactor `run_pipeline` for true remote streaming,T22.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",In Progress
+,T22,Refactor `run_pipeline` for true remote streaming,T22.3,"Send `StepUpdate` messages for each chunk of the remote response.",Pending
+,T23,Add error handling for remote streaming,T23.1,"Implement error handling for network errors during streaming.",Pending
+,T23,Add error handling for remote streaming,T23.2,"Implement error handling for JSON parsing errors during streaming.",Pending
+,T24,Write tests for remote streaming,T24.1,"Write a unit test for the streaming JSON parser.",Pending
+,T24,Write tests for remote streaming,T24.2,"Write an integration test for a remote streaming flow.",Pending
+,T40,Asynchronous Streaming Refactor,T40.1,"Add `tokio` and `reqwest` (with async features) to `ferri-core`'s `Cargo.toml`.",Done
+,T40,Asynchronous Streaming Refactor,T40.2,"Convert `ferri-core/src/execute.rs::prepare_command` to an `async` function.",In Progress
+,T40,Asynchronous Streaming Refactor,T40.3,"In `execute.rs`, replace the `reqwest::blocking::Client` with an async `reqwest::Client`.",Pending
+,T40,Asynchronous Streaming Refactor,T40.4,"Convert `ferri-core/src/flow.rs::run_pipeline` to an `async` function.",Pending
+,T40,Asynchronous Streaming Refactor,T40.5,"In `run_pipeline`, replace the `std::thread::spawn` with `tokio::spawn` for executing steps.",Pending
+,T40,Asynchronous Streaming Refactor,T40.6,"In `run_pipeline`, refactor the `PreparedCommand::Remote` match arm to use `await` and handle the async `reqwest` response stream.",Pending
+,T40,Asynchronous Streaming Refactor,T40.7,"In `run_pipeline`, use `tokio::io::BufReader` and `lines()` to stream the response from local `ProcessStep` commands asynchronously.",Pending
+,T40,Asynchronous Streaming Refactor,T40.8,"Create a new `async` main function in `ferri-cli/src/main.rs` using the `#[tokio::main]` macro.",Pending
+,T40,Asynchronous Streaming Refactor,T40.9,"Update the `flow run` command handler in `main.rs` to `await` the new `async run_pipeline` function.",Pending
+,T40,Asynchronous Streaming Refactor,T40.10,"Temporarily replace the `flow_run_tui` with the simple `run_plain` logic, making it `async` to fit the new architecture.",Pending
+,T41,Unit Testing for Async Streaming,T41.1,"Create a new test module in `ferri-core/src/flow.rs` for async tests (`#[tokio::test]`).",Pending
+,T41,Unit Testing for Async Streaming,T41.2,"Write a unit test for `run_pipeline` that uses a mock HTTP server (e.g., `wiremock`) to simulate a streaming Gemini response.",Pending
+,T41,Unit Testing for Async Streaming,T41.3,"In the test, assert that `StepUpdate` messages are received correctly for each streamed chunk from the mock server.",Pending
+,T41,Unit Testing for Async Streaming,T41.4,"Write a unit test for `run_pipeline` that executes a simple local `ProcessStep` (e.g., `echo 'line1
+line2'`).",Pending
+,T41,Unit Testing for Async Streaming,T41.5,"In the test, assert that `StepUpdate` messages are received for each line of output from the local process.",Pending
+,T42,Revert Project to Stable Streaming Foundation,T42.1,"Preserve the current `pm/sprint_backlog.csv` in a temporary location.",Done
+,T42,Revert Project to Stable Streaming Foundation,T42.2,"Reset the entire git repository to the stable commit `84b38ca`.",Done
+,T42,Revert Project to Stable Streaming Foundation,T42.3,"Restore the preserved `pm/sprint_backlog.csv` file.",Done
+,T42,Revert Project to Stable Streaming Foundation,T42.4,"Re-install the `ferri` binary from the reverted source code to ensure it's globally available.",Done
+,T42,Revert Project to Stable Streaming Foundation,T42.5,"Verify that `ferri flow run pm/code_review_flow.yml` executes without crashing, confirming the revert was successful.",In Progress
+,T43,Re-implement TTY check for `flow run`,T43.1,"Add the `atty` crate to `ferri-cli`.",Done
+,T43,Re-implement TTY check for `flow run`,T43.2,"In `flow_run_tui.rs`, add a check for an interactive terminal.",Done
+,T43,Re-implement TTY check for `flow run`,T43.3,"If the terminal is not interactive, fall back to a plain text output.",Done
+,T44,Implement true streaming for remote models,T44.1,"In `ferri-core/src/flow.rs`, modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
+,T44,Implement true streaming for remote models,T44.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",Done
+,T44,Implement true streaming for remote models,T44.3,"Send `StepUpdate` messages for each chunk of the remote response.",In Progress

@@ -19,7 +19,13 @@ struct AppState {
     is_done: bool,
 }
 
+use atty::Stream;
+
 pub fn run(pipeline: Pipeline) -> io::Result<()> {
+    if !atty::is(Stream::Stdout) {
+        return run_plain(pipeline);
+    }
+
     let mut terminal = setup_terminal()?;
     let (tx, rx) = unbounded();
 
@@ -72,6 +78,37 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
     }
 
     restore_terminal(&mut terminal)
+}
+
+fn run_plain(pipeline: Pipeline) -> io::Result<()> {
+    println!("Non-interactive mode detected. Streaming output:");
+    let (tx, rx) = unbounded();
+    let base_path = std::env::current_dir()?;
+
+    thread::spawn(move || {
+        let _ = ferri_core::flow::run_pipeline(&base_path, &pipeline, tx);
+    });
+
+    for update in rx {
+        match update.status {
+            StepStatus::Running => {
+                println!("[RUNNING] {}", update.name);
+            }
+            StepStatus::Completed => {
+                println!("[COMPLETED] {}", update.name);
+            }
+            StepStatus::Failed(e) => {
+                println!("[FAILED] {}: {}", update.name, e);
+            }
+            _ => {}
+        }
+        if let Some(output) = update.output {
+            for line in output.lines() {
+                println!("  | {}", line);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {

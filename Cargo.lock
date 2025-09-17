@@ -532,6 +532,7 @@ name = "ferri-cli"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "atty",
  "clap",
  "crossbeam-channel",
  "crossterm",

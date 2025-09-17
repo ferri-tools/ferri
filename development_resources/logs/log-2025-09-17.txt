@@ -1,0 +1,28 @@
+# Session Log: 2025-09-17
+
+## Summary
+This session focused on fixing a broken `ferri flow run` command. The initial state of the repository was unstable after previous attempts to implement streaming for remote models.
+
+## Key Events & Pivots
+
+1.  **Initial State & Reset:** The session began with the repository in a broken state. The user requested a clean wipe, preserving only the `pm/sprint_backlog.csv` file.
+    *   Action: Successfully reset the repository to `HEAD` and preserved the backlog.
+
+2.  **TUI Error:** After the reset, running a flow immediately resulted in an `Error: Flow execution failed - Device not configured (os error 6)`. This indicated that the TUI could not be rendered in the current non-interactive environment.
+
+3.  **First Attempted Fix (TTY Check):** I attempted to fix the TUI error by adding the `atty` crate to detect if the CLI was running in an interactive terminal and fall back to a plain text output if not.
+    *   **Failure Loop:** This led to a series of repeated compilation errors, including syntax errors, typos, and mismatched `use` statements. I got stuck in a loop and failed to resolve these issues efficiently.
+
+4.  **Strategy Pivot 1 (Async Refactor):** After the repeated failures, I identified the blocking nature of the code as a potential root cause and proposed a complete asynchronous refactor using `tokio`.
+    *   **Failure Loop 2:** This new direction proved to be even more complex. I introduced numerous compilation errors related to `async` Rust, including lifetime issues, runtime errors in tests (`Cannot drop a runtime in a context where blocking is not allowed`), and type mismatches between `std::process::Command` and `tokio::process::Command`. My attempts to fix these were also inefficient and resulted in a loop.
+
+5.  **Strategy Pivot 2 (Git Revert):** The user expressed frustration with the lack of progress and the complexity of the `async` approach. Following the user's guidance, we pivoted to a much safer and more reliable strategy: reverting the repository to a known-good state.
+    *   Action: Systematically created tickets (T42) to treat the revert as a feature.
+    *   Action: Successfully reset the repository to commit `84b38ca` ("fix(flow): Finalize logging and streaming for demo"), which was the last known stable state for the core logic.
+    *   Action: Preserved the backlog across the reset.
+
+6.  **Current State & Path Forward:**
+    *   The repository is now in a stable, synchronous state.
+    *   The "Device not configured" error has reappeared, as expected.
+    *   We have systematically re-implemented the TTY check (T43) and confirmed that the plain-text streaming now works correctly.
+    *   We are now properly positioned to tackle the original goal: implementing true, visible streaming for remote models (T44).
