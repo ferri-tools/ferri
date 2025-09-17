@@ -174,27 +174,32 @@ pub fn run_pipeline(
                     }
 
                     let mut accumulated_stdout = Vec::new();
-                    let mut buffer = [0; 1024]; // Read in 1KB chunks
-                    let mut line_buffer = String::new();
+                    let mut byte_buffer = [0; 1024];
+                    let mut string_buffer = String::new();
 
                     loop {
-                        let bytes_read = response.read(&mut buffer)?;
+                        let bytes_read = response.read(&mut byte_buffer)?;
                         if bytes_read == 0 {
                             break; // End of stream
                         }
-                        
-                        line_buffer.push_str(&String::from_utf8_lossy(&buffer[..bytes_read]));
 
-                        while let Some(newline_pos) = line_buffer.find('\n') {
-                            let line = line_buffer.drain(..=newline_pos).collect::<String>();
-                            if line.starts_with("data: ") {
-                                let json_str = &line[6..].trim();
-                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                        string_buffer.push_str(&String::from_utf8_lossy(&byte_buffer[..bytes_read]));
+
+                        // Process every complete "data: {...}\n" message in the buffer
+                        while let Some(start_index) = string_buffer.find("data: ") {
+                            if let Some(end_index) = string_buffer[start_index..].find('\n') {
+                                let full_end_index = start_index + end_index;
+                                let message = &string_buffer[start_index + 5..full_end_index].trim();
+
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(message) {
                                     if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
                                         sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
                                         accumulated_stdout.extend_from_slice(text.as_bytes());
                                     }
                                 }
+                                string_buffer.drain(..=full_end_index);
+                            } else {
+                                break; // Incomplete message, need more data
                             }
                         }
                     }
