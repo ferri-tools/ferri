@@ -149,12 +149,39 @@ pub fn run_pipeline(
                     child.wait_with_output()? 
                 }
                 PreparedCommand::Remote(request) => {
-                    // Simplified for now, full streaming in next ticket
                     let response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     let status = response.status();
                     let body = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    let exit_status = if status.is_success() { Command::new("true").status()? } else { Command::new("false").status()? };
-                    std::process::Output { status: exit_status, stdout: body.to_vec(), stderr: vec![] }
+                    
+                    let (exit_status, stdout_bytes, stderr_bytes) = if status.is_success() {
+                        let stdout = if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body) {
+                            if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                text.as_bytes().to_vec()
+                            } else {
+                                body.to_vec()
+                            }
+                        } else {
+                            body.to_vec()
+                        };
+                        (Command::new("true").status()?, stdout, vec![])
+                    } else {
+                        let stderr = if let Ok(json_err) = serde_json::from_slice::<serde_json::Value>(&body) {
+                            if let Some(msg) = json_err["error"]["message"].as_str() {
+                                format!("API Error: {}", msg).as_bytes().to_vec()
+                            } else {
+                                body.to_vec()
+                            }
+                        } else {
+                            body.to_vec()
+                        };
+                        (Command::new("false").status()?, vec![], stderr)
+                    };
+
+                    std::process::Output {
+                        status: exit_status,
+                        stdout: stdout_bytes,
+                        stderr: stderr_bytes,
+                    }
                 }
             };
 
