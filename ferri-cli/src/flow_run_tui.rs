@@ -36,7 +36,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
         let _ = ferri_core::flow::run_pipeline(&base_path, &pipeline, tx);
     });
 
-    while !app_state.is_done {
+    loop { // Main loop runs until user quits
         terminal.draw(|f| ui(f, &app_state))?;
 
         if event::poll(Duration::from_millis(100))? {
@@ -54,18 +54,20 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
             }
         }
 
-        if let Ok(update) = app_state.receiver.try_recv() {
-            if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
-                step.1 = update.status.clone();
-                app_state.active_step_index = idx;
+        if !app_state.is_done {
+            if let Ok(update) = app_state.receiver.try_recv() {
+                if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
+                    step.1 = update.status.clone();
+                    app_state.active_step_index = idx;
+                }
+                if let Some(output) = update.output {
+                    app_state.outputs.entry(update.name).or_default().push(output);
+                }
             }
-            if let Some(output) = update.output {
-                app_state.outputs.entry(update.name).or_default().push(output);
+            
+            if !app_state.steps.iter().any(|(_, s)| matches!(s, StepStatus::Pending | StepStatus::Running)) {
+                app_state.is_done = true;
             }
-        }
-        
-        if !app_state.steps.iter().any(|(_, s)| matches!(s, StepStatus::Pending | StepStatus::Running)) {
-            app_state.is_done = true;
         }
     }
 
