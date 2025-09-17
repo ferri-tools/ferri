@@ -1,0 +1,38 @@
+name: "Complex Data Processing Pipeline"
+steps:
+  - name: "read-source-data"
+    process:
+      process: "cat data.csv"
+    output: "raw_data"
+
+  - name: "filter-usa"
+    process:
+      process: "grep 'USA'"
+    input: "raw_data"
+    output: "usa_data.csv"
+
+  - name: "filter-canada"
+    process:
+      process: "grep 'Canada'"
+    input: "raw_data"
+    output: "canada_data.csv"
+
+  - name: "summarize-usa"
+    model:
+      model: "gemma"
+      prompt: "Summarize the key findings from the attached USA data."
+    input: "usa_data.csv"
+    output: "usa_summary.txt"
+
+  - name: "summarize-canada"
+    model:
+      model: "gemma"
+      prompt: "Summarize the key findings from the attached Canada data."
+    input: "canada_data.csv"
+    output: "canada_summary.txt"
+
+  - name: "combine-summaries"
+    process:
+      process: "cat"
+    input: "usa_summary.txt" # This is a simplification; a real flow would need two inputs
+    output: "final_report.md"
