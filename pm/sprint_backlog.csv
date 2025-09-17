@@ -161,10 +161,23 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T27,Implement Git-Style Connectors,T27.2,Rewrite the `Canvas` paint logic to draw connectors that span multiple lanes for forks.,Done
 ,T27,Implement Git-Style Connectors,T27.3,Rewrite the `Canvas` paint logic to draw connectors that merge multiple lanes back into a parent lane.,Done
 ,T27,Implement Git-Style Connectors,T27.4,Ensure linear steps are connected with a simple vertical line.,Done
-,T28,Implement Node-Vertex Graph Layout,T28.1,Replace lane-based logic with a topological sort to determine node depth (x-coordinate).,Pending
-,T28,Implement Node-Vertex Graph Layout,T28.2,Calculate node breadth (y-coordinate) to spread nodes out vertically at each depth level.,Pending
-,T28,Implement Node-Vertex Graph Layout,T28.3,Center the entire calculated graph within the available terminal area.,Pending
-,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Pending
-,T29,Render Node-Vertex Graph,T29.2,On the canvas, draw lines for vertices connecting the calculated node positions.,Pending
-,T29,Render Node-Vertex Graph,T29.3,On the canvas, draw a shape (e.g., circle) for each node with its number inside.,Pending
-,T29,Render Node-Vertex Graph,T29.4,In the bottom panel, render a numbered list that maps each node number to its full step name.,Pending
+,T28,Implement Node-Vertex Graph Layout,T28.1,Replace lane-based logic with a topological sort to determine node depth (x-coordinate).,Done
+,T28,Implement Node-Vertex Graph Layout,T28.2,Calculate node breadth (y-coordinate) to spread nodes out vertically at each depth level.,Done
+,T28,Implement Node-Vertex Graph Layout,T28.3,Center the entire calculated graph within the available terminal area.,Done
+,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Done
+,T29,Render Node-Vertex Graph,T29.2,On the canvas, draw lines for vertices connecting the calculated node positions.,Done
+,T29,Render Node-Vertex Graph,T29.3,On the canvas, draw a shape (e.g., circle) for each node with its number inside.,Done
+,T29,Render Node-Vertex Graph,T29.4,In the bottom panel, render a numbered list that maps each node number to its full step name.,Done
+,T30,`ctx rm` Command,T30.1,"In `ferri-cli/src/main.rs`, add `rm <PATHS...>` subcommand to the `ctx` command.",Pending
+,T30,`ctx rm` Command,T30.2,"In `ferri-core/src/context.rs`, implement `remove_from_context(paths: Vec<PathBuf>)` function.",Pending
+,T30,`ctx rm` Command,T30.3,"`remove_from_context` logic: Resolve paths and remove them from `.ferri/context.json`.",Pending
+,T30,`ctx rm` Command,T30.4,"In `ferri-core`, add unit tests for `remove_from_context`.",Pending
+,T30,`ctx rm` Command,T30.5,"In `ferri-cli/tests/`, add an integration test for `ferri ctx rm`.",Pending
+,T31,Remote Model Execution,T31.1,"In `ferri-core/src/execute.rs`, refactor `prepare_command` to handle a new `ModelProvider` enum (e.g., `Ollama`, `Google`).",Pending
+,T31,Remote Model Execution,T31.2,"In `execute.rs`, implement logic for the `Google` provider to make an HTTP POST request to the Gemini API.",Pending
+,T31,Remote Model Execution,T31.3,"Ensure the `Google` provider logic correctly formats the JSON request body and includes the API key from secrets.",Pending
+,T31,Remote Model Execution,T31.4,"Update `ferri-core/src/flow.rs` to pass the appropriate provider type to the execution logic.",Pending
+,T31,Remote Model Execution,T31.5,"In `ferri-core`, add unit tests to verify the correct HTTP request is constructed for a Google model.",Pending
+,T32,Create Demo Flow,T32.1,"Create a sample Python file (`demo_script.py`) with intentional flaws for the code review.",Pending
+,T32,Create Demo Flow,T32.2,"Create the `code_review_flow.yml` file in the `pm` directory, defining the three-step workflow.",Pending
+,T32,Create Demo Flow,T32.3,"Update `README.md` with instructions on how to set up and run the new demo, including adding a `GOOGLE_API_KEY` secret.",Pending

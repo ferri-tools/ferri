@@ -95,6 +95,12 @@ enum CtxCommand {
     /// List the current context
     #[clap(alias = "list")]
     Ls,
+    /// Remove one or more files/directories from the context
+    Rm {
+        /// The paths to the files or directories to remove
+        #[arg(required = true, num_args = 1..)]
+        paths: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -192,6 +198,13 @@ fn main() {
                     Err(e) => eprintln!("Error: Failed to list context - {}", e),
                 }
             }
+            CtxCommand::Rm { paths } => {
+                let path_bufs = paths.iter().map(PathBuf::from).collect();
+                match ferri_core::context::remove_from_context(&current_path, path_bufs) {
+                    Ok(_) => println!("Successfully removed {} path(s) from context.", paths.len()),
+                    Err(e) => eprintln!("Error: Failed to remove from context - {}", e),
+                }
+            }
         },
         Commands::With { args } => {
             let exec_args = ferri_core::execute::ExecutionArgs {
@@ -201,17 +214,41 @@ fn main() {
             };
 
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
-                Ok((mut command, secrets)) => {
-                    let status = command
-                        .envs(secrets)
-                        .stdout(std::process::Stdio::inherit())
-                        .stderr(std::process::Stdio::inherit())
-                        .spawn()
-                        .and_then(|mut child| child.wait());
+                Ok((prepared_command, secrets)) => {
+                    match prepared_command {
+                        ferri_core::execute::PreparedCommand::Local(mut command) => {
+                            let status = command
+                                .envs(secrets)
+                                .stdout(std::process::Stdio::inherit())
+                                .stderr(std::process::Stdio::inherit())
+                                .spawn()
+                                .and_then(|mut child| child.wait());
 
-                    if let Err(e) = status {
-                        eprintln!("Error: Command execution failed - {}", e);
-                        std::process::exit(1);
+                            if let Err(e) = status {
+                                eprintln!("Error: Command execution failed - {}", e);
+                                std::process::exit(1);
+                            }
+                        }
+                        ferri_core::execute::PreparedCommand::Remote(request) => {
+                            match request.send() {
+                                Ok(response) => {
+                                    if response.status().is_success() {
+                                        // Simple text extraction for now.
+                                        // A more robust solution would parse the JSON properly.
+                                        let body = response.text().unwrap_or_default();
+                                        println!("{}", body);
+                                    } else {
+                                        eprintln!("Error: API request failed with status: {}", response.status());
+                                        eprintln!("Response: {}", response.text().unwrap_or_default());
+                                        std::process::exit(1);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error: Failed to send API request - {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                        }
                     }
                 }
                 Err(e) => {
@@ -268,33 +305,40 @@ fn main() {
                 command_with_args: args.command.clone(),
             };
 
-            // Reconstruct the original command for logging purposes
-            let mut original_command_parts = Vec::new();
-            if let Some(model) = &args.model {
-                original_command_parts.push(format!("--model {}", model));
-            }
-            if args.ctx {
-                original_command_parts.push("--ctx".to_string());
-            }
-            original_command_parts.push("--".to_string());
-            original_command_parts.extend(args.command.iter().cloned());
-
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
-                Ok((command, secrets)) => {
-                    match ferri_core::jobs::submit_job(
-                        &current_path,
-                        command,
-                        secrets,
-                        &original_command_parts,
-                    ) {
-                        Ok(job) => {
-                            println!("Successfully submitted job '{}'.", job.id);
-                            if let Some(pid) = job.pid {
-                                println!("Process ID: {}", pid);
+                Ok((prepared_command, secrets)) => {
+                    match prepared_command {
+                        ferri_core::execute::PreparedCommand::Local(command) => {
+                            let mut original_command_parts = Vec::new();
+                            if let Some(model) = &args.model {
+                                original_command_parts.push(format!("--model {}", model));
+                            }
+                            if args.ctx {
+                                original_command_parts.push("--ctx".to_string());
+                            }
+                            original_command_parts.push("--".to_string());
+                            original_command_parts.extend(args.command.iter().cloned());
+
+                            match ferri_core::jobs::submit_job(
+                                &current_path,
+                                command,
+                                secrets,
+                                &original_command_parts,
+                            ) {
+                                Ok(job) => {
+                                    println!("Successfully submitted job '{}'.", job.id);
+                                    if let Some(pid) = job.pid {
+                                        println!("Process ID: {}", pid);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error: Failed to submit job - {}", e);
+                                    std::process::exit(1);
+                                }
                             }
                         }
-                        Err(e) => {
-                            eprintln!("Error: Failed to submit job - {}", e);
+                        ferri_core::execute::PreparedCommand::Remote(_) => {
+                            eprintln!("Error: Remote model execution cannot be run as a background job yet.");
                             std::process::exit(1);
                         }
                     }

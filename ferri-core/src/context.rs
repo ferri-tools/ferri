@@ -51,3 +51,12 @@ pub fn list_context(base_path: &Path) -> io::Result<Vec<String>> {
     let context = read_context(base_path)?;
     Ok(context.files)
 }
+
+pub fn remove_from_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<()> {
+    let mut context = read_context(base_path)?;
+    for path in paths {
+        let path_str = path.to_string_lossy().to_string();
+        context.files.retain(|f| f != &path_str);
+    }
+    write_context(base_path, &context)
+}
