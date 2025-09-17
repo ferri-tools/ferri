@@ -195,10 +195,10 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T36,Improve TUI Error Display,T36.2,"When a step fails, store its detailed error message from the `StepStatus::Failed` variant.",Done
 ,T36,Improve TUI Error Display,T36.3,"Modify the 'Output' panel to display the stored error message in a formatted block when a failed step is active.",Done
 ,T36,Improve TUI Error Display,T36.4,"Style the error block with a red title and border to clearly indicate failure.",Done
-,T37,Finalize Streaming and I/O,T37.1,"In `execute.rs`, change the Google provider URL to use the `streamGenerateContent` endpoint.",Pending
-,T37,Finalize Streaming and I/O,T37.2,"In `flow.rs`, refactor the `Remote` command logic to read the response as a stream.",Pending
-,T37,Finalize Streaming and I/O,T37.3,"In `flow.rs`, parse the streamed JSON chunks from the Gemini API and send the `text` field through the channel.",Pending
-,T37,Finalize Streaming and I/O,T37.4,"In `flow.rs`, refactor the `Local` command logic to accumulate streamed output before writing to a file.",Pending
+,T37,Finalize Streaming and I/O,T37.1,"In `execute.rs`, change the Google provider URL to use the `streamGenerateContent` endpoint.",Done
+,T37,Finalize Streaming and I/O,T37.2,"In `flow.rs`, refactor the `Remote` command logic to read the response as a stream.",Done
+,T37,Finalize Streaming and I/O,T37.3,"In `flow.rs`, parse the streamed JSON chunks from the Gemini API and send the `text` field through the channel.",Done
+,T37,Finalize Streaming and I/O,T37.4,"In `flow.rs`, refactor the `Local` command logic to accumulate streamed output before writing to a file.",Done
 ,T38,Implement True Streaming for Local Models,T38.1,"In execute.rs, modify the Ollama provider to use the /api/generate endpoint with stream: true.",Done
 ,T38,Implement True Streaming for Local Models,T38.2,"In flow.rs, adapt the Local command logic to handle a line-by-line JSON stream from the Ollama API.",Done
 ,T38,Implement True Streaming for Local Models,T38.3,"In flow.rs, parse each JSON object to extract the 'response' token and send it to the TUI.",Done
@@ -210,8 +210,8 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Pending
 ,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Pending
 ,T22,Refactor `run_pipeline` for true remote streaming,T22.1,"Modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
-,T22,Refactor `run_pipeline` for true remote streaming,T22.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",In Progress
-,T22,Refactor `run_pipeline` for true remote streaming,T22.3,"Send `StepUpdate` messages for each chunk of the remote response.",Pending
+,T22,Refactor `run_pipeline` for true remote streaming,T22.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",Done
+,T22,Refactor `run_pipeline` for true remote streaming,T22.3,"Send `StepUpdate` messages for each chunk of the remote response.",Done
 ,T23,Add error handling for remote streaming,T23.1,"Implement error handling for network errors during streaming.",Pending
 ,T23,Add error handling for remote streaming,T23.2,"Implement error handling for JSON parsing errors during streaming.",Pending
 ,T24,Write tests for remote streaming,T24.1,"Write a unit test for the streaming JSON parser.",Pending
@@ -242,7 +242,7 @@ line2'`).",Pending
 ,T43,Re-implement TTY check for `flow run`,T43.3,"If the terminal is not interactive, fall back to a plain text output.",Done
 ,T44,Implement true streaming for remote models,T44.1,"In `ferri-core/src/flow.rs`, modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
 ,T44,Implement true streaming for remote models,T44.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",Done
-,T44,Implement true streaming for remote models,T44.3,"Send `StepUpdate` messages for each chunk of the remote response.",In Progress
+,T44,Implement true streaming for remote models,T44.3,"Send `StepUpdate` messages for each chunk of the remote response.",Done
 
 ,T45,Implement `models rm` Command,T45.1,"In `ferri-cli`, verify `models rm <ALIAS>` subcommand is defined.",Done
 ,T45,Implement `models rm` Command,T45.2,"In `ferri-core`, implement `remove_model` logic to delete from `.ferri/models.json`.",Done
