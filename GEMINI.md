@@ -45,3 +45,4 @@ This should go without saying but always confirm if changing the .gitignore. It 
 
 *   **Commits:** All commits must reference the ticket number(s) they address in the commit subject line. For example: `feat(flow): T12 - Implement flow command foundation`.
 *   **Check-in Frequency:** I will commit working code after each logical feature or ticket is complete to create safe checkpoints.
+*   **Testing:** When a feature is ready for you to test, I will run `cargo install --path ferri-cli` to ensure the binary is updated with the latest changes.
