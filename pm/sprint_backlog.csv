@@ -132,3 +132,39 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T20,Update `flow` documentation,T20.1,Update `qa/flow_pipeline_test_plan.md` with the correct YAML syntax for all `ferri flow` test cases.,Done
 ,T20,Update `flow` documentation,T20.2,Add a note to `qa/flow_pipeline_test_plan.md` clarifying that `ferri init` must be run from the project root.,Done
 ,T20,Update `flow` documentation,T20.3,Update the expected output for the model step in `qa/flow_pipeline_test_plan.md` to be more realistic.,Done
+,T21,Integrate `ratatui` for `flow show`,T21.1,"Add `ratatui` and a compatible backend (e.g., `ratatui-crossterm`) to `ferri-core`'s `Cargo.toml`.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.2,"In `ferri_core::flow`, create a new `tui` module for the visualization logic.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.3,"In the `tui` module, set up the terminal, main loop, and drawing logic for a basic `ratatui` application.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.4,"Refactor `show_pipeline` to call the new `tui` module's main function.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.5,"In `ferri-cli/tests`, add an integration test to confirm the `flow show` command runs without panicking.",Done
+,T22,Implement `flow show` graph visualization,T22.1,"In the `tui` module, design the UI layout using `ratatui` components (e.g., `Block`, `Paragraph`).",Done
+,T22,Implement `flow show` graph visualization,T22.2,"Implement logic to represent the `Pipeline` struct as a graph data structure suitable for rendering.",Done
+,T22,Implement `flow show` graph visualization,T22.3,"Implement logic to draw nodes for each step in the pipeline, displaying the step's name and kind.",Done
+,T22,Implement `flow show` graph visualization,T22.4,"Implement logic to draw arrows or lines connecting the nodes to represent the flow of data (stdin, stdout, file I/O).",Done
+,T22,Implement `flow show` graph visualization,T22.5,"Add colors and styling to the nodes and connectors to create a visually appealing graph.",Done
+,T22,Implement `flow show` graph visualization,T22.6,"Update the `qa/flow_pipeline_test_plan.md` to include the new `ratatui`-based visualization and expected output.",Done
+,T23,Refactor `flow show` for Horizontal Layout,T23.1,"In `flow::tui`, change the main layout direction from `Vertical` to `Horizontal`.",Done
+,T23,Refactor `flow show` for Horizontal Layout,T23.2,"Create a grid-based positioning system for steps instead of a simple list.",Done
+,T23,Refactor `flow show` for Horizontal Layout,T23.3,"Update the rendering loop to place step blocks horizontally based on the new grid system.",Done
+,T24,Implement Advanced Graph Rendering,T24.1,"In `flow::tui`, add the `ratatui-canvas` crate to draw complex lines.",Done
+,T24,Implement Advanced Graph Rendering,T24.2,"Implement logic to calculate connector paths (start, end, intermediate points) on the grid.",Done
+,T24,Implement Advanced Graph Rendering,T24.3,"Use the `Canvas` widget to draw lines and arrows for connectors between steps.",Done
+,T24,Implement Advanced Graph Rendering,T24.4,"Implement logic to handle branching and merging of connectors for parallel steps.",Done
+,T25,Add I/O Labels to Connectors,T25.1,"In `flow::tui`, implement logic to determine the position for I/O labels along connector lines.",Done
+,T25,Add I/O Labels to Connectors,T25.2,"Render the `input` and `output` fields (file paths or step names) as text labels on the connectors.",Done
+,T25,Add I/O Labels to Connectors,T25.3,"Add styling to the I/O labels (e.g., different colors for files vs. step outputs).",Done
+,T26,Advanced Lane Allocation Logic,T26.1,Refactor `App::from_pipeline` to implement a git-like lane allocation strategy.,Done
+,T26,Advanced Lane Allocation Logic,T26.2,Ensure linear steps stay in the same vertical lane.,Done
+,T26,Advanced Lane Allocation Logic,T26.3,Ensure forking steps correctly assign new lanes to their children.,Done
+,T26,Advanced Lane Allocation Logic,T26.4,Ensure merging steps correctly terminate lanes.,Done
+,T27,Implement Git-Style Connectors,T27.1,Update the `GraphConnection` enum to include all required connection types (e.g., merges, forks, straight).,Done
+,T27,Implement Git-Style Connectors,T27.2,Rewrite the `Canvas` paint logic to draw connectors that span multiple lanes for forks.,Done
+,T27,Implement Git-Style Connectors,T27.3,Rewrite the `Canvas` paint logic to draw connectors that merge multiple lanes back into a parent lane.,Done
+,T27,Implement Git-Style Connectors,T27.4,Ensure linear steps are connected with a simple vertical line.,Done
+,T28,Implement Node-Vertex Graph Layout,T28.1,Replace lane-based logic with a topological sort to determine node depth (x-coordinate).,Pending
+,T28,Implement Node-Vertex Graph Layout,T28.2,Calculate node breadth (y-coordinate) to spread nodes out vertically at each depth level.,Pending
+,T28,Implement Node-Vertex Graph Layout,T28.3,Center the entire calculated graph within the available terminal area.,Pending
+,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Pending
+,T29,Render Node-Vertex Graph,T29.2,On the canvas, draw lines for vertices connecting the calculated node positions.,Pending
+,T29,Render Node-Vertex Graph,T29.3,On the canvas, draw a shape (e.g., circle) for each node with its number inside.,Pending
+,T29,Render Node-Vertex Graph,T29.4,In the bottom panel, render a numbered list that maps each node number to its full step name.,Pending
