@@ -1,0 +1,19 @@
+name: "Branching Process Example"
+steps:
+  - name: "generate-data"
+    process:
+      process: "echo 'line one\nline two\nline three'"
+    output: "source_data"
+
+  - name: "process-branch-a"
+    process:
+      process: "grep 'one'"
+    input: "source_data"
+    output: "result_a.txt"
+
+  - name: "process-branch-b"
+    process:
+      process: "grep 'three'"
+    input: "source_data"
+    output: "result_b.txt"
+
