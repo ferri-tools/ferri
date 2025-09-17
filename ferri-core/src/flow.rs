@@ -159,7 +159,7 @@ pub fn run_pipeline(
                     final_output
                 }
                 PreparedCommand::Remote(request) => {
-                    let mut response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    let response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     let status = response.status();
 
                     if !status.is_success() {
@@ -174,34 +174,25 @@ pub fn run_pipeline(
                     }
 
                     let mut accumulated_stdout = Vec::new();
-                    let mut byte_buffer = [0; 1024];
-                    let mut string_buffer = String::new();
+                    let mut buffer = Vec::new();
+                    let mut reader = BufReader::new(response);
 
                     loop {
-                        let bytes_read = response.read(&mut byte_buffer)?;
+                        let mut chunk = [0; 1024];
+                        let bytes_read = reader.read(&mut chunk)?;
                         if bytes_read == 0 {
-                            break; // End of stream
+                            break;
                         }
+                        buffer.extend_from_slice(&chunk[..bytes_read]);
 
-                        string_buffer.push_str(&String::from_utf8_lossy(&byte_buffer[..bytes_read]));
-
-                        // Process every complete "data: {...}\n" message in the buffer
-                        while let Some(start_index) = string_buffer.find("data: ") {
-                            if let Some(end_index) = string_buffer[start_index..].find('\n') {
-                                let full_end_index = start_index + end_index;
-                                let message = &string_buffer[start_index + 5..full_end_index].trim();
-
-                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(message) {
-                                    if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                        sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
-                                        accumulated_stdout.extend_from_slice(text.as_bytes());
-                                    }
-                                }
-                                string_buffer.drain(..=full_end_index);
-                            } else {
-                                break; // Incomplete message, need more data
+                        let mut de = serde_json::Deserializer::from_slice(&buffer).into_iter::<serde_json::Value>();
+                        while let Some(Ok(json)) = de.next() {
+                            if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
+                                accumulated_stdout.extend_from_slice(text.as_bytes());
                             }
                         }
+                        buffer = buffer[de.byte_offset()..].to_vec();
                     }
 
                     std::process::Output {
