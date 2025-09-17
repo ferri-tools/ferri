@@ -7,12 +7,12 @@ steps:
     input: "pm/demo_script.py"
     output: "triage_report.txt"
 
-        - name: "expert-review-and-enhance"
-        model:
-          model: "gemini-pro" # Remote model for power
-          prompt: "You are an expert Python developer. Using the original code and the triage report, perform a deep code review based on the checklist. Then, generate an enhanced, production-ready version of the script that fixes all identified issues."
-        input: "pm/demo_script.py, triage_report.txt"
-        output: "enhanced_script.py"
+  - name: "expert-review-and-enhance"
+    model:
+      model: "gemini-pro" # Remote model for power
+      prompt: "You are an expert Python developer. Using the original code and the triage report, perform a deep code review based on the checklist. Then, generate an enhanced, production-ready version of the script that fixes all identified issues."
+    input: "pm/demo_script.py, triage_report.txt"
+    output: "enhanced_script.py"
 
   - name: "generate-commit-message"
     model:
