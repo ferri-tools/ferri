@@ -29,14 +29,6 @@ struct RenderableStep<'a> {
 // Represents the visual elements in the graph column for a single step
 struct GraphInfo {
     dot: bool,
-    connections: Vec<GraphConnection>,
-}
-
-enum GraphConnection {
-    Vertical,
-    TopLeftCorner,
-    BottomLeftCorner,
-    Horizontal,
 }
 
 // Main entry point for the TUI
@@ -54,47 +46,57 @@ pub fn run_tui(pipeline: &Pipeline) -> io::Result<()> {
 impl<'a> App<'a> {
     // Pre-process the pipeline to calculate layout and graph information
     fn from_pipeline(pipeline: &'a Pipeline) -> Self {
-        let mut lanes = HashMap::new();
-        let mut next_lane = 0;
         let mut steps = Vec::new();
         let step_indices: HashMap<_, _> = pipeline.steps.iter().enumerate().map(|(i, s)| (s.name.as_str(), i)).collect();
+        let children_map: HashMap<usize, Vec<usize>> = pipeline.steps.iter().enumerate().fold(HashMap::new(), |mut acc, (i, _)| {
+            if let Some(input_name) = &pipeline.steps[i].input {
+                if let Some(&parent_index) = step_indices.get(input_name.as_str()) {
+                    acc.entry(parent_index).or_default().push(i);
+                }
+            }
+            acc
+        });
 
         let colors = [
             Color::Rgb(138, 173, 255), Color::Rgb(199, 160, 255),
             Color::Rgb(141, 229, 141), Color::Cyan, Color::Magenta, Color::Yellow,
         ];
 
-        for (i, step) in pipeline.steps.iter().enumerate() {
-            let mut connections = vec![GraphConnection::Vertical];
-            let lane = *lanes.entry(i).or_insert_with(|| {
-                let l = next_lane;
-                next_lane += 1;
-                l
-            });
+        let mut lanes: HashMap<usize, usize> = HashMap::new();
+        let mut active_lanes: Vec<Option<usize>> = vec![];
 
-            if let Some(input_name) = &step.input {
-                 if let Some(&prev_index) = step_indices.get(input_name.as_str()) {
-                    let prev_lane = *lanes.entry(prev_index).or_insert(lane);
-                    if prev_lane != lane {
-                        connections.push(GraphConnection::BottomLeftCorner);
-                        for _ in 0..(lane as usize).abs_diff(prev_lane as usize) {
-                            connections.push(GraphConnection::Horizontal);
-                        }
+        for i in 0..pipeline.steps.len() {
+            let parent_index = step_indices.get(&pipeline.steps[i].input.clone().unwrap_or_default() as &str);
+
+            let lane = if let Some(&p_idx) = parent_index {
+                let parent_lane = lanes.get(&p_idx).copied().unwrap_or(0);
+                let siblings = children_map.get(&p_idx).unwrap();
+                let fork_index = siblings.iter().position(|&s_idx| s_idx == i).unwrap_or(0);
+
+                if fork_index == 0 {
+                    parent_lane
+                } else {
+                    let mut new_lane = parent_lane + 1;
+                    while active_lanes.iter().any(|&l| l == Some(new_lane)) {
+                        new_lane += 1;
                     }
-                 }
-            }
+                    new_lane
+                }
+            } else {
+                0
+            };
 
-            let fork_count = pipeline.steps.iter().filter(|s| s.input.as_deref() == Some(&step.name)).count();
-            if fork_count > 1 {
-                connections.push(GraphConnection::TopLeftCorner);
-                connections.push(GraphConnection::Horizontal);
+            if active_lanes.len() <= lane {
+                active_lanes.resize(lane + 1, None);
             }
+            active_lanes[lane] = Some(i);
+            lanes.insert(i, lane);
 
             steps.push(RenderableStep {
-                step,
+                step: &pipeline.steps[i],
                 lane,
                 color: colors[lane % colors.len()],
-                graph_info: GraphInfo { dot: true, connections },
+                graph_info: GraphInfo { dot: true },
             });
         }
 
@@ -158,18 +160,48 @@ fn ui(f: &mut Frame, app: &App) {
         .x_bounds([0.0, 20.0])
         .y_bounds([0.0, (app.steps.len() * 3) as f64])
         .paint(|ctx| {
+            // First, draw all the vertical lane lines to connect the graph
+            let step_positions: HashMap<_,_> = app.steps.iter().enumerate().map(|(i, rs)| (&rs.step.name, i)).collect();
+            for lane_idx in 0..app.steps.iter().map(|s| s.lane).max().unwrap_or(0) + 1 {
+                let lane_steps: Vec<_> = app.steps.iter().filter(|s| s.lane == lane_idx).collect();
+                if !lane_steps.is_empty() {
+                    let first_step_idx = step_positions.get(&lane_steps.first().unwrap().step.name).unwrap();
+                    let last_step_idx = step_positions.get(&lane_steps.last().unwrap().step.name).unwrap();
+
+                    let y_start = (app.steps.len() * 3) as f64 - (last_step_idx * 3) as f64 - 2.0;
+                    let y_end = (app.steps.len() * 3) as f64 - (first_step_idx * 3) as f64 - 2.0;
+                    let x = (lane_idx * 4) as f64 + 2.0;
+                    ctx.draw(&canvas::Line { x1: x, y1: y_start, x2: x, y2: y_end, color: lane_steps.first().unwrap().color });
+                }
+            }
+
             for (i, rs) in app.steps.iter().enumerate() {
                 let y = (app.steps.len() * 3) as f64 - (i * 3) as f64 - 2.0;
                 let x_base = (rs.lane * 4) as f64 + 2.0;
 
-                for conn in &rs.graph_info.connections {
-                    match conn {
-                        GraphConnection::Vertical => ctx.draw(&canvas::Line { x1: x_base, y1: y - 1.5, x2: x_base, y2: y + 1.5, color: rs.color }),
-                        GraphConnection::TopLeftCorner => ctx.print(x_base, y + 0.5, "╭".fg(rs.color)),
-                        GraphConnection::BottomLeftCorner => ctx.print(x_base, y - 0.5, "╰".fg(rs.color)),
-                        GraphConnection::Horizontal => ctx.draw(&canvas::Line { x1: x_base, y1: y + 0.5, x2: x_base + 4.0, y2: y + 0.5, color: rs.color }),
+                // Draw connections from parent
+                if let Some(input_name) = &rs.step.input {
+                    if let Some(prev_rs) = app.steps.iter().find(|s| s.step.name == *input_name) {
+                        let prev_x_base = (prev_rs.lane * 4) as f64 + 2.0;
+                        if prev_rs.lane != rs.lane { // It's a merge
+                            ctx.print(x_base, y - 0.5, "╰".fg(rs.color));
+                            ctx.draw(&canvas::Line { x1: prev_x_base, y1: y - 0.5, x2: x_base, y2: y - 0.5, color: rs.color });
+                        }
                     }
                 }
+
+                // Draw connections to children (forks)
+                let children: Vec<_> = app.steps.iter().filter(|s| s.step.input.as_deref() == Some(&rs.step.name)).collect();
+                if children.len() > 1 {
+                    for (fork_idx, child_rs) in children.iter().enumerate() {
+                        if fork_idx > 0 {
+                            let child_x_base = (child_rs.lane * 4) as f64 + 2.0;
+                            ctx.print(x_base, y + 0.5, "╭".fg(rs.color));
+                            ctx.draw(&canvas::Line { x1: x_base, y1: y + 0.5, x2: child_x_base, y2: y + 0.5, color: rs.color });
+                        }
+                    }
+                }
+
                 if rs.graph_info.dot {
                     ctx.print(x_base - 0.5, y, "●".fg(rs.color));
                 }
