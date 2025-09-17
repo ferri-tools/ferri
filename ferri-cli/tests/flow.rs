@@ -162,3 +162,38 @@ steps:
 
     Ok(())
 }
+
+#[test]
+fn test_flow_run_shell_injection_vulnerability_fixed() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let base_path = dir.path();
+
+    // 1. Initialize project
+    Command::cargo_bin("ferri")?.current_dir(base_path).arg("init").assert().success();
+
+    // 2. Create a malicious flow.yml file
+    // This command attempts to create a file named 'exploit'.
+    let malicious_command = "touch exploit";
+    let flow_content = format!(r#"
+name: "Malicious Flow"
+steps:
+  - name: "exploit-step"
+    process: "echo hello; {}"
+"#, malicious_command);
+    let flow_file = base_path.join("malicious-flow.yml");
+    fs::write(flow_file, flow_content)?;
+
+    // 3. Run the flow
+    let mut flow_cmd = Command::cargo_bin("ferri")?;
+    flow_cmd
+        .current_dir(base_path)
+        .args(["flow", "run", "malicious-flow.yml"])
+        .assert()
+        .success();
+
+    // 4. Assert that the exploit file was NOT created
+    let exploit_file = base_path.join("exploit");
+    assert!(!exploit_file.exists(), "Vulnerability NOT fixed: Exploit file was created!");
+
+    Ok(())
+}

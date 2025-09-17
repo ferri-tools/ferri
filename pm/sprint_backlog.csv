@@ -92,31 +92,35 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T11,Unify `run` and `with` command syntax for intuitive use,T11.7,Ensure secrets and context are correctly injected based on the flags for both commands in the new unified logic.,Done
 ,T11,Unify `run` and `with` command syntax for intuitive use,T11.8,"Update `README.md` examples to reflect the new, consistent syntax for `run` and `with`.",Done
 ,T11,Unify `run` and `with` command syntax for intuitive use,T11.9,Add and/or update integration tests to validate the unified command behavior.,Done
-,T12,`flow` AI Pipeline Foundation,T12.1,"In `ferri-cli`, add `flow` subcommand with `run <FILE>` argument.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.2,"In `ferri-core`, add `serde_yaml` dependency.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.3,"In `ferri-core`, create a new `flow` module.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.4,"In `flow` module, define Rust structs for the new AI pipeline YAML format (e.g., `Pipeline`, `Step`, `ModelStep`, `ProcessStep`).",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.5,"In `flow` module, implement a parser for the new `flow.yml` format.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.6,"In `flow` module, implement a core `run_pipeline` function that executes steps sequentially, piping stdout to stdin.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.7,"In `ferri-cli`, call `run_pipeline` from the `flow run` command handler, providing stdin from the parent `ferri` process.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.8,"In `ferri-core`, add unit tests for parsing a valid AI pipeline `flow.yml`.",Not Started
-,T12,`flow` AI Pipeline Foundation,T12.9,"In `ferri-cli/tests`, add an integration test for a simple `model -> process` pipeline.",Not Started
-,T13,`flow` Advanced I/O,T13.1,"In `flow` module's structs, add `input` and `output` fields to allow file-based I/O for steps.",Not Started
-,T13,`flow` Advanced I/O,T13.2,"In `run_pipeline`, implement logic to manage a map of named step outputs.",Not Started
-,T13,`flow` Advanced I/O,T13.3,"In `run_pipeline`, add logic to read from a file if `input` specifies a path.",Not Started
-,T13,`flow` Advanced I/O,T13.4,"In `run_pipeline`, add logic to read from a previous step's output if `input` specifies a step name.",Not Started
-,T13,`flow` Advanced I/O,T13.5,"In `run_pipeline`, add logic to write to a file if `output` specifies a path.",Not Started
-,T13,`flow` Advanced I/O,T13.6,"In `ferri-core`, add unit tests for the new I/O logic.",Not Started
-,T13,`flow` Advanced I/O,T13.7,"In `ferri-cli/tests`, add an integration test for a flow that uses file and inter-step I/O.",Not Started
-,T14,`flow` Ferri Integration,T14.1,"In `run_pipeline`, integrate `ferri_core::execute::prepare_command` for `ModelStep` execution.",Not Started
-,T14,`flow` Ferri Integration,T14.2,"Ensure `ModelStep` automatically handles model resolution, secret injection, and context injection via the `prepare_command` function.",Not Started
-,T14,`flow` Ferri Integration,T14.3,"Update `run_pipeline` to correctly handle the `Command` object returned by `prepare_command`.",Not Started
-,T14,`flow` Ferri Integration,T14.4,"In `ferri-core`, add unit tests to verify that `prepare_command` is called correctly for `ModelStep`s.",Not Started
-,T14,`flow` Ferri Integration,T14.5,"In `ferri-cli/tests`, add an integration test for a flow that uses a model requiring a secret.",Not Started
-,T15,`flow` Command Visualization,T15.1,"In `ferri-cli`, add `show <FILE>` subcommand to the `flow` command.",Not Started
-,T15,`flow` Command Visualization,T15.2,"In `flow` module, create a function to transform a parsed `Pipeline` struct into a `treetrunk`-compatible format.",Not Started
-,T15,`flow` Command Visualization,T15.3,"In `flow` module, implement the logic to execute the `treetrunk` binary with the transformed data.",Not Started
-,T15,`flow` Command Visualization,T15.4,"In `ferri-cli`, call the new visualization logic from the `flow show` command handler.",Not Started
-,T15,`flow` Command Visualization,T15.5,"Create a `qa/flow_visualization_test_plan.md` with manual test steps.",Not Started
-,T15,`flow` Command Visualization,T15.6,"Add two sample flow files (`sample-flow-simple.yml`, `sample-flow-complex.yml`) for testing.",Not Started
-,T15,`flow` Command Visualization,T15.7,"In `ferri-cli/tests`, add an integration test for `ferri flow show` that checks for non-empty output.",Not Started
+,T12,`flow` AI Pipeline Foundation,T12.1,"In `ferri-cli`, add `flow` subcommand with `run <FILE>` argument.",Done
+,T12,`flow` AI Pipeline Foundation,T12.2,"In `ferri-core`, add `serde_yaml` dependency.",Done
+,T12,`flow` AI Pipeline Foundation,T12.3,"In `ferri-core`, create a new `flow` module.",Done
+,T12,`flow` AI Pipeline Foundation,T12.4,"In `flow` module, define Rust structs for the new AI pipeline YAML format (e.g., `Pipeline`, `Step`, `ModelStep`, `ProcessStep`).",Done
+,T12,`flow` AI Pipeline Foundation,T12.5,"In `flow` module, implement a parser for the new `flow.yml` format.",Done
+,T12,`flow` AI Pipeline Foundation,T12.6,"In `flow` module, implement a core `run_pipeline` function that executes steps sequentially, piping stdout to stdin.",Done
+,T12,`flow` AI Pipeline Foundation,T12.7,"In `ferri-cli`, call `run_pipeline` from the `flow run` command handler, providing stdin from the parent `ferri` process.",Done
+,T12,`flow` AI Pipeline Foundation,T12.8,"In `ferri-core`, add unit tests for parsing a valid AI pipeline `flow.yml`.",Done
+,T12,`flow` AI Pipeline Foundation,T12.9,"In `ferri-cli/tests`, add an integration test for a simple `model -> process` pipeline.",Done
+,T13,`flow` Advanced I/O,T13.1,"In `flow` module's structs, add `input` and `output` fields to allow file-based I/O for steps.",Done
+,T13,`flow` Advanced I/O,T13.2,"In `run_pipeline`, implement logic to manage a map of named step outputs.",Done
+,T13,`flow` Advanced I/O,T13.3,"In `run_pipeline`, add logic to read from a file if `input` specifies a path.",Done
+,T13,`flow` Advanced I/O,T13.4,"In `run_pipeline`, add logic to read from a previous step's output if `input` specifies a step name.",Done
+,T13,`flow` Advanced I/O,T13.5,"In `run_pipeline`, add logic to write to a file if `output` specifies a path.",Done
+,T13,`flow` Advanced I/O,T13.6,"In `ferri-core`, add unit tests for the new I/O logic.",Done
+,T13,`flow` Advanced I/O,T13.7,"In `ferri-cli/tests`, add an integration test for a flow that uses file and inter-step I/O.",Done
+,T14,`flow` Ferri Integration,T14.1,"In `run_pipeline`, integrate `ferri_core::execute::prepare_command` for `ModelStep` execution.",Done
+,T14,`flow` Ferri Integration,T14.2,"Ensure `ModelStep` automatically handles model resolution, secret injection, and context injection via the `prepare_command` function.",Done
+,T14,`flow` Ferri Integration,T14.3,"Update `run_pipeline` to correctly handle the `Command` object returned by `prepare_command`.",Done
+,T14,`flow` Ferri Integration,T14.4,"In `ferri-core`, add unit tests to verify that `prepare_command` is called correctly for `ModelStep`s.",Done
+,T14,`flow` Ferri Integration,T14.5,"In `ferri-cli/tests`, add an integration test for a flow that uses a model requiring a secret.",Done
+,T15,`flow` Command Visualization,T15.1,"In `ferri-cli`, add `show <FILE>` subcommand to the `flow` command.",Done
+,T15,`flow` Command Visualization,T15.2,"In `flow` module, create a function to transform a parsed `Pipeline` struct into a `treetrunk`-compatible format.",Done
+,T15,`flow` Command Visualization,T15.3,"In `flow` module, implement the logic to execute the `treetrunk` binary with the transformed data.",Done
+,T15,`flow` Command Visualization,T15.4,"In `ferri-cli`, call the new visualization logic from the `flow show` command handler.",Done
+,T15,`flow` Command Visualization,T15.5,"Create a `qa/flow_visualization_test_plan.md` with manual test steps.",Done
+,T15,`flow` Command Visualization,T15.6,"Add two sample flow files (`sample-flow-simple.yml`, `sample-flow-complex.yml`) for testing.",Done
+,T15,`flow` Command Visualization,T15.7,"In `ferri-cli/tests`, add an integration test for `ferri flow show` that checks for non-empty output.",Done
+,T16,`flow` Security Hardening,T16.1,"In `run_pipeline`, modify the `ProcessStep` execution to use `sh -c` to prevent shell injection vulnerabilities.",Not Started
+,T16,`flow` Security Hardening,T16.2,"Update the failing integration test (`test_flow_run_shell_injection_vulnerability`) to assert success after the fix.",Not Started
+,T17,`flow` Visualization Bug,T17.1,"In `show_pipeline`, improve the text formatting to correctly handle multi-line prompts and other special characters.",Not Started
+,T17,`flow` Visualization Bug,T17.2,"Add a unit test to verify that a pipeline with a multi-line prompt is visualized correctly.",Not Started
