@@ -6,7 +6,7 @@ use crate::execute::{ExecutionArgs, PreparedCommand};
 use crossbeam_channel::Sender;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -159,7 +159,7 @@ pub fn run_pipeline(
                     final_output
                 }
                 PreparedCommand::Remote(request) => {
-                    let response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    let mut response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     let status = response.status();
 
                     if !status.is_success() {
@@ -173,25 +173,27 @@ pub fn run_pipeline(
                         return Err(io::Error::new(io::ErrorKind::Other, stderr));
                     }
 
-                    let mut reader = BufReader::new(response);
                     let mut accumulated_stdout = Vec::new();
-                    let mut buffer = Vec::new();
+                    let mut buffer = [0; 1024]; // Read in 1KB chunks
+                    let mut line_buffer = String::new();
 
-                    // Read the stream chunk by chunk
                     loop {
-                        buffer.clear();
-                        let bytes_read = reader.read_until(b'\n', &mut buffer)?;
+                        let bytes_read = response.read(&mut buffer)?;
                         if bytes_read == 0 {
                             break; // End of stream
                         }
                         
-                        let line = String::from_utf8_lossy(&buffer);
-                        if line.starts_with("data: ") {
-                            let json_str = &line[6..].trim();
-                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
-                                if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                    sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
-                                    accumulated_stdout.extend_from_slice(text.as_bytes());
+                        line_buffer.push_str(&String::from_utf8_lossy(&buffer[..bytes_read]));
+
+                        while let Some(newline_pos) = line_buffer.find('\n') {
+                            let line = line_buffer.drain(..=newline_pos).collect::<String>();
+                            if line.starts_with("data: ") {
+                                let json_str = &line[6..].trim();
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                    if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                        sender_clone.send(StepUpdate { name: step_clone.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
+                                        accumulated_stdout.extend_from_slice(text.as_bytes());
+                                    }
                                 }
                             }
                         }
