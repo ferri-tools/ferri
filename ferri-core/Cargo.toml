@@ -16,6 +16,7 @@ serde_yaml = "0.9"
 atty = "0.2.14"
 ratatui = "0.26.1"
 crossterm = "0.27.0"
+crossbeam-channel = "0.5.12"
 
 [dev-dependencies]
 tempfile = "3.10.1"

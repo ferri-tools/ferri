@@ -419,7 +419,7 @@ fn main() {
                 match ferri_core::flow::parse_pipeline_file(&file_path) {
                     Ok(pipeline) => {
                         // Launch the new real-time TUI
-                        if let Err(e) = flow_run_tui::run(&pipeline) {
+                        if let Err(e) = flow_run_tui::run(pipeline) {
                              eprintln!("Error: Flow execution failed - {}", e);
                              std::process::exit(1);
                         }
