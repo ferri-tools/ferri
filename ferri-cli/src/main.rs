@@ -2,6 +2,9 @@ use clap::{Args, Parser, Subcommand};
 use std::env;
 use std::path::PathBuf;
 
+mod flow_run_tui;
+
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -232,14 +235,35 @@ fn main() {
                         ferri_core::execute::PreparedCommand::Remote(request) => {
                             match request.send() {
                                 Ok(response) => {
-                                    if response.status().is_success() {
-                                        // Simple text extraction for now.
-                                        // A more robust solution would parse the JSON properly.
-                                        let body = response.text().unwrap_or_default();
-                                        println!("{}", body);
+                                    let status = response.status();
+                                    let body = response.text().unwrap_or_default();
+                                    if status.is_success() {
+                                        let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
+                                        if let Ok(json) = parsed {
+                                            if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                                println!("{}", text);
+                                            } else {
+                                                eprintln!("Error: Could not extract text from API response.");
+                                                eprintln!("Full response: {}", body);
+                                                std::process::exit(1);
+                                            }
+                                        } else {
+                                            eprintln!("Error: Failed to parse API response as JSON.");
+                                            eprintln!("Full response: {}", body);
+                                            std::process::exit(1);
+                                        }
                                     } else {
-                                        eprintln!("Error: API request failed with status: {}", response.status());
-                                        eprintln!("Response: {}", response.text().unwrap_or_default());
+                                        eprintln!("Error: API request failed with status: {}", status);
+                                        let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
+                                        if let Ok(json) = parsed {
+                                            if let Some(msg) = json["error"]["message"].as_str() {
+                                                eprintln!("Details: {}", msg);
+                                            } else {
+                                                eprintln!("Full response: {}", body);
+                                            }
+                                        } else {
+                                            eprintln!("Full response: {}", body);
+                                        }
                                         std::process::exit(1);
                                     }
                                 }
@@ -394,10 +418,12 @@ fn main() {
                 let file_path = PathBuf::from(file);
                 match ferri_core::flow::parse_pipeline_file(&file_path) {
                     Ok(pipeline) => {
-                        if let Err(e) = ferri_core::flow::run_pipeline(&current_path, &pipeline) {
-                            eprintln!("Error: Flow execution failed - {}", e);
-                            std::process::exit(1);
+                        // Launch the new real-time TUI
+                        if let Err(e) = flow_run_tui::run(&pipeline) {
+                             eprintln!("Error: Flow execution failed - {}", e);
+                             std::process::exit(1);
                         }
+                        // The old direct execution is now handled by the TUI
                     }
                     Err(e) => {
                         eprintln!("Error: Failed to parse flow file - {}", e);

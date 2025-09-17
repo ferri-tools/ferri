@@ -1,12 +1,45 @@
 //! Core logic for executing commands with injected context.
 
 use crate::{context, models, secrets};
+use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::{self, Error, ErrorKind};
 use std::path::Path;
 use std::process::Command;
 use std::fs;
+
+// --- Structs for deserializing Gemini API responses ---
+#[derive(Deserialize, Debug)]
+struct GeminiResponse {
+    candidates: Vec<Candidate>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Candidate {
+    content: Content,
+}
+
+#[derive(Deserialize, Debug)]
+struct Content {
+    parts: Vec<Part>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Part {
+    text: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct GoogleApiErrorResponse {
+    error: GoogleApiError,
+}
+
+#[derive(Deserialize, Debug)]
+struct GoogleApiError {
+    message: String,
+}
+// ---
 
 // Enum to represent different model providers
 pub enum ModelProvider {
@@ -34,7 +67,7 @@ pub fn prepare_command(
     args: &ExecutionArgs,
 ) -> io::Result<(PreparedCommand, HashMap<String, String>)> {
     let mut decrypted_secrets = secrets::read_all_secrets(base_path)?;
-    let mut final_command_with_args = args.command_with_args.clone();
+    let final_command_with_args = args.command_with_args.clone();
 
     if let Some(model_alias) = &args.model {
         let all_models = models::list_models(base_path)?;
@@ -81,7 +114,6 @@ pub fn prepare_command(
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {
-                // Fallback to original behavior: command execution with env vars
                 let command_name = &final_command_with_args[0];
                 let command_args = &final_command_with_args[1..];
                 let mut command = Command::new(command_name);
@@ -90,7 +122,6 @@ pub fn prepare_command(
             }
         }
     } else {
-        // No model specified, treat as a simple local command
         let command_name = &final_command_with_args[0];
         let command_args = &final_command_with_args[1..];
         let mut command = Command::new(command_name);
@@ -111,16 +142,12 @@ fn inject_context(base_path: &Path, prompt: &str) -> io::Result<String> {
         let file_path = base_path.join(&file_path_str);
         if file_path.exists() {
             let content = fs::read_to_string(file_path)?;
-            full_context.push_str(&format!("File: {}
-Content:
-{}
-\n", file_path_str, content));
+            full_context.push_str(&format!("File: {}\nContent:\n{}\n\n", file_path_str, content));
         }
     }
 
     Ok(format!(
-        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}
----\n\nQuestion:જી",
+        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
         full_context.trim(),
         prompt
     ))

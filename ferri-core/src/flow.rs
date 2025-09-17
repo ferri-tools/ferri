@@ -176,7 +176,7 @@ steps:
         assert_eq!(pipeline.steps[1].output, None);
     }
 
-use crate::execute::ExecutionArgs;
+use crate::execute::{ExecutionArgs, PreparedCommand};
 
 pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
     use std::collections::HashMap;
@@ -211,10 +211,10 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
             }
         } else if previous_stdout.is_some() {
             // Default to the output of the previous step (piping)
-            input_data = previous_stdout;
+            input_data = previous_stdout.clone();
         }
 
-        let (mut command, secrets) = match &step.kind {
+        let (prepared_command, secrets) = match &step.kind {
             StepKind::Model(model_step) => {
                 let final_prompt = if let Some(input) = &input_data {
                     // Prepend the input to the user's prompt for the model
@@ -234,28 +234,65 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
                 let mut cmd = Command::new("sh");
                 cmd.arg("-c");
                 cmd.arg(&process_step.process);
-                (cmd, HashMap::new()) // Process steps don't have secrets
+                (PreparedCommand::Local(cmd), HashMap::new()) // Process steps don't have secrets
             }
         };
 
-        let mut child = command
-            .envs(secrets)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()?;
+        let output = match prepared_command {
+            PreparedCommand::Local(mut command) => {
+                let mut child = command
+                    .envs(secrets)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::inherit())
+                    .spawn()?;
 
-        // For process steps, we pipe input data directly to stdin.
-        // For model steps, the input was already combined with the prompt.
-        if let StepKind::Process(_) = &step.kind {
-            if let Some(data) = &input_data {
-                if let Some(mut child_stdin) = child.stdin.take() {
-                    child_stdin.write_all(data)?;
+                if let StepKind::Process(_) = &step.kind {
+                    if let Some(data) = &input_data {
+                        if let Some(mut child_stdin) = child.stdin.take() {
+                            child_stdin.write_all(data)?;
+                        }
+                    }
+                }
+                child.wait_with_output()? 
+            }
+            PreparedCommand::Remote(request) => {
+                let response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                let status = response.status();
+                let body_text = response.text().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+                let (exit_status, stdout_bytes, stderr_bytes) = if status.is_success() {
+                    let stdout = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body_text) {
+                        if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                            text.as_bytes().to_vec()
+                        } else {
+                            body_text.as_bytes().to_vec()
+                        }
+                    } else {
+                        body_text.as_bytes().to_vec()
+                    };
+                    (std::process::Command::new("true").status()?, stdout, vec![])
+                } else {
+                    let stderr = if let Ok(json_err) = serde_json::from_str::<serde_json::Value>(&body_text) {
+                        if let Some(msg) = json_err["error"]["message"].as_str() {
+                            format!("API Error: {}", msg).as_bytes().to_vec()
+                        } else {
+                            body_text.as_bytes().to_vec()
+                        }
+                    } else {
+                        body_text.as_bytes().to_vec()
+                    };
+                    (std::process::Command::new("false").status()?, vec![], stderr)
+                };
+
+                std::process::Output {
+                    status: exit_status,
+                    stdout: stdout_bytes,
+                    stderr: stderr_bytes,
                 }
             }
-        }
+        };
 
-        let output = child.wait_with_output()?;
         if !output.status.success() {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
@@ -277,6 +314,7 @@ pub fn run_pipeline(base_path: &Path, pipeline: &Pipeline) -> io::Result<()> {
 
     Ok(())
 }
+
 
 pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
     tui::run_tui(pipeline)
