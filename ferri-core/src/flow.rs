@@ -194,21 +194,34 @@ pub fn run_pipeline(
 
                 let mut reader = BufReader::new(response);
                 let mut accumulated_stdout = Vec::new();
+                let mut buffer = Vec::new();
 
-                for line in reader.lines() {
-                    let line = line?;
-                    writeln!(log_file, "RAW LINE: {}", line)?;
-                    if line.starts_with("data: ") {
-                        let json_str = &line["data: ".len()..];
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
-                            writeln!(log_file, "Parsed JSON chunk: {:?}", json)?;
-                            if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                writeln!(log_file, "Extracted text: {}", text)?;
-                                sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
-                                accumulated_stdout.extend_from_slice(text.as_bytes());
+                loop {
+                    let mut chunk = [0; 1024];
+                    let bytes_read = reader.read(&mut chunk)?;
+                    writeln!(log_file, "Read {} bytes from stream.", bytes_read)?;
+                    if bytes_read == 0 {
+                        writeln!(log_file, "Stream ended.")?;
+                        break;
+                    }
+                    buffer.extend_from_slice(&chunk[..bytes_read]);
+
+                    // This logic finds complete JSON objects in the buffer
+                    let mut de = serde_json::Deserializer::from_slice(&buffer).into_iter::<serde_json::Value>();
+                    while let Some(Ok(json_value)) = de.next() {
+                        writeln!(log_file, "Parsed JSON value: {:?}", json_value)?;
+                        if let serde_json::Value::Array(chunks) = json_value {
+                            for chunk in chunks {
+                                if let Some(text) = chunk["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                    writeln!(log_file, "Extracted text: {}", text)?;
+                                    sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
+                                    accumulated_stdout.extend_from_slice(text.as_bytes());
+                                }
                             }
                         }
                     }
+                    // Keep the remainder of the buffer that wasn't parsed
+                    buffer = buffer[de.byte_offset()..].to_vec();
                 }
 
                 writeln!(log_file, "Finished processing remote stream.")?;
