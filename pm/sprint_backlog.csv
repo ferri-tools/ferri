@@ -136,7 +136,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T21,Integrate `ratatui` for `flow show`,T21.2,"In `ferri_core::flow`, create a new `tui` module for the visualization logic.",Done
 ,T21,Integrate `ratatui` for `flow show`,T21.3,"In the `tui` module, set up the terminal, main loop, and drawing logic for a basic `ratatui` application.",Done
 ,T21,Integrate `ratatui` for `flow show`,T21.4,"Refactor `show_pipeline` to call the new `tui` module's main function.",Done
-,T21,Integrate `ratatui` for `flow show`,T21.5,"In `ferri-cli/tests`, add an integration test to confirm the `flow show` command runs without panicking.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.5,"In `ferri-cli/tests/`, add an integration test to confirm the `flow show` command runs without panicking.",Done
 ,T22,Implement `flow show` graph visualization,T22.1,"In the `tui` module, design the UI layout using `ratatui` components (e.g., `Block`, `Paragraph`).",Done
 ,T22,Implement `flow show` graph visualization,T22.2,"Implement logic to represent the `Pipeline` struct as a graph data structure suitable for rendering.",Done
 ,T22,Implement `flow show` graph visualization,T22.3,"Implement logic to draw nodes for each step in the pipeline, displaying the step's name and kind.",Done
@@ -191,7 +191,11 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T35,Integrate Streaming into TUI,T35.2,"Update the TUI event loop to be non-blocking, checking for both user input and new messages from the channel.",Done
 ,T35,Integrate Streaming into TUI,T35.3,"When a message is received, update the corresponding step's status (e.g., 'Running') and display the output in a dedicated panel.",Done
 ,T35,Integrate Streaming into TUI,T35.4,"Update the step status to 'Completed' or 'Failed' when the step finishes.",Done
-,T36,Improve TUI Error Display,T36.1,"In `ferri-cli/src/flow_run_tui.rs`, add a state field to track the currently active/selected step.",Pending
-,T36,Improve TUI Error Display,T36.2,"When a step fails, store its detailed error message from the `StepStatus::Failed` variant.",Pending
-,T36,Improve TUI Error Display,T36.3,"Modify the 'Output' panel to display the stored error message in a formatted block when a failed step is active.",Pending
-,T36,Improve TUI Error Display,T36.4,"Style the error block with a red title and border to clearly indicate failure.",Pending
+,T36,Improve TUI Error Display,T36.1,"In `ferri-cli/src/flow_run_tui.rs`, add a state field to track the currently active/selected step.",Done
+,T36,Improve TUI Error Display,T36.2,"When a step fails, store its detailed error message from the `StepStatus::Failed` variant.",Done
+,T36,Improve TUI Error Display,T36.3,"Modify the 'Output' panel to display the stored error message in a formatted block when a failed step is active.",Done
+,T36,Improve TUI Error Display,T36.4,"Style the error block with a red title and border to clearly indicate failure.",Done
+,T37,Finalize Streaming and I/O,T37.1,"In `execute.rs`, change the Google provider URL to use the `streamGenerateContent` endpoint.",Pending
+,T37,Finalize Streaming and I/O,T37.2,"In `flow.rs`, refactor the `Remote` command logic to read the response as a stream.",Pending
+,T37,Finalize Streaming and I/O,T37.3,"In `flow.rs`, parse the streamed JSON chunks from the Gemini API and send the `text` field through the channel.",Pending
+,T37,Finalize Streaming and I/O,T37.4,"In `flow.rs`, refactor the `Local` command logic to accumulate streamed output before writing to a file.",Pending
