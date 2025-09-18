@@ -165,7 +165,10 @@ pub fn prepare_command(
                 let body = json!({ "contents": [{ "parts": parts }] });
 
                 let client = reqwest::blocking::Client::new();
-                let request = client.post(&url).header("x-goog-api-key", api_key).json(&body);
+                let request = client.post(&url)
+                    .header("x-goog-api-key", api_key)
+                    .header("User-Agent", "ferri-cli")
+                    .json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::GoogleGeminiImage => {
@@ -173,7 +176,10 @@ pub fn prepare_command(
                 let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model.model_name);
                 let body = json!({ "contents": [{ "parts": [{ "text": prompt }] }] });
                 let client = reqwest::blocking::Client::new();
-                let request = client.post(&url).header("x-goog-api-key", api_key).json(&body);
+                let request = client.post(&url)
+                    .header("x-goog-api-key", api_key)
+                    .header("User-Agent", "ferri-cli")
+                    .json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {
