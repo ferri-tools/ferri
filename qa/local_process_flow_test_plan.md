@@ -47,12 +47,14 @@ This document outlines the manual testing steps for a `ferri flow` that uses a r
         output: "all_quotes.txt"
 
       - name: "filter-for-love"
-        process: "grep -i 'love'" # Filter for lines containing 'love'
+        process:
+          process: "grep -i 'love'" # Filter for lines containing 'love'
         input: "all_quotes.txt"
         output: "love_quotes.txt"
 
       - name: "replace-love-with-code"
-        process: "sed 's/love/code/gi'" # Replace 'love' with 'code' (case-insensitive)
+        process:
+          process: "sed 's/love/code/gi'" # Replace 'love' with 'code' (case-insensitive)
         input: "love_quotes.txt"
         output: "code_quotes.txt"
 
