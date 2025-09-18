@@ -61,7 +61,7 @@ struct GoogleApiError {
 pub enum ModelProvider {
     Ollama,
     Google,
-    GoogleImagen,
+    GoogleGeminiImage,
     Unknown,
 }
 
