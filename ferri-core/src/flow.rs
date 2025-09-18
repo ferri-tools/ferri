@@ -141,7 +141,21 @@ pub fn run_pipeline(
         let final_output = match prepared_command {
             PreparedCommand::Local(mut command) => {
                 writeln!(log_file, "Executing local command.")?;
-                let mut child = command.envs(secrets).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+                let mut child = command
+                    .envs(secrets)
+                    .stdin(Stdio::piped()) // Pipe stdin
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()?;
+
+                // Write input data to the child's stdin in a separate thread
+                if let Some(input_data) = input_data {
+                    let mut stdin = child.stdin.take().unwrap();
+                    thread::spawn(move || {
+                        stdin.write_all(&input_data).unwrap();
+                    });
+                }
+
                 let stdout = BufReader::new(child.stdout.take().unwrap());
                 let stderr = BufReader::new(child.stderr.take().unwrap());
                 let mut accumulated_stdout = Vec::new();
