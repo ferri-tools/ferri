@@ -1,251 +1,256 @@
-JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status,,,
-,T1,Workspace & CLI Scaffolding,T1.1,Create Rust workspace with `ferri-core` (lib) and `ferri-cli` (bin).,Done,,,
-,T1,Workspace & CLI Scaffolding,T1.2,Add `clap` with `derive` feature to `ferri-cli` dependencies.,Done,,,
-,T1,Workspace & CLI Scaffolding,T1.3,Add `ferri-core` as a path dependency in `ferri-cli`'s Cargo.toml.,Done,,,
-,T1,Workspace & CLI Scaffolding,T1.4,"In `ferri-cli/src/main.rs`, define the top-level `Cli` struct and `Commands` enum for L1 features.",Done,,,
-,T1,Workspace & CLI Scaffolding,T1.5,"In `ferri-cli/src/main.rs`, implement the `main` function with a `match` statement for all L1 commands.",Done,,,
-,T1,Workspace & CLI Scaffolding,T1.6,"Ensure all `match` arms for unimplemented commands print a clear ""unimplemented"" message.",Done,,,
-,T2,`init` Command,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done,,,
-,T2,`init` Command,T2.2,`initialize_project` logic: Create a `.ferri` directory in the current path.,Done,,,
-,T2,`init` Command,T2.3,`initialize_project` logic: Ensure it does not fail if the directory already exists.,Done,,,
-,T2,`init` Command,T2.4,"`initialize_project` logic: Create an empty `.ferri/secrets.json` with initial structure (e.g., `{}`).",Done,,,
-,T2,`init` Command,T2.5,"`initialize_project` logic: Create an empty `.ferri/models.json` with initial structure (e.g., `[]`).",Done,,,
-,T2,`init` Command,T2.6,"`initialize_project` logic: Create an empty `.ferri/context.json` with initial structure (e.g., `[]`).",Done,,,
-,T2,`init` Command,T2.7,"In `ferri-core`, update unit tests to verify the creation of the `.ferri` directory and all default JSON files.",Done,,,
-,T2,`init` Command,T2.8,"In `ferri-cli`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done,,,
-,T2,`init` Command,T2.9,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies` for integration testing.",Done,,,
-,T2,`init` Command,T2.10,"In `ferri-cli/tests/`, create an integration test that runs `ferri init` and asserts the creation of the directory and all default files.",Done,,,
-,T3,`secrets` Command,T3.1,"In `ferri-cli`, define the `secrets` subcommand with `set <KEY> <VALUE>` arguments.",Done,,,
-,T3,`secrets` Command,T3.2,"In `ferri-core`, add `serde` and `serde_json` dependencies for serialization.",Done,,,
-,T3,`secrets` Command,T3.3,"In `ferri-core`, add a dependency for encryption (e.g., `magic-crypt`).",Done,,,
-,T3,`secrets` Command,T3.4,"In `ferri-core`, create a `secrets` module.",Done,,,
-,T3,`secrets` Command,T3.5,"In `secrets` module, implement `set_secret(key: &str, value: &str)` function.",Done,,,
-,T3,`secrets` Command,T3.6,"`set_secret` logic: Read `.ferri/secrets.json`, decrypt, insert/update value, encrypt, and write back.",Done,,,
-,T3,`secrets` Command,T3.7,"In `ferri-core`, write unit tests for `set_secret` (new key and existing key).",Done,,,
-,T3,`secrets` Command,T3.8,"In `ferri-cli`, call `ferri_core::secrets::set_secret` from the `secrets set` match arm.",Done,,,
-,T3,`secrets` Command,T3.9,"In `ferri-cli/tests/`, write an integration test for `ferri secrets set`.",Done,,,
-,T4,`models` Command,T4.1,"In `ferri-cli`, define `models` subcommand with `add`, `ls`, and `rm` subcommands.",Done,,,
-,T4,`models` Command,T4.2,"In `ferri-cli`, define arguments for `models add` (alias, provider, name, etc.).",Done,,,
-,T4,`models` Command,T4.3,"In `ferri-core`, create a `models` module.",Done,,,
-,T4,`models` Command,T4.4,"In `models` module, define a `Model` struct that can be serialized.",Done,,,
-,T4,`models` Command,T4.5,"In `models` module, implement `add_model(model: Model)` function.",Done,,,
-,T4,`models` Command,T4.6,"In `models` module, implement `list_models()` function.",Done,,,
-,T4,`models` Command,T4.7,"In `models` module, implement `remove_model(alias: &str)` function.",Done,,,
-,T4,`models` Command,T4.8,`list_models` logic: Implement auto-discovery of local Ollama models.,Done,,,
-,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",Done,,,
-,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",Done,,,
-,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",Done,,,
-,T5,`ctx` Command,T5.1,"In `ferri-cli`, define `ctx` subcommand with `add <PATHS...>` and `ls` subcommands.",Done,,,
-,T5,`ctx` Command,T5.2,"In `ferri-core`, create a `context` module.",Done,,,
-,T5,`ctx` Command,T5.3,"In `context` module, implement `add_to_context(paths: Vec<PathBuf>)` function.",Done,,,
-,T5,`ctx` Command,T5.4,"`add_to_context` logic: Resolve file paths, verify existence, and add to `.ferri/context.json`.",Done,,,
-,T5,`ctx` Command,T5.5,"In `context` module, implement `list_context()` function.",Done,,,
-,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",Done,,,
-,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",Done,,,
-,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",Done,,,
-,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",Done,,,
-,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",Done,,,
-,T6,`with` Command,T6.3,`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.,Done,,,
-,T6,`with` Command,T6.4,`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.,Done,,,
-,T6,`with` Command,T6.5,`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.,Done,,,
-,T6,`with` Command,T6.6,`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.,Done,,,
-,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",Done,,,
-,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",Done,,,
-,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",Done,,,
-,T7,L1 Interoperability,T7.1,"In `ferri-core`, implement context injection logic in the `execute_with_context` function.",Done,,,
-,T7,L1 Interoperability,T7.2,"In `ferri-core`, update unit tests for `execute_with_context` to verify context injection.",Done,,,
-,T7,L1 Interoperability,T7.3,"In `ferri-cli/tests/`, create a new `interop.rs` integration test file.",Done,,,
-,T7,L1 Interoperability,T7.4,"In `interop.rs`, write a test to verify `ctx add` and `with` work together to inject file content into a command.",Done,,,
-,T7,L1 Interoperability,T7.5,"In `interop.rs`, write a test to verify `secrets`, `models`, and `with` work together to inject an API key as an environment variable.",Done,,,
-,T7,L1 Interoperability,T7.6,Create `qa/l1_interop_test_plan.md` summarizing the manual end-to-end tests.,Done,,,
-,T8,`run` Command,T8.1,"In `ferri-cli`, define the `run` command to accept a command to execute (e.g., `ferri run -- echo 'hello'`).",Done,,,
-,T8,`run` Command,T8.2,"In `ferri-core`, create a `jobs` module for managing background processes.",Done,,,
-,T8,`run` Command,T8.3,"In `jobs` module, define a `Job` struct with fields for ID, status, command, and output.",Done,,,
-,T8,`run` Command,T8.4,"In `jobs` module, implement `submit_job(command: &str)` function.",Done,,,
-,T8,`run` Command,T8.5,"`submit_job` logic: Generate a unique job ID (e.g., `job-xxxxxx`).",Done,,,
-,T8,`run` Command,T8.6,`submit_job` logic: Spawn the command as a detached background process.,Done,,,
-,T8,`run` Command,T8.7,"`submit_job` logic: Store job metadata (ID, command, status) in a new `.ferri/jobs.json` file.",Done,,,
-,T8,`run` Command,T8.8,`submit_job` logic: Redirect the background process's stdout and stderr to files in `.ferri/jobs/<job-id>/`.,Done,,,
-,T8,`run` Command,T8.9,"In `ferri-core`, write unit tests for `submit_job`.",Done,,,
-,T8,`run` Command,T8.10,"In `ferri-cli`, call `ferri_core::jobs::submit_job` from the `run` match arm.",Done,,,
-,T8,`run` Command,T8.11,"In `ferri-cli/tests/`, write an integration test for `ferri run` that checks for the job ID output.",Done,,,
-,T9,`ps` Command,T9.1,"In `ferri-cli`, define the `ps` command.",Done,,,
-,T9,`ps` Command,T9.2,"In `ferri-core`'s `jobs` module, implement `list_jobs()` function.",Done,,,
-,T9,`ps` Command,T9.3,`list_jobs` logic: Read `.ferri/jobs.json` and deserialize the job list.,Done,,,
-,T9,`ps` Command,T9.4,"`list_jobs` logic: For each job, check the status of the background process.",Done,,,
-,T9,`ps` Command,T9.5,"In `ferri-core`, write unit tests for `list_jobs`.",Done,,,
-,T9,`ps` Command,T9.6,"In `ferri-cli`, call `ferri_core::jobs::list_jobs` from the `ps` match arm and format the output as a table.",Done,,,
-,T9,`ps` Command,T9.7,"In `ferri-cli/tests/`, write an integration test for `ferri ps` that runs a background job and checks the `ps` output.",Done,,,
-,T10,`yank` Command,T10.1,"In `ferri-cli`, define the `yank` command to accept a `JOB_ID` argument.",Done,,,
-,T10,`yank` Command,T10.2,"In `ferri-core`'s `jobs` module, implement `get_job_output(job_id: &str)` function.",Done,,,
-,T10,`yank` Command,T10.3,`get_job_output` logic: Find the job in `.ferri/jobs.json`.,Done,,,
-,T10,`yank` Command,T10.4,`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.,Done,,,
-,T10,`yank` Command,T10.5,"In `ferri-core`, write unit tests for `get_job_output` for a valid and invalid job ID.",Done,,,
-,T10,`yank` Command,T10.6,"In `ferri-cli`, call `ferri_core::jobs::get_job_output` from the `yank` match arm.",Done,,,
-,T10,`yank` Command,T10.7,"In `ferri-cli/tests/`, write an integration test for `ferri yank` that retrieves the output of a completed job.",Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.1,Refactor `ferri-cli/src/main.rs` to define shared argument parsing logic for `run` and `with` commands.,Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.2,"Create a new struct (e.g., `SharedArgs`) to hold common flags like `--model` and `--ctx`.",Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.3,Integrate the `SharedArgs` struct into both the `Run` and `With` command structs in `main.rs`.,Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.4,Create a new unified execution function in `ferri-core` that accepts the shared arguments and can be called by both `run` and `with`.,Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.5,Update the `with` command handler in `main.rs` to use the new unified execution function.,Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.6,"Update the `run` command handler in `main.rs` to use the new unified execution function, ensuring it runs in the background.",Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.7,Ensure secrets and context are correctly injected based on the flags for both commands in the new unified logic.,Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.8,"Update `README.md` examples to reflect the new, consistent syntax for `run` and `with`.",Done,,,
-,T11,Unify `run` and `with` command syntax for intuitive use,T11.9,Add and/or update integration tests to validate the unified command behavior.,Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.1,"In `ferri-cli`, add `flow` subcommand with `run <FILE>` argument.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.2,"In `ferri-core`, add `serde_yaml` dependency.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.3,"In `ferri-core`, create a new `flow` module.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.4,"In `flow` module, define Rust structs for the new AI pipeline YAML format (e.g., `Pipeline`, `Step`, `ModelStep`, `ProcessStep`).",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.5,"In `flow` module, implement a parser for the new `flow.yml` format.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.6,"In `flow` module, implement a core `run_pipeline` function that executes steps sequentially, piping stdout to stdin.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.7,"In `ferri-cli`, call `run_pipeline` from the `flow run` command handler, providing stdin from the parent `ferri` process.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.8,"In `ferri-core`, add unit tests for parsing a valid AI pipeline `flow.yml`.",Done,,,
-,T12,`flow` AI Pipeline Foundation,T12.9,"In `ferri-cli/tests`, add an integration test for a simple `model -> process` pipeline.",Done,,,
-,T13,`flow` Advanced I/O,T13.1,"In `flow` module's structs, add `input` and `output` fields to allow file-based I/O for steps.",Done,,,
-,T13,`flow` Advanced I/O,T13.2,"In `run_pipeline`, implement logic to manage a map of named step outputs.",Done,,,
-,T13,`flow` Advanced I/O,T13.3,"In `run_pipeline`, add logic to read from a file if `input` specifies a path.",Done,,,
-,T13,`flow` Advanced I/O,T13.4,"In `run_pipeline`, add logic to read from a previous step's output if `input` specifies a step name.",Done,,,
-,T13,`flow` Advanced I/O,T13.5,"In `run_pipeline`, add logic to write to a file if `output` specifies a path.",Done,,,
-,T13,`flow` Advanced I/O,T13.6,"In `ferri-core`, add unit tests for the new I/O logic.",Done,,,
-,T13,`flow` Advanced I/O,T13.7,"In `ferri-cli/tests`, add an integration test for a flow that uses file and inter-step I/O.",Done,,,
-,T14,`flow` Ferri Integration,T14.1,"In `run_pipeline`, integrate `ferri_core::execute::prepare_command` for `ModelStep` execution.",Done,,,
-,T14,`flow` Ferri Integration,T14.2,"Ensure `ModelStep` automatically handles model resolution, secret injection, and context injection via the `prepare_command` function.",Done,,,
-,T14,`flow` Ferri Integration,T14.3,Update `run_pipeline` to correctly handle the `Command` object returned by `prepare_command`.,Done,,,
-,T14,`flow` Ferri Integration,T14.4,"In `ferri-core`, add unit tests to verify that `prepare_command` is called correctly for `ModelStep`s.",Done,,,
-,T14,`flow` Ferri Integration,T14.5,"In `ferri-cli/tests/`, add an integration test for a flow that uses a model requiring a secret.",Done,,,
-,T15,`flow` Command Visualization,T15.1,"In `ferri-cli`, add `show <FILE>` subcommand to the `flow` command.",Done,,,
-,T15,`flow` Command Visualization,T15.2,"In `flow` module, create a function to transform a parsed `Pipeline` struct into a `treetrunk`-compatible format.",Done,,,
-,T15,`flow` Command Visualization,T15.3,"In `flow` module, implement the logic to execute the `treetrunk` binary with the transformed data.",Done,,,
-,T15,`flow` Command Visualization,T15.4,"In `ferri-cli`, call the new visualization logic from the `flow show` command handler.",Done,,,
-,T15,`flow` Command Visualization,T15.5,Create a `qa/flow_visualization_test_plan.md` with manual test steps.,Done,,,
-,T15,`flow` Command Visualization,T15.6,"Add two sample flow files (`sample-flow-simple.yml`, `sample-flow-complex.yml`) for testing.",Done,,,
-,T15,`flow` Command Visualization,T15.7,"In `ferri-cli/tests`, add an integration test for `ferri flow show` that checks for non-empty output.",Done,,,
-,T16,`flow` Security Hardening,T16.1,"In `run_pipeline`, modify the `ProcessStep` execution to use `sh -c` to prevent shell injection vulnerabilities.",Done,,,
-,T16,`flow` Security Hardening,T16.2,Update the failing integration test (`test_flow_run_shell_injection_vulnerability`) to assert success after the fix.,Done,,,
-,T17,`flow` Visualization Bug,T17.1,"In `show_pipeline`, improve the text formatting to correctly handle multi-line prompts and other special characters.",Done,,,
-,T17,`flow` Visualization Bug,T17.2,Add a unit test to verify that a pipeline with a multi-line prompt is visualized correctly.,Done,,,
-,T18,Fix `ferri init` bug,T18.1,Modify `ferri_core::initialize_project` to write `[]` to `models.json` instead of an empty file.,Done,,,
-,T18,Fix `ferri init` bug,T18.2,Add a unit test to `ferri-core` to verify `models.json` is created with the correct `[]` content.,Done,,,
-,T19,Implement `ferri flow show`,T19.1,Remove the external `treetrunk` dependency from `ferri_core::flow::show_pipeline`.,Done,,,
-,T19,Implement `ferri flow show`,T19.2,"Implement a text-based visualization for `ferri flow show` directly within the `show_pipeline` function.""",Done,,,
-,T19,Implement `ferri flow show`,T19.3,Update `qa/flow_pipeline_test_plan.md` to remove the `treetrunk` prerequisite and reflect the new output.,Done,,,
-,T20,Update `flow` documentation,T20.1,Update `qa/flow_pipeline_test_plan.md` with the correct YAML syntax for all `ferri flow` test cases.,Done,,,
-,T20,Update `flow` documentation,T20.2,Add a note to `qa/flow_pipeline_test_plan.md` clarifying that `ferri init` must be run from the project root.,Done,,,
-,T20,Update `flow` documentation,T20.3,Update the expected output for the model step in `qa/flow_pipeline_test_plan.md` to be more realistic.,Done,,,
-,T21,Integrate `ratatui` for `flow show`,T21.1,"Add `ratatui` and a compatible backend (e.g., `ratatui-crossterm`) to `ferri-core`'s `Cargo.toml`.",Done,,,
-,T21,Integrate `ratatui` for `flow show`,T21.2,"In `ferri_core::flow`, create a new `tui` module for the visualization logic.",Done,,,
-,T21,Integrate `ratatui` for `flow show`,T21.3,"In the `tui` module, set up the terminal, main loop, and drawing logic for a basic `ratatui` application.",Done,,,
-,T21,Integrate `ratatui` for `flow show`,T21.4,Refactor `show_pipeline` to call the new `tui` module's main function.,Done,,,
-,T21,Integrate `ratatui` for `flow show`,T21.5,"In `ferri-cli/tests/`, add an integration test to confirm the `flow show` command runs without panicking.",Done,,,
-,T22,Implement `flow show` graph visualization,T22.1,"In the `tui` module, design the UI layout using `ratatui` components (e.g., `Block`, `Paragraph`).",Done,,,
-,T22,Implement `flow show` graph visualization,T22.2,Implement logic to represent the `Pipeline` struct as a graph data structure suitable for rendering.,Done,,,
-,T22,Implement `flow show` graph visualization,T22.3,"Implement logic to draw nodes for each step in the pipeline, displaying the step's name and kind.",Done,,,
-,T22,Implement `flow show` graph visualization,T22.4,"Implement logic to draw arrows or lines connecting the nodes to represent the flow of data (stdin, stdout, file I/O).",Done,,,
-,T22,Implement `flow show` graph visualization,T22.5,Add colors and styling to the nodes and connectors to create a visually appealing graph.,Done,,,
-,T22,Implement `flow show` graph visualization,T22.6,Update the `qa/flow_pipeline_test_plan.md` to include the new `ratatui`-based visualization and expected output.,Done,,,
-,T23,Refactor `flow show` for Horizontal Layout,T23.1,"In `flow::tui`, change the main layout direction from `Vertical` to `Horizontal`.",Done,,,
-,T23,Refactor `flow show` for Horizontal Layout,T23.2,Create a grid-based positioning system for steps instead of a simple list.,Done,,,
-,T23,Refactor `flow show` for Horizontal Layout,T23.3,Update the rendering loop to place step blocks horizontally based on the new grid system.,Done,,,
-,T24,Implement Advanced Graph Rendering,T24.1,"In `flow::tui`, add the `ratatui-canvas` crate to draw complex lines.",Done,,,
-,T24,Implement Advanced Graph Rendering,T24.2,"Implement logic to calculate connector paths (start, end, intermediate points) on the grid.",Done,,,
-,T24,Implement Advanced Graph Rendering,T24.3,Use the `Canvas` widget to draw lines and arrows for connectors between steps.,Done,,,
-,T24,Implement Advanced Graph Rendering,T24.4,Implement logic to handle branching and merging of connectors for parallel steps.,Done,,,
-,T25,Add I/O Labels to Connectors,T25.1,"In `flow::tui`, implement logic to determine the position for I/O labels along connector lines.",Done,,,
-,T25,Add I/O Labels to Connectors,T25.2,Render the `input` and `output` fields (file paths or step names) as text labels on the connectors.,Done,,,
-,T25,Add I/O Labels to Connectors,T25.3,"Add styling to the I/O labels (e.g., different colors for files vs. step outputs).",Done,,,
-,T26,Advanced Lane Allocation Logic,T26.1,Refactor `App::from_pipeline` to implement a git-like lane allocation strategy.,Done,,,
-,T26,Advanced Lane Allocation Logic,T26.2,Ensure linear steps stay in the same vertical lane.,Done,,,
-,T26,Advanced Lane Allocation Logic,T26.3,Ensure forking steps correctly assign new lanes to their children.,Done,,,
-,T26,Advanced Lane Allocation Logic,T26.4,Ensure merging steps correctly terminate lanes.,Done,,,
+JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
+,T1,Workspace & CLI Scaffolding,T1.1,Create Rust workspace with `ferri-core` (lib) and `ferri-cli` (bin).,Done
+,T1,Workspace & CLI Scaffolding,T1.2,Add `clap` with `derive` feature to `ferri-cli` dependencies.,Done
+,T1,Workspace & CLI Scaffolding,T1.3,Add `ferri-core` as a path dependency in `ferri-cli`'s Cargo.toml.,Done
+,T1,Workspace & CLI Scaffolding,T1.4,"In `ferri-cli/src/main.rs`, define the top-level `Cli` struct and `Commands` enum for L1 features.",Done
+,T1,Workspace & CLI Scaffolding,T1.5,"In `ferri-cli/src/main.rs`, implement the `main` function with a `match` statement for all L1 commands.",Done
+,T1,Workspace & CLI Scaffolding,T1.6,"Ensure all `match` arms for unimplemented commands print a clear ""unimplemented"" message.",Done
+,T2,`init` Command,T2.1,"In `ferri-core/src/lib.rs`, create a public function `initialize_project() -> std::io::Result<()>`.",Done
+,T2,`init` Command,T2.2,`initialize_project` logic: Create a `.ferri` directory in the current path.,Done
+,T2,`init` Command,T2.3,`initialize_project` logic: Ensure it does not fail if the directory already exists.,Done
+,T2,`init` Command,T2.4,"`initialize_project` logic: Create an empty `.ferri/secrets.json` with initial structure (e.g., `{}`).",Done
+,T2,`init` Command,T2.5,"`initialize_project` logic: Create an empty `.ferri/models.json` with initial structure (e.g., `[]`).",Done
+,T2,`init` Command,T2.6,"`initialize_project` logic: Create an empty `.ferri/context.json` with initial structure (e.g., `[]`).",Done
+,T2,`init` Command,T2.7,"In `ferri-core`, update unit tests to verify the creation of the `.ferri` directory and all default JSON files.",Done
+,T2,`init` Command,T2.8,"In `ferri-cli`, call `ferri_core::initialize_project()` from the `init` command's `match` arm.",Done
+,T2,`init` Command,T2.9,"In `ferri-cli`, add `assert_cmd` to `dev-dependencies` for integration testing.",Done
+,T2,`init` Command,T2.10,"In `ferri-cli/tests/`, create an integration test that runs `ferri init` and asserts the creation of the directory and all default files.",Done
+,T3,`secrets` Command,T3.1,"In `ferri-cli`, define the `secrets` subcommand with `set <KEY> <VALUE>` arguments.",Done
+,T3,`secrets` Command,T3.2,"In `ferri-core`, add `serde` and `serde_json` dependencies for serialization.",Done
+,T3,`secrets` Command,T3.3,"In `ferri-core`, add a dependency for encryption (e.g., `magic-crypt`).",Done
+,T3,`secrets` Command,T3.4,"In `ferri-core`, create a `secrets` module.",Done
+,T3,`secrets` Command,T3.5,"In `secrets` module, implement `set_secret(key: &str, value: &str)` function.",Done
+,T3,`secrets` Command,T3.6,"`set_secret` logic: Read `.ferri/secrets.json`, decrypt, insert/update value, encrypt, and write back.",Done
+,T3,`secrets` Command,T3.7,"In `ferri-core`, write unit tests for `set_secret` (new key and existing key).",Done
+,T3,`secrets` Command,T3.8,"In `ferri-cli`, call `ferri_core::secrets::set_secret` from the `secrets set` match arm.",Done
+,T3,`secrets` Command,T3.9,"In `ferri-cli/tests/`, write an integration test for `ferri secrets set`.",Done
+,T4,`models` Command,T4.1,"In `ferri-cli`, define `models` subcommand with `add`, `ls`, and `rm` subcommands.",Done
+,T4,`models` Command,T4.2,"In `ferri-cli`, define arguments for `models add` (alias, provider, name, etc.).",Done
+,T4,`models` Command,T4.3,"In `ferri-core`, create a `models` module.",Done
+,T4,`models` Command,T4.4,"In `models` module, define a `Model` struct that can be serialized.",Done
+,T4,`models` Command,T4.5,"In `models` module, implement `add_model(model: Model)` function.",Done
+,T4,`models` Command,T4.6,"In `models` module, implement `list_models()` function.",Done
+,T4,`models` Command,T4.7,"In `models` module, implement `remove_model(alias: &str)` function.",Done
+,T4,`models` Command,T4.8,`list_models` logic: Implement auto-discovery of local Ollama models.,Done
+,T4,`models` Command,T4.9,"In `ferri-core`, write unit tests for `add`, `list`, and `remove` model functions.",Done
+,T4,`models` Command,T4.10,"In `ferri-cli`, call the corresponding `ferri_core::models` functions from the `models` match arms.",Done
+,T4,`models` Command,T4.11,"In `ferri-cli/tests/`, write integration tests for `models add`, `ls`, and `rm`.",Done
+,T5,`ctx` Command,T5.1,"In `ferri-cli`, define `ctx` subcommand with `add <PATHS...>` and `ls` subcommands.",Done
+,T5,`ctx` Command,T5.2,"In `ferri-core`, create a `context` module.",Done
+,T5,`ctx` Command,T5.3,"In `context` module, implement `add_to_context(paths: Vec<PathBuf>)` function.",Done
+,T5,`ctx` Command,T5.4,"`add_to_context` logic: Resolve file paths, verify existence, and add to `.ferri/context.json`.",Done
+,T5,`ctx` Command,T5.5,"In `context` module, implement `list_context()` function.",Done
+,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",Done
+,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",Done
+,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",Done
+,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",Done
+,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",Done
+,T6,`with` Command,T6.3,`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.,Done
+,T6,`with` Command,T6.4,`execute_with_context` logic: Set the decrypted secrets as environment variables for the child process.,Done
+,T6,`with` Command,T6.5,`execute_with_context` logic: Read context from `.ferri/context.json` and prepare it for injection.,Done
+,T6,`with` Command,T6.6,`execute_with_context` logic: Spawn and execute the given command using `std::process::Command`.,Done
+,T6,`with` Command,T6.7,"In `ferri-core`, write unit tests to verify secret injection and command execution setup.",Done
+,T6,`with` Command,T6.8,"In `ferri-cli`, call `ferri_core::execute::execute_with_context` from the `with` match arm.",Done
+,T6,`with` Command,T6.9,"In `ferri-cli/tests/`, write an integration test for `ferri with` that runs a test script and checks for env vars.",Done
+,T7,L1 Interoperability,T7.1,"In `ferri-core`, implement context injection logic in the `execute_with_context` function.",Done
+,T7,L1 Interoperability,T7.2,"In `ferri-core`, update unit tests for `execute_with_context` to verify context injection.",Done
+,T7,L1 Interoperability,T7.3,"In `ferri-cli/tests/`, create a new `interop.rs` integration test file.",Done
+,T7,L1 Interoperability,T7.4,"In `interop.rs`, write a test to verify `ctx add` and `with` work together to inject file content into a command.",Done
+,T7,L1 Interoperability,T7.5,"In `interop.rs`, write a test to verify `secrets`, `models`, and `with` work together to inject an API key as an environment variable.",Done
+,T7,L1 Interoperability,T7.6,Create `qa/l1_interop_test_plan.md` summarizing the manual end-to-end tests.,Done
+,T8,`run` Command,T8.1,"In `ferri-cli`, define the `run` command to accept a command to execute (e.g., `ferri run -- echo 'hello'`).",Done
+,T8,`run` Command,T8.2,"In `ferri-core`, create a `jobs` module for managing background processes.",Done
+,T8,`run` Command,T8.3,"In `jobs` module, define a `Job` struct with fields for ID, status, command, and output.",Done
+,T8,`run` Command,T8.4,"In `jobs` module, implement `submit_job(command: &str)` function.",Done
+,T8,`run` Command,T8.5,"`submit_job` logic: Generate a unique job ID (e.g., `job-xxxxxx`).",Done
+,T8,`run` Command,T8.6,`submit_job` logic: Spawn the command as a detached background process.,Done
+,T8,`run` Command,T8.7,"`submit_job` logic: Store job metadata (ID, command, status) in a new `.ferri/jobs.json` file.",Done
+,T8,`run` Command,T8.8,`submit_job` logic: Redirect the background process's stdout and stderr to files in `.ferri/jobs/<job-id>/`.,Done
+,T8,`run` Command,T8.9,"In `ferri-core`, write unit tests for `submit_job`.",Done
+,T8,`run` Command,T8.10,"In `ferri-cli`, call `ferri_core::jobs::submit_job` from the `run` match arm.",Done
+,T8,`run` Command,T8.11,"In `ferri-cli/tests/`, write an integration test for `ferri run` that checks for the job ID output.",Done
+,T9,`ps` Command,T9.1,"In `ferri-cli`, define the `ps` command.",Done
+,T9,`ps` Command,T9.2,"In `ferri-core`'s `jobs` module, implement `list_jobs()` function.",Done
+,T9,`ps` Command,T9.3,`list_jobs` logic: Read `.ferri/jobs.json` and deserialize the job list.,Done
+,T9,`ps` Command,T9.4,"`list_jobs` logic: For each job, check the status of the background process.",Done
+,T9,`ps` Command,T9.5,"In `ferri-core`, write unit tests for `list_jobs`.",Done
+,T9,`ps` Command,T9.6,"In `ferri-cli`, call `ferri_core::jobs::list_jobs` from the `ps` match arm and format the output as a table.",Done
+,T9,`ps` Command,T9.7,"In `ferri-cli/tests/`, write an integration test for `ferri ps` that runs a background job and checks the `ps` output.",Done
+,T10,`yank` Command,T10.1,"In `ferri-cli`, define the `yank` command to accept a `JOB_ID` argument.",Done
+,T10,`yank` Command,T10.2,"In `ferri-core`'s `jobs` module, implement `get_job_output(job_id: &str)` function.",Done
+,T10,`yank` Command,T10.3,`get_job_output` logic: Find the job in `.ferri/jobs.json`.,Done
+,T10,`yank` Command,T10.4,`get_job_output` logic: Read the stdout file from `.ferri/jobs/<job-id>/stdout.log`.,Done
+,T10,`yank` Command,T10.5,"In `ferri-core`, write unit tests for `get_job_output` for a valid and invalid job ID.",Done
+,T10,`yank` Command,T10.6,"In `ferri-cli`, call `ferri_core::jobs::get_job_output` from the `yank` match arm.",Done
+,T10,`yank` Command,T10.7,"In `ferri-cli/tests/`, write an integration test for `ferri yank` that retrieves the output of a completed job.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.1,Refactor `ferri-cli/src/main.rs` to define shared argument parsing logic for `run` and `with` commands.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.2,"Create a new struct (e.g., `SharedArgs`) to hold common flags like `--model` and `--ctx`.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.3,Integrate the `SharedArgs` struct into both the `Run` and `With` command structs in `main.rs`.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.4,Create a new unified execution function in `ferri-core` that accepts the shared arguments and can be called by both `run` and `with`.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.5,Update the `with` command handler in `main.rs` to use the new unified execution function.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.6,"Update the `run` command handler in `main.rs` to use the new unified execution function, ensuring it runs in the background.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.7,Ensure secrets and context are correctly injected based on the flags for both commands in the new unified logic.,Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.8,"Update `README.md` examples to reflect the new, consistent syntax for `run` and `with`.",Done
+,T11,Unify `run` and `with` command syntax for intuitive use,T11.9,Add and/or update integration tests to validate the unified command behavior.,Done
+,T12,`flow` AI Pipeline Foundation,T12.1,"In `ferri-cli`, add `flow` subcommand with `run <FILE>` argument.",Done
+,T12,`flow` AI Pipeline Foundation,T12.2,"In `ferri-core`, add `serde_yaml` dependency.",Done
+,T12,`flow` AI Pipeline Foundation,T12.3,"In `ferri-core`, create a new `flow` module.",Done
+,T12,`flow` AI Pipeline Foundation,T12.4,"In `flow` module, define Rust structs for the new AI pipeline YAML format (e.g., `Pipeline`, `Step`, `ModelStep`, `ProcessStep`).",Done
+,T12,`flow` AI Pipeline Foundation,T12.5,"In `flow` module, implement a parser for the new `flow.yml` format.",Done
+,T12,`flow` AI Pipeline Foundation,T12.6,"In `flow` module, implement a core `run_pipeline` function that executes steps sequentially, piping stdout to stdin.",Done
+,T12,`flow` AI Pipeline Foundation,T12.7,"In `ferri-cli`, call `run_pipeline` from the `flow run` command handler, providing stdin from the parent `ferri` process.",Done
+,T12,`flow` AI Pipeline Foundation,T12.8,"In `ferri-core`, add unit tests for parsing a valid AI pipeline `flow.yml`.",Done
+,T12,`flow` AI Pipeline Foundation,T12.9,"In `ferri-cli/tests`, add an integration test for a simple `model -> process` pipeline.",Done
+,T13,`flow` Advanced I/O,T13.1,"In `flow` module's structs, add `input` and `output` fields to allow file-based I/O for steps.",Done
+,T13,`flow` Advanced I/O,T13.2,"In `run_pipeline`, implement logic to manage a map of named step outputs.",Done
+,T13,`flow` Advanced I/O,T13.3,"In `run_pipeline`, add logic to read from a file if `input` specifies a path.",Done
+,T13,`flow` Advanced I/O,T13.4,"In `run_pipeline`, add logic to read from a previous step's output if `input` specifies a step name.",Done
+,T13,`flow` Advanced I/O,T13.5,"In `run_pipeline`, add logic to write to a file if `output` specifies a path.",Done
+,T13,`flow` Advanced I/O,T13.6,"In `ferri-core`, add unit tests for the new I/O logic.",Done
+,T13,`flow` Advanced I/O,T13.7,"In `ferri-cli/tests`, add an integration test for a flow that uses file and inter-step I/O.",Done
+,T14,`flow` Ferri Integration,T14.1,"In `run_pipeline`, integrate `ferri_core::execute::prepare_command` for `ModelStep` execution.",Done
+,T14,`flow` Ferri Integration,T14.2,"Ensure `ModelStep` automatically handles model resolution, secret injection, and context injection via the `prepare_command` function.",Done
+,T14,`flow` Ferri Integration,T14.3,Update `run_pipeline` to correctly handle the `Command` object returned by `prepare_command`.,Done
+,T14,`flow` Ferri Integration,T14.4,"In `ferri-core`, add unit tests to verify that `prepare_command` is called correctly for `ModelStep`s.",Done
+,T14,`flow` Ferri Integration,T14.5,"In `ferri-cli/tests/`, add an integration test for a flow that uses a model requiring a secret.",Done
+,T15,`flow` Command Visualization,T15.1,"In `ferri-cli`, add `show <FILE>` subcommand to the `flow` command.",Done
+,T15,`flow` Command Visualization,T15.2,"In `flow` module, create a function to transform a parsed `Pipeline` struct into a `treetrunk`-compatible format.",Done
+,T15,`flow` Command Visualization,T15.3,"In `flow` module, implement the logic to execute the `treetrunk` binary with the transformed data.",Done
+,T15,`flow` Command Visualization,T15.4,"In `ferri-cli`, call the new visualization logic from the `flow show` command handler.",Done
+,T15,`flow` Command Visualization,T15.5,Create a `qa/flow_visualization_test_plan.md` with manual test steps.,Done
+,T15,`flow` Command Visualization,T15.6,"Add two sample flow files (`sample-flow-simple.yml`, `sample-flow-complex.yml`) for testing.",Done
+,T15,`flow` Command Visualization,T15.7,"In `ferri-cli/tests`, add an integration test for `ferri flow show` that checks for non-empty output.",Done
+,T16,`flow` Security Hardening,T16.1,"In `run_pipeline`, modify the `ProcessStep` execution to use `sh -c` to prevent shell injection vulnerabilities.",Done
+,T16,`flow` Security Hardening,T16.2,Update the failing integration test (`test_flow_run_shell_injection_vulnerability`) to assert success after the fix.,Done
+,T17,`flow` Visualization Bug,T17.1,"In `show_pipeline`, improve the text formatting to correctly handle multi-line prompts and other special characters.",Done
+,T17,`flow` Visualization Bug,T17.2,Add a unit test to verify that a pipeline with a multi-line prompt is visualized correctly.,Done
+,T18,Fix `ferri init` bug,T18.1,Modify `ferri_core::initialize_project` to write `[]` to `models.json` instead of an empty file.,Done
+,T18,Fix `ferri init` bug,T18.2,Add a unit test to `ferri-core` to verify `models.json` is created with the correct `[]` content.,Done
+,T19,Implement `ferri flow show`,T19.1,Remove the external `treetrunk` dependency from `ferri_core::flow::show_pipeline`.,Done
+,T19,Implement `ferri flow show`,T19.2,"Implement a text-based visualization for `ferri flow show` directly within the `show_pipeline` function.""",Done
+,T19,Implement `ferri flow show`,T19.3,Update `qa/flow_pipeline_test_plan.md` to remove the `treetrunk` prerequisite and reflect the new output.,Done
+,T20,Update `flow` documentation,T20.1,Update `qa/flow_pipeline_test_plan.md` with the correct YAML syntax for all `ferri flow` test cases.,Done
+,T20,Update `flow` documentation,T20.2,Add a note to `qa/flow_pipeline_test_plan.md` clarifying that `ferri init` must be run from the project root.,Done
+,T20,Update `flow` documentation,T20.3,Update the expected output for the model step in `qa/flow_pipeline_test_plan.md` to be more realistic.,Done
+,T21,Integrate `ratatui` for `flow show`,T21.1,"Add `ratatui` and a compatible backend (e.g., `ratatui-crossterm`) to `ferri-core`'s `Cargo.toml`.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.2,"In `ferri_core::flow`, create a new `tui` module for the visualization logic.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.3,"In the `tui` module, set up the terminal, main loop, and drawing logic for a basic `ratatui` application.",Done
+,T21,Integrate `ratatui` for `flow show`,T21.4,Refactor `show_pipeline` to call the new `tui` module's main function.,Done
+,T21,Integrate `ratatui` for `flow show`,T21.5,"In `ferri-cli/tests/`, add an integration test to confirm the `flow show` command runs without panicking.",Done
+,T22,Implement `flow show` graph visualization,T22.1,"In the `tui` module, design the UI layout using `ratatui` components (e.g., `Block`, `Paragraph`).",Done
+,T22,Implement `flow show` graph visualization,T22.2,Implement logic to represent the `Pipeline` struct as a graph data structure suitable for rendering.,Done
+,T22,Implement `flow show` graph visualization,T22.3,"Implement logic to draw nodes for each step in the pipeline, displaying the step's name and kind.",Done
+,T22,Implement `flow show` graph visualization,T22.4,"Implement logic to draw arrows or lines connecting the nodes to represent the flow of data (stdin, stdout, file I/O).",Done
+,T22,Implement `flow show` graph visualization,T22.5,Add colors and styling to the nodes and connectors to create a visually appealing graph.,Done
+,T22,Implement `flow show` graph visualization,T22.6,Update the `qa/flow_pipeline_test_plan.md` to include the new `ratatui`-based visualization and expected output.,Done
+,T23,Refactor `flow show` for Horizontal Layout,T23.1,"In `flow::tui`, change the main layout direction from `Vertical` to `Horizontal`.",Done
+,T23,Refactor `flow show` for Horizontal Layout,T23.2,Create a grid-based positioning system for steps instead of a simple list.,Done
+,T23,Refactor `flow show` for Horizontal Layout,T23.3,Update the rendering loop to place step blocks horizontally based on the new grid system.,Done
+,T24,Implement Advanced Graph Rendering,T24.1,"In `flow::tui`, add the `ratatui-canvas` crate to draw complex lines.",Done
+,T24,Implement Advanced Graph Rendering,T24.2,"Implement logic to calculate connector paths (start, end, intermediate points) on the grid.",Done
+,T24,Implement Advanced Graph Rendering,T24.3,Use the `Canvas` widget to draw lines and arrows for connectors between steps.,Done
+,T24,Implement Advanced Graph Rendering,T24.4,Implement logic to handle branching and merging of connectors for parallel steps.,Done
+,T25,Add I/O Labels to Connectors,T25.1,"In `flow::tui`, implement logic to determine the position for I/O labels along connector lines.",Done
+,T25,Add I/O Labels to Connectors,T25.2,Render the `input` and `output` fields (file paths or step names) as text labels on the connectors.,Done
+,T25,Add I/O Labels to Connectors,T25.3,"Add styling to the I/O labels (e.g., different colors for files vs. step outputs).",Done
+,T26,Advanced Lane Allocation Logic,T26.1,Refactor `App::from_pipeline` to implement a git-like lane allocation strategy.,Done
+,T26,Advanced Lane Allocation Logic,T26.2,Ensure linear steps stay in the same vertical lane.,Done
+,T26,Advanced Lane Allocation Logic,T26.3,Ensure forking steps correctly assign new lanes to their children.,Done
+,T26,Advanced Lane Allocation Logic,T26.4,Ensure merging steps correctly terminate lanes.,Done
 ,T27,Implement Git-Style Connectors,T27.1,Update the `GraphConnection` enum to include all required connection types (e.g., merges, forks, straight).,Done
-,T27,Implement Git-Style Connectors,T27.2,Rewrite the `Canvas` paint logic to draw connectors that span multiple lanes for forks.,Done,,,
-,T27,Implement Git-Style Connectors,T27.3,Rewrite the `Canvas` paint logic to draw connectors that merge multiple lanes back into a parent lane.,Done,,,
-,T27,Implement Git-Style Connectors,T27.4,Ensure linear steps are connected with a simple vertical line.,Done,,,
-,T28,Implement Node-Vertex Graph Layout,T28.1,Replace lane-based logic with a topological sort to determine node depth (x-coordinate).,Done,,,
-,T28,Implement Node-Vertex Graph Layout,T28.2,Calculate node breadth (y-coordinate) to spread nodes out vertically at each depth level.,Done,,,
-,T28,Implement Node-Vertex Graph Layout,T28.3,Center the entire calculated graph within the available terminal area.,Done,,,
-,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Done,,,
-,T29,Render Node-Vertex Graph,T29.2,On the canvas, draw lines for vertices connecting the calculated node positions.,Done,,
+,T27,Implement Git-Style Connectors,T27.2,Rewrite the `Canvas` paint logic to draw connectors that span multiple lanes for forks.,Done
+,T27,Implement Git-Style Connectors,T27.3,Rewrite the `Canvas` paint logic to draw connectors that merge multiple lanes back into a parent lane.,Done
+,T27,Implement Git-Style Connectors,T27.4,Ensure linear steps are connected with a simple vertical line.,Done
+,T28,Implement Node-Vertex Graph Layout,T28.1,Replace lane-based logic with a topological sort to determine node depth (x-coordinate).,Done
+,T28,Implement Node-Vertex Graph Layout,T28.2,Calculate node breadth (y-coordinate) to spread nodes out vertically at each depth level.,Done
+,T28,Implement Node-Vertex Graph Layout,T28.3,Center the entire calculated graph within the available terminal area.,Done
+,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Done
+,T29,Render Node-Vertex Graph,T29.2,On the canvas, draw lines for vertices connecting the calculated node positions.,Done,
 ,T29,Render Node-Vertex Graph,T29.3,On the canvas, draw a shape (e.g., circle) for each node with its number inside.,Done,
-,T29,Render Node-Vertex Graph,T29.4,In the bottom panel, render a numbered list that maps each node number to its full step name.,Done,,
-,T30,`ctx rm` Command,T30.1,"In `ferri-cli/src/main.rs`, add `rm <PATHS...>` subcommand to the `ctx` command.",Done,,,
-,T30,`ctx rm` Command,T30.2,"In `ferri-core/src/context.rs`, implement `remove_from_context(paths: Vec<PathBuf>)` function.",Done,,,
-,T30,`ctx rm` Command,T30.3,`remove_from_context` logic: Resolve paths and remove them from `.ferri/context.json`.,Done,,,
-,T30,`ctx rm` Command,T30.4,"In `ferri-core`, add unit tests for `remove_from_context`.",Done,,,
-,T30,`ctx rm` Command,T30.5,"In `ferri-cli/tests/`, add an integration test for `ferri ctx rm`.",Done,,,
-,T31,Remote Model Execution,T31.1,"In `ferri-core/src/execute.rs`, refactor `prepare_command` to handle a new `ModelProvider` enum (e.g., `Ollama`, `Google`).",Done,,,
-,T31,Remote Model Execution,T31.2,"In `execute.rs`, implement logic for the `Google` provider to make an HTTP POST request to the Gemini API.",Done,,,
-,T31,Remote Model Execution,T31.3,Ensure the `Google` provider logic correctly formats the JSON request body and includes the API key from secrets.,Done,,,
-,T31,Remote Model Execution,T31.4,Update `ferri-core/src/flow.rs` to pass the appropriate provider type to the execution logic.,Done,,,
-,T31,Remote Model Execution,T31.5,"In `ferri-core`, add unit tests to verify the correct HTTP request is constructed for a Google model.",Done,,,
-,T32,Create Demo Flow,T32.1,Create a sample Python file (`demo_script.py`) with intentional flaws for the code review.,Done,,,
-,T32,Create Demo Flow,T32.2,"Create the `code_review_flow.yml` file in the `pm` directory, defining the three-step workflow.",Done,,,
-,T32,Create Demo Flow,T32.3,"Update `README.md` with instructions on how to set up and run the new demo, including adding a `GOOGLE_API_KEY` secret.",Done,,,
-,T33,Real-Time Flow UI Foundation,T33.1,"In `ferri-cli/src/main.rs`, create a new `flow_run_tui` module.",Done,,,
-,T33,Real-Time Flow UI Foundation,T33.2,"In the new module, implement a `ratatui` TUI that displays a list of steps and their initial 'Pending' status.",Done,,,
-,T33,Real-Time Flow UI Foundation,T33.3,Refactor the `flow run` command in `main.rs` to launch this new TUI.,Done,,,
-,T34,Stream Command Output,T34.1,"In `ferri-core/src/flow.rs`, modify `run_pipeline` to accept a sender channel for real-time updates.",Done,,,
-,T34,Stream Command Output,T34.2,"For `ProcessStep`, spawn the command and read its stdout/stderr line-by-line, sending each line through the channel.",Done,,,
-,T34,Stream Command Output,T34.3,"For remote `ModelStep`, use `reqwest`'s streaming API to read the response body in chunks and send them through the channel.",Done,,,
-,T35,Integrate Streaming into TUI,T35.1,"In the `flow_run_tui` module, create a receiver for the channel from the core logic.",Done,,,
-,T35,Integrate Streaming into TUI,T35.2,"Update the TUI event loop to be non-blocking, checking for both user input and new messages from the channel.",Done,,,
-,T35,Integrate Streaming into TUI,T35.3,"When a message is received, update the corresponding step's status (e.g., 'Running') and display the output in a dedicated panel.",Done,,,
-,T35,Integrate Streaming into TUI,T35.4,Update the step status to 'Completed' or 'Failed' when the step finishes.,Done,,,
-,T36,Improve TUI Error Display,T36.1,"In `ferri-cli/src/flow_run_tui.rs`, add a state field to track the currently active/selected step.",Done,,,
-,T36,Improve TUI Error Display,T36.2,"When a step fails, store its detailed error message from the `StepStatus::Failed` variant.",Done,,,
-,T36,Improve TUI Error Display,T36.3,Modify the 'Output' panel to display the stored error message in a formatted block when a failed step is active.,Done,,,
-,T36,Improve TUI Error Display,T36.4,Style the error block with a red title and border to clearly indicate failure.,Done,,,
-,T37,Finalize Streaming and I/O,T37.1,"In `execute.rs`, change the Google provider URL to use the `streamGenerateContent` endpoint.",Done,,,
-,T37,Finalize Streaming and I/O,T37.2,"In `flow.rs`, refactor the `Remote` command logic to read the response as a stream.",Done,,,
-,T37,Finalize Streaming and I/O,T37.3,"In `flow.rs`, parse the streamed JSON chunks from the Gemini API and send the `text` field through the channel.",Done,,,
-,T37,Finalize Streaming and I/O,T37.4,"In `flow.rs`, refactor the `Local` command logic to accumulate streamed output before writing to a file.",Done,,,
-,T38,Implement True Streaming for Local Models,T38.1,"In execute.rs, modify the Ollama provider to use the /api/generate endpoint with stream: true.",Done,,,
-,T38,Implement True Streaming for Local Models,T38.2,"In flow.rs, adapt the Local command logic to handle a line-by-line JSON stream from the Ollama API.",Done,,,
-,T38,Implement True Streaming for Local Models,T38.3,"In flow.rs, parse each JSON object to extract the 'response' token and send it to the TUI.",Done,,,
-,T38,Implement True Streaming for Local Models,T38.4,"In flow.rs, ensure accumulated_stdout correctly assembles the full response for file output.",Done,,,
-,T38,Implement True Streaming for Local Models,T38.5,Verify that non-model process steps and remote models still function correctly after the changes.,Done,,,
-,T39,Add `secrets rm` Command,T39.1,"In main.rs, add a 'rm <KEY>' subcommand to the 'secrets' command enum.",Pending,,,
-,T39,Add `secrets rm` Command,T39.2,"In secrets.rs, implement the logic to read, decrypt, remove the key, re-encrypt, and write the secrets file.",Pending,,,
-,T39,Add `secrets rm` Command,T39.3,"In secrets.rs, ensure the command fails gracefully if the key does not exist.",Pending,,,
-,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Pending,,,
-,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Pending,,,
-,T22,Refactor `run_pipeline` for true remote streaming,T22.1,Modify the `PreparedCommand::Remote` match arm to read the response body in chunks.,Done,,,
-,T22,Refactor `run_pipeline` for true remote streaming,T22.2,Implement a streaming JSON parser to handle incomplete JSON objects.,Done,,,
-,T22,Refactor `run_pipeline` for true remote streaming,T22.3,Send `StepUpdate` messages for each chunk of the remote response.,Done,,,
-,T23,Add error handling for remote streaming,T23.1,Implement error handling for network errors during streaming.,Descoped,,,
-,T23,Add error handling for remote streaming,T23.2,Implement error handling for JSON parsing errors during streaming.,Descoped,,,
-,T24,Write tests for remote streaming,T24.1,Write a unit test for the streaming JSON parser.,Descoped,,,
-,T24,Write tests for remote streaming,T24.2,Write an integration test for a remote streaming flow.,Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.1,Add `tokio` and `reqwest` (with async features) to `ferri-core`'s `Cargo.toml`.,Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.2,Convert `ferri-core/src/execute.rs::prepare_command` to an `async` function.,Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.3,"In `execute.rs`, replace the `reqwest::blocking::Client` with an async `reqwest::Client`.",Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.4,Convert `ferri-core/src/flow.rs::run_pipeline` to an `async` function.,Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.5,"In `run_pipeline`, replace the `std::thread::spawn` with `tokio::spawn` for executing steps.",Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.6,"In `run_pipeline`, refactor the `PreparedCommand::Remote` match arm to use `await` and handle the async `reqwest` response stream.",Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.7,"In `run_pipeline`, use `tokio::io::BufReader` and `lines()` to stream the response from local `ProcessStep` commands asynchronously.",Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.8,Create a new `async` main function in `ferri-cli/src/main.rs` using the `#[tokio::main]` macro.,Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.9,Update the `flow run` command handler in `main.rs` to `await` the new `async run_pipeline` function.,Descoped,,,
-,T40,Asynchronous Streaming Refactor,T40.10,"Temporarily replace the `flow_run_tui` with the simple `run_plain` logic, making it `async` to fit the new architecture.",Descoped,,,
-,T41,Unit Testing for Async Streaming,T41.1,Create a new test module in `ferri-core/src/flow.rs` for async tests (`#[tokio::test]`).,Descoped,,,
-,T41,Unit Testing for Async Streaming,T41.2,"Write a unit test for `run_pipeline` that uses a mock HTTP server (e.g., `wiremock`) to simulate a streaming Gemini response.",Descoped,,,
-,T41,Unit Testing for Async Streaming,T41.3,"In the test, assert that `StepUpdate` messages are received correctly for each streamed chunk from the mock server.",Descoped,,,
+,T29,Render Node-Vertex Graph,T29.4,In the bottom panel, render a numbered list that maps each node number to its full step name.,Done,
+,T30,`ctx rm` Command,T30.1,"In `ferri-cli/src/main.rs`, add `rm <PATHS...>` subcommand to the `ctx` command.",Done
+,T30,`ctx rm` Command,T30.2,"In `ferri-core/src/context.rs`, implement `remove_from_context(paths: Vec<PathBuf>)` function.",Done
+,T30,`ctx rm` Command,T30.3,`remove_from_context` logic: Resolve paths and remove them from `.ferri/context.json`.,Done
+,T30,`ctx rm` Command,T30.4,"In `ferri-core`, add unit tests for `remove_from_context`.",Done
+,T30,`ctx rm` Command,T30.5,"In `ferri-cli/tests/`, add an integration test for `ferri ctx rm`.",Done
+,T31,Remote Model Execution,T31.1,"In `ferri-core/src/execute.rs`, refactor `prepare_command` to handle a new `ModelProvider` enum (e.g., `Ollama`, `Google`).",Done
+,T31,Remote Model Execution,T31.2,"In `execute.rs`, implement logic for the `Google` provider to make an HTTP POST request to the Gemini API.",Done
+,T31,Remote Model Execution,T31.3,Ensure the `Google` provider logic correctly formats the JSON request body and includes the API key from secrets.,Done
+,T31,Remote Model Execution,T31.4,Update `ferri-core/src/flow.rs` to pass the appropriate provider type to the execution logic.,Done
+,T31,Remote Model Execution,T31.5,"In `ferri-core`, add unit tests to verify the correct HTTP request is constructed for a Google model.",Done
+,T32,Create Demo Flow,T32.1,Create a sample Python file (`demo_script.py`) with intentional flaws for the code review.,Done
+,T32,Create Demo Flow,T32.2,"Create the `code_review_flow.yml` file in the `pm` directory, defining the three-step workflow.",Done
+,T32,Create Demo Flow,T32.3,"Update `README.md` with instructions on how to set up and run the new demo, including adding a `GOOGLE_API_KEY` secret.",Done
+,T33,Real-Time Flow UI Foundation,T33.1,"In `ferri-cli/src/main.rs`, create a new `flow_run_tui` module.",Done
+,T33,Real-Time Flow UI Foundation,T33.2,"In the new module, implement a `ratatui` TUI that displays a list of steps and their initial 'Pending' status.",Done
+,T33,Real-Time Flow UI Foundation,T33.3,Refactor the `flow run` command in `main.rs` to launch this new TUI.,Done
+,T34,Stream Command Output,T34.1,"In `ferri-core/src/flow.rs`, modify `run_pipeline` to accept a sender channel for real-time updates.",Done
+,T34,Stream Command Output,T34.2,"For `ProcessStep`, spawn the command and read its stdout/stderr line-by-line, sending each line through the channel.",Done
+,T34,Stream Command Output,T34.3,"For remote `ModelStep`, use `reqwest`'s streaming API to read the response body in chunks and send them through the channel.",Done
+,T35,Integrate Streaming into TUI,T35.1,"In the `flow_run_tui` module, create a receiver for the channel from the core logic.",Done
+,T35,Integrate Streaming into TUI,T35.2,"Update the TUI event loop to be non-blocking, checking for both user input and new messages from the channel.",Done
+,T35,Integrate Streaming into TUI,T35.3,"When a message is received, update the corresponding step's status (e.g., 'Running') and display the output in a dedicated panel.",Done
+,T35,Integrate Streaming into TUI,T35.4,Update the step status to 'Completed' or 'Failed' when the step finishes.,Done
+,T36,Improve TUI Error Display,T36.1,"In `ferri-cli/src/flow_run_tui.rs`, add a state field to track the currently active/selected step.",Done
+,T36,Improve TUI Error Display,T36.2,"When a step fails, store its detailed error message from the `StepStatus::Failed` variant.",Done
+,T36,Improve TUI Error Display,T36.3,Modify the 'Output' panel to display the stored error message in a formatted block when a failed step is active.,Done
+,T36,Improve TUI Error Display,T36.4,Style the error block with a red title and border to clearly indicate failure.,Done
+,T37,Finalize Streaming and I/O,T37.1,"In `execute.rs`, change the Google provider URL to use the `streamGenerateContent` endpoint.",Done
+,T37,Finalize Streaming and I/O,T37.2,"In `flow.rs`, refactor the `Remote` command logic to read the response as a stream.",Done
+,T37,Finalize Streaming and I/O,T37.3,"In `flow.rs`, parse the streamed JSON chunks from the Gemini API and send the `text` field through the channel.",Done
+,T37,Finalize Streaming and I/O,T37.4,"In `flow.rs`, refactor the `Local` command logic to accumulate streamed output before writing to a file.",Done
+,T38,Implement True Streaming for Local Models,T38.1,"In execute.rs, modify the Ollama provider to use the /api/generate endpoint with stream: true.",Done
+,T38,Implement True Streaming for Local Models,T38.2,"In flow.rs, adapt the Local command logic to handle a line-by-line JSON stream from the Ollama API.",Done
+,T38,Implement True Streaming for Local Models,T38.3,"In flow.rs, parse each JSON object to extract the 'response' token and send it to the TUI.",Done
+,T38,Implement True Streaming for Local Models,T38.4,"In flow.rs, ensure accumulated_stdout correctly assembles the full response for file output.",Done
+,T38,Implement True Streaming for Local Models,T38.5,Verify that non-model process steps and remote models still function correctly after the changes.,Done
+,T39,Add `secrets rm` Command,T39.1,"In main.rs, add a 'rm <KEY>' subcommand to the 'secrets' command enum.",Pending
+,T39,Add `secrets rm` Command,T39.2,"In secrets.rs, implement the logic to read, decrypt, remove the key, re-encrypt, and write the secrets file.",Pending
+,T39,Add `secrets rm` Command,T39.3,"In secrets.rs, ensure the command fails gracefully if the key does not exist.",Pending
+,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Pending
+,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Pending
+,T22,Refactor `run_pipeline` for true remote streaming,T22.1,Modify the `PreparedCommand::Remote` match arm to read the response body in chunks.,Done
+,T22,Refactor `run_pipeline` for true remote streaming,T22.2,Implement a streaming JSON parser to handle incomplete JSON objects.,Done
+,T22,Refactor `run_pipeline` for true remote streaming,T22.3,Send `StepUpdate` messages for each chunk of the remote response.,Done
+,T23,Add error handling for remote streaming,T23.1,Implement error handling for network errors during streaming.,Descoped
+,T23,Add error handling for remote streaming,T23.2,Implement error handling for JSON parsing errors during streaming.,Descoped
+,T24,Write tests for remote streaming,T24.1,Write a unit test for the streaming JSON parser.,Descoped
+,T24,Write tests for remote streaming,T24.2,Write an integration test for a remote streaming flow.,Descoped
+,T40,Asynchronous Streaming Refactor,T40.1,Add `tokio` and `reqwest` (with async features) to `ferri-core`'s `Cargo.toml`.,Descoped
+,T40,Asynchronous Streaming Refactor,T40.2,Convert `ferri-core/src/execute.rs::prepare_command` to an `async` function.,Descoped
+,T40,Asynchronous Streaming Refactor,T40.3,"In `execute.rs`, replace the `reqwest::blocking::Client` with an async `reqwest::Client`.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.4,Convert `ferri-core/src/flow.rs::run_pipeline` to an `async` function.,Descoped
+,T40,Asynchronous Streaming Refactor,T40.5,"In `run_pipeline`, replace the `std::thread::spawn` with `tokio::spawn` for executing steps.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.6,"In `run_pipeline`, refactor the `PreparedCommand::Remote` match arm to use `await` and handle the async `reqwest` response stream.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.7,"In `run_pipeline`, use `tokio::io::BufReader` and `lines()` to stream the response from local `ProcessStep` commands asynchronously.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.8,Create a new `async` main function in `ferri-cli/src/main.rs` using the `#[tokio::main]` macro.,Descoped
+,T40,Asynchronous Streaming Refactor,T40.9,Update the `flow run` command handler in `main.rs` to `await` the new `async run_pipeline` function.,Descoped
+,T40,Asynchronous Streaming Refactor,T40.10,"Temporarily replace the `flow_run_tui` with the simple `run_plain` logic, making it `async` to fit the new architecture.",Descoped
+,T41,Unit Testing for Async Streaming,T41.1,Create a new test module in `ferri-core/src/flow.rs` for async tests (`#[tokio::test]`).,Descoped
+,T41,Unit Testing for Async Streaming,T41.2,"Write a unit test for `run_pipeline` that uses a mock HTTP server (e.g., `wiremock`) to simulate a streaming Gemini response.",Descoped
+,T41,Unit Testing for Async Streaming,T41.3,"In the test, assert that `StepUpdate` messages are received correctly for each streamed chunk from the mock server.",Descoped
 ,T41,Unit Testing for Async Streaming,T41.4,"Write a unit test for `run_pipeline` that executes a simple local `ProcessStep` (e.g., `echo 'line1
-line2'`).",Descoped,,,
-,T41,Unit Testing for Async Streaming,T41.5,"In the test, assert that `StepUpdate` messages are received for each line of output from the local process.",Descoped,,,
-,T42,Revert Project to Stable Streaming Foundation,T42.1,Preserve the current `pm/sprint_backlog.csv` in a temporary location.,Done,,,
-,T42,Revert Project to Stable Streaming Foundation,T42.2,Reset the entire git repository to the stable commit `84b38ca`.,Done,,,
-,T42,Revert Project to Stable Streaming Foundation,T42.3,Restore the preserved `pm/sprint_backlog.csv` file.,Done,,,
-,T42,Revert Project to Stable Streaming Foundation,T42.4,Re-install the `ferri` binary from the reverted source code to ensure it's globally available.,Done,,,
-,T42,Revert Project to Stable Streaming Foundation,T42.5,"Verify that `ferri flow run pm/code_review_flow.yml` executes without crashing, confirming the revert was successful.",Done,,,
-,T43,Re-implement TTY check for `flow run`,T43.1,Add the `atty` crate to `ferri-cli`.,Done,,,
-,T43,Re-implement TTY check for `flow run`,T43.2,"In `flow_run_tui.rs`, add a check for an interactive terminal.",Done,,,
-,T43,Re-implement TTY check for `flow run`,T43.3,"If the terminal is not interactive, fall back to a plain text output.",Done,,,
-,T44,Implement true streaming for remote models,T44.1,"In `ferri-core/src/flow.rs`, modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done,,,
-,T44,Implement true streaming for remote models,T44.2,Implement a streaming JSON parser to handle incomplete JSON objects.,Done,,,
-,T44,Implement true streaming for remote models,T44.3,Send `StepUpdate` messages for each chunk of the remote response.,Done,,,
-,T45,Implement `models rm` Command,T45.1,"In `ferri-cli`, verify `models rm <ALIAS>` subcommand is defined.",Done,,,
-,T45,Implement `models rm` Command,T45.2,"In `ferri-core`, implement `remove_model` logic to delete from `.ferri/models.json`.",Done,,,
-,T45,Implement `models rm` Command,T45.3,"In `ferri-core`, `remove_model` should also delete the model file from disk.",Done,,,
-,T45,Implement `models rm` Command,T45.4,"In `ferri-cli`, add a confirmation prompt before deleting a model.",Done,,,
-,T45,Implement `models rm` Command,T45.5,Add unit tests for `remove_model` in `ferri-core`.,Done,,,
-,T45,Implement `models rm` Command,T45.6,Add integration tests for `ferri models rm` in `ferri-cli`.,Done,,,
+line2'`).",Descoped
+,T41,Unit Testing for Async Streaming,T41.5,"In the test, assert that `StepUpdate` messages are received for each line of output from the local process.",Descoped
+,T42,Revert Project to Stable Streaming Foundation,T42.1,Preserve the current `pm/sprint_backlog.csv` in a temporary location.,Done
+,T42,Revert Project to Stable Streaming Foundation,T42.2,Reset the entire git repository to the stable commit `84b38ca`.,Done
+,T42,Revert Project to Stable Streaming Foundation,T42.3,Restore the preserved `pm/sprint_backlog.csv` file.,Done
+,T42,Revert Project to Stable Streaming Foundation,T42.4,Re-install the `ferri` binary from the reverted source code to ensure it's globally available.,Done
+,T42,Revert Project to Stable Streaming Foundation,T42.5,"Verify that `ferri flow run pm/code_review_flow.yml` executes without crashing, confirming the revert was successful.",Done
+,T43,Re-implement TTY check for `flow run`,T43.1,Add the `atty` crate to `ferri-cli`.,Done
+,T43,Re-implement TTY check for `flow run`,T43.2,"In `flow_run_tui.rs`, add a check for an interactive terminal.",Done
+,T43,Re-implement TTY check for `flow run`,T43.3,"If the terminal is not interactive, fall back to a plain text output.",Done
+,T44,Implement true streaming for remote models,T44.1,"In `ferri-core/src/flow.rs`, modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
+,T44,Implement true streaming for remote models,T44.2,Implement a streaming JSON parser to handle incomplete JSON objects.,Done
+,T44,Implement true streaming for remote models,T44.3,Send `StepUpdate` messages for each chunk of the remote response.,Done
+,T45,Implement `models rm` Command,T45.1,"In `ferri-cli`, verify `models rm <ALIAS>` subcommand is defined.",Done
+,T45,Implement `models rm` Command,T45.2,"In `ferri-core`, implement `remove_model` logic to delete from `.ferri/models.json`.",Done
+,T45,Implement `models rm` Command,T45.3,"In `ferri-core`, `remove_model` should also delete the model file from disk.",Done
+,T45,Implement `models rm` Command,T45.4,"In `ferri-cli`, add a confirmation prompt before deleting a model.",Done
+,T45,Implement `models rm` Command,T45.5,Add unit tests for `remove_model` in `ferri-core`.,Done
+,T45,Implement `models rm` Command,T45.6,Add integration tests for `ferri models rm` in `ferri-cli`.,Done
+,T39,Add `secrets rm` Command,T39.1,"In main.rs, add a 'rm <KEY>' subcommand to the 'secrets' command enum.",Done
+,T39,Add `secrets rm` Command,T39.2,"In secrets.rs, implement the logic to read, decrypt, remove the key, re-encrypt, and write the secrets file.",Done
+,T39,Add `secrets rm` Command,T39.3,"In secrets.rs, ensure the command fails gracefully if the key does not exist.",Done
+,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Done
+,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Done
