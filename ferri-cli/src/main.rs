@@ -116,6 +116,11 @@ enum SecretsCommand {
         /// The value of the secret
         value: String,
     },
+    /// Remove a secret
+    Rm {
+        /// The name of the secret to remove
+        key: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -287,6 +292,12 @@ fn main() {
                 match ferri_core::secrets::set_secret(&current_path, key, value) {
                     Ok(_) => println!("Secret '{}' set successfully.", key),
                     Err(e) => eprintln!("Error: Failed to set secret - {}", e),
+                }
+            }
+            SecretsCommand::Rm { key } => {
+                match ferri_core::secrets::remove_secret(&current_path, key) {
+                    Ok(_) => println!("Secret '{}' removed successfully.", key),
+                    Err(e) => eprintln!("Error: Failed to remove secret - {}", e),
                 }
             }
         },
