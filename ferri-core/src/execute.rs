@@ -113,12 +113,10 @@ pub fn prepare_command(
             ModelProvider::Ollama => {
                 let mut command = Command::new("ollama");
                 let final_prompt = if args.use_context {
-                    let full_context = context::get_full_multimodal_context(base_path)?;
-                    // NOTE: Ollama doesn't support multimodal input in the same way as Gemini yet.
-                    // We will only use the text context for now.
+                    let full_context = context::get_full_context(base_path)?;
                     format!(
                         "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
-                        full_context.text_content.trim(),
+                        full_context.trim(),
                         prompt
                     )
                 } else {
