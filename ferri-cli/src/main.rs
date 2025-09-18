@@ -246,17 +246,29 @@ fn main() {
                                     let status = response.status();
                                     let body = response.text().unwrap_or_default();
                                     if status.is_success() {
-                                        let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
-                                        if let Ok(json) = parsed {
-                                            if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                                println!("{}", text);
+                                        let parsed: Result<Vec<serde_json::Value>, _> = serde_json::from_str(&body);
+                                        if let Ok(json_array) = parsed {
+                                            let mut full_text = String::new();
+                                            for json in json_array {
+                                                if let Some(text) = json.get("candidates")
+                                                    .and_then(|c| c.get(0))
+                                                    .and_then(|c| c.get("content"))
+                                                    .and_then(|c| c.get("parts"))
+                                                    .and_then(|p| p.get(0))
+                                                    .and_then(|p| p.get("text"))
+                                                    .and_then(|t| t.as_str()) {
+                                                    full_text.push_str(text);
+                                                }
+                                            }
+                                            if !full_text.is_empty() {
+                                                println!("{}", full_text);
                                             } else {
                                                 eprintln!("Error: Could not extract text from API response.");
                                                 eprintln!("Full response: {}", body);
                                                 std::process::exit(1);
                                             }
                                         } else {
-                                            eprintln!("Error: Failed to parse API response as JSON.");
+                                            eprintln!("Error: Failed to parse API response as a JSON array.");
                                             eprintln!("Full response: {}", body);
                                             std::process::exit(1);
                                         }
