@@ -129,7 +129,7 @@ pub fn prepare_command(
             }
             ModelProvider::Google => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
-                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?key={}", model.model_name, api_key);
+                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent", model.model_name);
 
                 let mut parts = Vec::new();
 
@@ -165,15 +165,15 @@ pub fn prepare_command(
                 let body = json!({ "contents": [{ "parts": parts }] });
 
                 let client = reqwest::blocking::Client::new();
-                let request = client.post(&url).json(&body);
+                let request = client.post(&url).header("x-goog-api-key", api_key).json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::GoogleGeminiImage => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
-                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model.model_name, api_key);
+                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model.model_name);
                 let body = json!({ "contents": [{ "parts": [{ "text": prompt }] }] });
                 let client = reqwest::blocking::Client::new();
-                let request = client.post(&url).json(&body);
+                let request = client.post(&url).header("x-goog-api-key", api_key).json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {
