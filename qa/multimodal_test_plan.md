@@ -1,71 +1,73 @@
-# Multimodal Functionality Test Plan
+# Manual QA Test Plan: Multimodal `with` Command
 
-**Objective:** To verify that `ferri` can correctly handle multimodal context (text and images) when using the `with` command with a compatible remote model.
+This document provides a step-by-step walkthrough to manually test `ferri`'s ability to handle multimodal context (images and text) with the `with` command.
+
+**Prerequisites:**
+1.  The latest version of `ferri` is installed globally (`cargo install --path ferri-cli`).
+2.  You are in a clean test directory (e.g., `~/ferri-multimodal-test`).
+3.  The `ferri init` command has been run in this directory.
+4.  You have a Google AI API key.
 
 ---
 
-### **Test Case 1: Image and Text Context Injection**
+### Test Case 1: Image and Text Context Injection
 
-**Description:** This test ensures that both an image file and a text file from the context are correctly processed by a remote model.
-
-**Prerequisites:**
-1.  A Google API key is set as a secret (`ferri secrets set GOOGLE_API_KEY "..."`).
-2.  A multimodal-capable Google model is registered (e.g., `ferri models add gemini-flash ...`).
-3.  A sample image file (e.g., `test_image.jpg`) exists.
-4.  A sample text file (e.g., `test_doc.txt`) with known content exists.
+**Goal:** Verify that `ferri` can send an image and a text prompt to a remote model and receive a correct, context-aware response.
 
 **Steps:**
-1.  Clear the context: `ferri ctx rm --all` (or manually remove items).
-2.  Add the image to the context: `ferri ctx add test_image.jpg`.
-3.  Add the text file to the context: `ferri ctx add test_doc.txt`.
-4.  Verify both files are in the context: `ferri ctx ls`.
-5.  Execute the `with` command, asking the model to describe the image and reference the text file:
+
+1.  **Initialize a project:**
     ```bash
-    ferri with --model gemini-flash --ctx -- "Describe the image. Does it relate to the content in the document?"
+    mkdir ~/ferri-multimodal-test
+    cd ~/ferri-multimodal-test
+    ferri init
     ```
 
-**Expected Result:**
-- The command executes successfully without errors.
-- The output from the model should be a description of `test_image.jpg` and should also reference the content of `test_doc.txt`.
-
----
-
-### **Test Case 2: Text-Only Context with Multimodal Model**
-
-**Description:** This test verifies that the command still works correctly when only text files are in the context, even when using a multimodal model.
-
-**Prerequisites:**
-1.  Same as Test Case 1, but without the image file.
-
-**Steps:**
-1.  Clear the context.
-2.  Add only the text file to the context: `ferri ctx add test_doc.txt`.
-3.  Execute the `with` command:
+2.  **Set the Google API Key Secret:**
+    *   Replace `"your-api-key-here"` with your actual key.
     ```bash
-    ferri with --model gemini-flash --ctx -- "Summarize the document."
+    ferri secrets set GOOGLE_API_KEY "your-api-key-here"
     ```
 
-**Expected Result:**
-- The command executes successfully.
-- The output is a summary of the content in `test_doc.txt`.
-
----
-
-### **Test Case 3: No Context**
-
-**Description:** This test ensures the `--ctx` flag is handled gracefully when the context is empty.
-
-**Prerequisites:**
-1.  Same as Test Case 1.
-
-**Steps:**
-1.  Clear the context.
-2.  Verify the context is empty: `ferri ctx ls`.
-3.  Execute the `with` command with the `--ctx` flag:
+3.  **Register a Multimodal Model:**
+    *   Register the Gemini 1.5 Flash model, which is capable of processing images.
     ```bash
-    ferri with --model gemini-flash --ctx -- "What is the capital of France?"
+    ferri models add gemini-flash --provider google --api-key-secret GOOGLE_API_KEY --model-name gemini-1.5-flash-latest
+    ```
+    *   Verify the model was added:
+    ```bash
+    ferri models ls
     ```
 
-**Expected Result:**
-- The command executes successfully.
-- The output should be "Paris" or a similar correct answer, demonstrating the model call worked without any context injection.
+4.  **Create a Sample Image:**
+    *   This test requires an image. You can use any `.jpg`, `.png`, or `.webp` file.
+    *   For this example, save an image of a cat and name it `cat_photo.jpg` in your test directory.
+
+5.  **Create a Sample Text File:**
+    *   Create a new file named `instructions.txt` and paste the following text into it.
+    ```text
+    Your primary goal is to identify the main subject in the image. Your secondary goal is to guess its name. Based on the image, a good name would be "Whiskers".
+    ```
+
+6.  **Add Files to Context:**
+    *   Add both the image and the text file to the `ferri` context.
+    ```bash
+    ferri ctx add cat_photo.jpg
+    ferri ctx add instructions.txt
+    ```
+    *   Verify they were added:
+    ```bash
+    ferri ctx ls
+    ```
+
+7.  **Run the `with` Command:**
+    *   Execute the `with` command, using the `--ctx` flag to send the image and text file. The prompt will ask the model to follow the instructions from the text file.
+    ```bash
+    ferri with --model gemini-flash --ctx -- "Follow the instructions in the provided document to analyze the image."
+    ```
+
+8.  **Verify the Output:**
+    *   The command should execute without any errors.
+    *   The output from the model should be a response that both identifies the cat in the image and suggests the name "Whiskers", as specified in `instructions.txt`.
+
+This confirms that the model correctly received and processed both the image and the text context.
