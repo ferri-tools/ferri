@@ -8,6 +8,8 @@ use std::io::{self, Error, ErrorKind};
 use std::path::Path;
 use std::process::Command;
 use std::fs;
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 
 // --- Structs for deserializing Gemini API responses ---
 #[allow(dead_code)]
@@ -94,26 +96,62 @@ pub fn prepare_command(
             None
         };
 
-        let mut prompt = final_command_with_args.join(" ");
-        if args.use_context {
-            prompt = inject_context(base_path, &prompt)?;
-        }
+        let prompt = final_command_with_args.join(" ");
 
         match provider {
             ModelProvider::Ollama => {
                 let mut command = Command::new("ollama");
-                command.arg("run").arg(&model.model_name).arg(prompt);
+                let final_prompt = if args.use_context {
+                    let full_context = context::get_full_multimodal_context(base_path)?;
+                    // NOTE: Ollama doesn't support multimodal input in the same way as Gemini yet.
+                    // We will only use the text context for now.
+                    format!(
+                        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
+                        full_context.text_content.trim(),
+                        prompt
+                    )
+                } else {
+                    prompt
+                };
+                command.arg("run").arg(&model.model_name).arg(final_prompt);
                 Ok((PreparedCommand::Local(command), decrypted_secrets))
             }
             ModelProvider::Google => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
                 let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?key={}", model.model_name, api_key);
-                
-                let body = json!({
-                    "contents": [{
-                        "parts": [{"text": prompt}]
-                    }]
-                });
+
+                let mut parts = Vec::new();
+
+                if args.use_context {
+                    let full_context = context::get_full_multimodal_context(base_path)?;
+                    let context_prompt = format!(
+                        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
+                        full_context.text_content.trim(),
+                        prompt
+                    );
+                    parts.push(json!({ "text": context_prompt }));
+
+                    for image_file in full_context.image_files {
+                        let image_data = fs::read(&image_file.path)?;
+                        let encoded_image = STANDARD.encode(image_data);
+                        let mime_type = match image_file.content_type {
+                            context::ContentType::Png => "image/png",
+                            context::ContentType::Jpeg => "image/jpeg",
+                            context::ContentType::WebP => "image/webp",
+                            _ => "application/octet-stream",
+                        };
+                        parts.push(json!({
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": encoded_image
+                            }
+                        }));
+                    }
+                } else {
+                    parts.push(json!({ "text": prompt }));
+                }
+
+                let body = json!({ "contents": [{ "parts": parts }] });
 
                 let client = reqwest::blocking::Client::new();
                 let request = client.post(&url).json(&body);
@@ -134,29 +172,6 @@ pub fn prepare_command(
         command.args(command_args);
         Ok((PreparedCommand::Local(command), decrypted_secrets))
     }
-}
-
-// Helper function to inject context into a prompt
-fn inject_context(base_path: &Path, prompt: &str) -> io::Result<String> {
-    let context_files = context::list_context(base_path)?;
-    if context_files.is_empty() {
-        return Ok(prompt.to_string());
-    }
-
-    let mut full_context = String::new();
-    for file_path_str in context_files {
-        let file_path = base_path.join(&file_path_str);
-        if file_path.exists() {
-            let content = fs::read_to_string(file_path)?;
-            full_context.push_str(&format!("File: {}\nContent:\n{}\n\n", file_path_str, content));
-        }
-    }
-
-    Ok(format!(
-        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
-        full_context.trim(),
-        prompt
-    ))
 }
 
 #[cfg(test)]

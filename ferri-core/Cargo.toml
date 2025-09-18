@@ -9,13 +9,14 @@ atty = "0.2.14"
 base64 = "0.22.1"
 chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
+crossbeam-channel = "0.5.15"
 crossterm = "0.27.0"
 glob = "0.3.1"
 magic-crypt = "3.1.13"
-nix = { version = "0.28.0", features = ["process"] }
+nix = { version = "0.28.0", features = ["process", "signal"] }
 petgraph = "0.6.5"
+rand = "0.8.5"
 ratatui = { version = "0.26.3", features = ["all-widgets"] }
-ratatui-canvas = "0.1.0"
 reqwest = { version = "0.12.4", features = ["blocking", "stream", "json"] }
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"

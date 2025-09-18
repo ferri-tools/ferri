@@ -112,3 +112,33 @@ pub fn get_full_context(base_path: &Path) -> io::Result<String> {
 
     Ok(full_context)
 }
+
+#[derive(Debug, Default)]
+pub struct FullContext {
+    pub text_content: String,
+    pub image_files: Vec<ContextFile>,
+}
+
+/// Reads all files from the context, separating text and images.
+pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<FullContext> {
+    let context_path = base_path.join(".ferri").join("context.json");
+    let files = read_context_file(&context_path)?;
+    let mut full_context = FullContext::default();
+
+    for context_file in files {
+        match context_file.content_type {
+            ContentType::Text => {
+                let content = fs::read_to_string(&context_file.path)?;
+                full_context.text_content.push_str(&format!(
+                    "\n--- File: {} ---\n{}\n",
+                    context_file.path, content
+                ));
+            }
+            ContentType::Png | ContentType::Jpeg | ContentType::WebP => {
+                full_context.image_files.push(context_file);
+            }
+        }
+    }
+
+    Ok(full_context)
+}
