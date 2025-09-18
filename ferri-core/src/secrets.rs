@@ -17,45 +17,35 @@ struct SecretsContainer {
 }
 
 /// Sets a secret in the encrypted secrets file.
-///
-/// This function reads the `.ferri/secrets.json` file, decrypts the content,
-/// adds or updates the secret, re-encrypts the data, and writes it back to the file.
-///
-/// # Arguments
-///
-/// * `base_path` - The root of the project, where the `.ferri` directory is located.
-/// * `key` - The name of the secret to set.
-/// * `value` - The value of the secret.
-///
-/// # Errors
-///
-/// Returns an error if the secrets file cannot be read, parsed, encrypted, or written.
 pub fn set_secret(base_path: &Path, key: &str, value: &str) -> io::Result<()> {
     let secrets_path = base_path.join(".ferri").join("secrets.json");
     let crypt = new_magic_crypt!(ENCRYPTION_KEY, 256);
 
-    // Read the existing file
-    let file_content = fs::read_to_string(&secrets_path)?;
-
-    let mut secrets: HashMap<String, String> = if file_content.trim().is_empty() || file_content == "{}" {
-        HashMap::new()
-    } else {
-        let container: SecretsContainer = serde_json::from_str(&file_content)?;
-        let decrypted_string = crypt.decrypt_base64_to_string(&container.encrypted_data)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        serde_json::from_str(&decrypted_string)?
-    };
+    let mut secrets = read_all_secrets_internal(base_path, &secrets_path, &crypt)?;
 
     // Insert or update the secret
     secrets.insert(key.to_string(), value.to_string());
 
     // Encrypt and write back
-    let new_json_string = serde_json::to_string(&secrets)?;
-    let encrypted_string = crypt.encrypt_str_to_base64(&new_json_string);
-    let new_container = SecretsContainer { encrypted_data: encrypted_string };
-    let new_file_content = serde_json::to_string_pretty(&new_container)?;
+    write_all_secrets_internal(&secrets_path, &crypt, &secrets)?;
 
-    fs::write(secrets_path, new_file_content)?;
+    Ok(())
+}
+
+/// Removes a secret from the encrypted secrets file.
+pub fn remove_secret(base_path: &Path, key: &str) -> io::Result<()> {
+    let secrets_path = base_path.join(".ferri").join("secrets.json");
+    let crypt = new_magic_crypt!(ENCRYPTION_KEY, 256);
+
+    let mut secrets = read_all_secrets_internal(base_path, &secrets_path, &crypt)?;
+
+    // Remove the secret
+    if secrets.remove(key).is_none() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, format!("Secret '{}' not found.", key)));
+    }
+
+    // Encrypt and write back
+    write_all_secrets_internal(&secrets_path, &crypt, &secrets)?;
 
     Ok(())
 }
@@ -64,7 +54,25 @@ pub fn set_secret(base_path: &Path, key: &str, value: &str) -> io::Result<()> {
 pub fn read_all_secrets(base_path: &Path) -> io::Result<HashMap<String, String>> {
     let secrets_path = base_path.join(".ferri").join("secrets.json");
     let crypt = new_magic_crypt!(ENCRYPTION_KEY, 256);
+    read_all_secrets_internal(base_path, &secrets_path, &crypt)
+}
 
+/// Reads and decrypts a single secret by its key.
+pub fn read_secret(base_path: &Path, key: &str) -> io::Result<String> {
+    let secrets = read_all_secrets(base_path)?;
+    secrets
+        .get(key)
+        .cloned()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("Secret '{}' not found.", key)))
+}
+
+// --- Internal Helper Functions ---
+
+fn read_all_secrets_internal(
+    base_path: &Path,
+    secrets_path: &Path,
+    crypt: &magic_crypt::MagicCrypt,
+) -> io::Result<HashMap<String, String>> {
     let file_content = match fs::read_to_string(&secrets_path) {
         Ok(content) => content,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
@@ -83,14 +91,19 @@ pub fn read_all_secrets(base_path: &Path) -> io::Result<HashMap<String, String>>
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-/// Reads and decrypts a single secret by its key.
-pub fn read_secret(base_path: &Path, key: &str) -> io::Result<String> {
-    let secrets = read_all_secrets(base_path)?;
-    secrets
-        .get(key)
-        .cloned()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("Secret '{}' not found.", key)))
+fn write_all_secrets_internal(
+    secrets_path: &Path,
+    crypt: &magic_crypt::MagicCrypt,
+    secrets: &HashMap<String, String>,
+) -> io::Result<()> {
+    let new_json_string = serde_json::to_string(secrets)?;
+    let encrypted_string = crypt.encrypt_str_to_base64(&new_json_string);
+    let new_container = SecretsContainer { encrypted_data: encrypted_string };
+    let new_file_content = serde_json::to_string_pretty(&new_container)?;
+
+    fs::write(secrets_path, new_file_content)
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -98,51 +111,37 @@ mod tests {
     use tempfile::tempdir;
     use crate::initialize_project;
 
-    // Helper function to read secrets directly for testing
-    fn read_secret_for_test(base_path: &Path, key: &str) -> Option<String> {
-        let secrets_path = base_path.join(".ferri").join("secrets.json");
-        let crypt = new_magic_crypt!(ENCRYPTION_KEY, 256);
-        let file_content = fs::read_to_string(&secrets_path).ok()?;
-        if file_content.trim().is_empty() || file_content == "{}" {
-            return None;
-        }
-        let container: SecretsContainer = serde_json::from_str(&file_content).ok()?;
-        let decrypted_string = crypt.decrypt_base64_to_string(&container.encrypted_data).ok()?;
-        let secrets: HashMap<String, String> = serde_json::from_str(&decrypted_string).ok()?;
-        secrets.get(key).cloned()
-    }
-
     #[test]
-    fn test_set_secret_new_and_update() {
-        // Setup a temporary project
+    fn test_set_and_remove_secret() {
         let dir = tempdir().unwrap();
         let base_path = dir.path();
         initialize_project(base_path).unwrap();
 
-        // 1. Set a new secret
-        let result = set_secret(base_path, "API_KEY", "12345");
-        assert!(result.is_ok());
+        // 1. Set a secret
+        set_secret(base_path, "API_KEY", "12345").unwrap();
+        let secret = read_secret(base_path, "API_KEY").unwrap();
+        assert_eq!(secret, "12345");
 
-        // Verify the secret is set and encrypted
-        let value = read_secret_for_test(base_path, "API_KEY");
-        assert_eq!(value, Some("12345".to_string()));
+        // 2. Set another secret
+        set_secret(base_path, "OTHER_KEY", "abcde").unwrap();
+        let other_secret = read_secret(base_path, "OTHER_KEY").unwrap();
+        assert_eq!(other_secret, "abcde");
 
-        // 2. Update the existing secret
-        let result_update = set_secret(base_path, "API_KEY", "67890");
-        assert!(result_update.is_ok());
+        // 3. Remove the first secret
+        remove_secret(base_path, "API_KEY").unwrap();
+        
+        // Verify it's gone
+        let result = read_secret(base_path, "API_KEY");
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().kind(), io::ErrorKind::NotFound);
 
-        // Verify the secret is updated
-        let updated_value = read_secret_for_test(base_path, "API_KEY");
-        assert_eq!(updated_value, Some("67890".to_string()));
+        // Verify the other secret still exists
+        let other_secret_after_remove = read_secret(base_path, "OTHER_KEY").unwrap();
+        assert_eq!(other_secret_after_remove, "abcde");
 
-        // 3. Add a second secret
-        let result_second = set_secret(base_path, "ANOTHER_KEY", "abcde");
-        assert!(result_second.is_ok());
-
-        // Verify both secrets exist
-        let first_value = read_secret_for_test(base_path, "API_KEY");
-        let second_value = read_secret_for_test(base_path, "ANOTHER_KEY");
-        assert_eq!(first_value, Some("67890".to_string()));
-        assert_eq!(second_value, Some("abcde".to_string()));
+        // 4. Test removing a non-existent key
+        let non_existent_result = remove_secret(base_path, "NON_EXISTENT");
+        assert!(non_existent_result.is_err());
+        assert_eq!(non_existent_result.err().unwrap().kind(), io::ErrorKind::NotFound);
     }
 }
