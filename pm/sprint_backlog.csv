@@ -212,31 +212,31 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T22,Refactor `run_pipeline` for true remote streaming,T22.1,"Modify the `PreparedCommand::Remote` match arm to read the response body in chunks.",Done
 ,T22,Refactor `run_pipeline` for true remote streaming,T22.2,"Implement a streaming JSON parser to handle incomplete JSON objects.",Done
 ,T22,Refactor `run_pipeline` for true remote streaming,T22.3,"Send `StepUpdate` messages for each chunk of the remote response.",Done
-,T23,Add error handling for remote streaming,T23.1,"Implement error handling for network errors during streaming.",Pending
-,T23,Add error handling for remote streaming,T23.2,"Implement error handling for JSON parsing errors during streaming.",Pending
-,T24,Write tests for remote streaming,T24.1,"Write a unit test for the streaming JSON parser.",Pending
-,T24,Write tests for remote streaming,T24.2,"Write an integration test for a remote streaming flow.",Pending
-,T40,Asynchronous Streaming Refactor,T40.1,"Add `tokio` and `reqwest` (with async features) to `ferri-core`'s `Cargo.toml`.",Done
-,T40,Asynchronous Streaming Refactor,T40.2,"Convert `ferri-core/src/execute.rs::prepare_command` to an `async` function.",In Progress
-,T40,Asynchronous Streaming Refactor,T40.3,"In `execute.rs`, replace the `reqwest::blocking::Client` with an async `reqwest::Client`.",Pending
-,T40,Asynchronous Streaming Refactor,T40.4,"Convert `ferri-core/src/flow.rs::run_pipeline` to an `async` function.",Pending
-,T40,Asynchronous Streaming Refactor,T40.5,"In `run_pipeline`, replace the `std::thread::spawn` with `tokio::spawn` for executing steps.",Pending
-,T40,Asynchronous Streaming Refactor,T40.6,"In `run_pipeline`, refactor the `PreparedCommand::Remote` match arm to use `await` and handle the async `reqwest` response stream.",Pending
-,T40,Asynchronous Streaming Refactor,T40.7,"In `run_pipeline`, use `tokio::io::BufReader` and `lines()` to stream the response from local `ProcessStep` commands asynchronously.",Pending
-,T40,Asynchronous Streaming Refactor,T40.8,"Create a new `async` main function in `ferri-cli/src/main.rs` using the `#[tokio::main]` macro.",Pending
-,T40,Asynchronous Streaming Refactor,T40.9,"Update the `flow run` command handler in `main.rs` to `await` the new `async run_pipeline` function.",Pending
-,T40,Asynchronous Streaming Refactor,T40.10,"Temporarily replace the `flow_run_tui` with the simple `run_plain` logic, making it `async` to fit the new architecture.",Pending
-,T41,Unit Testing for Async Streaming,T41.1,"Create a new test module in `ferri-core/src/flow.rs` for async tests (`#[tokio::test]`).",Pending
-,T41,Unit Testing for Async Streaming,T41.2,"Write a unit test for `run_pipeline` that uses a mock HTTP server (e.g., `wiremock`) to simulate a streaming Gemini response.",Pending
-,T41,Unit Testing for Async Streaming,T41.3,"In the test, assert that `StepUpdate` messages are received correctly for each streamed chunk from the mock server.",Pending
+,T23,Add error handling for remote streaming,T23.1,"Implement error handling for network errors during streaming.",Descoped
+,T23,Add error handling for remote streaming,T23.2,"Implement error handling for JSON parsing errors during streaming.",Descoped
+,T24,Write tests for remote streaming,T24.1,"Write a unit test for the streaming JSON parser.",Descoped
+,T24,Write tests for remote streaming,T24.2,"Write an integration test for a remote streaming flow.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.1,"Add `tokio` and `reqwest` (with async features) to `ferri-core`'s `Cargo.toml`.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.2,"Convert `ferri-core/src/execute.rs::prepare_command` to an `async` function.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.3,"In `execute.rs`, replace the `reqwest::blocking::Client` with an async `reqwest::Client`.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.4,"Convert `ferri-core/src/flow.rs::run_pipeline` to an `async` function.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.5,"In `run_pipeline`, replace the `std::thread::spawn` with `tokio::spawn` for executing steps.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.6,"In `run_pipeline`, refactor the `PreparedCommand::Remote` match arm to use `await` and handle the async `reqwest` response stream.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.7,"In `run_pipeline`, use `tokio::io::BufReader` and `lines()` to stream the response from local `ProcessStep` commands asynchronously.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.8,"Create a new `async` main function in `ferri-cli/src/main.rs` using the `#[tokio::main]` macro.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.9,"Update the `flow run` command handler in `main.rs` to `await` the new `async run_pipeline` function.",Descoped
+,T40,Asynchronous Streaming Refactor,T40.10,"Temporarily replace the `flow_run_tui` with the simple `run_plain` logic, making it `async` to fit the new architecture.",Descoped
+,T41,Unit Testing for Async Streaming,T41.1,"Create a new test module in `ferri-core/src/flow.rs` for async tests (`#[tokio::test]`).",Descoped
+,T41,Unit Testing for Async Streaming,T41.2,"Write a unit test for `run_pipeline` that uses a mock HTTP server (e.g., `wiremock`) to simulate a streaming Gemini response.",Descoped
+,T41,Unit Testing for Async Streaming,T41.3,"In the test, assert that `StepUpdate` messages are received correctly for each streamed chunk from the mock server.",Descoped
 ,T41,Unit Testing for Async Streaming,T41.4,"Write a unit test for `run_pipeline` that executes a simple local `ProcessStep` (e.g., `echo 'line1
-line2'`).",Pending
-,T41,Unit Testing for Async Streaming,T41.5,"In the test, assert that `StepUpdate` messages are received for each line of output from the local process.",Pending
+line2'`).",Descoped
+,T41,Unit Testing for Async Streaming,T41.5,"In the test, assert that `StepUpdate` messages are received for each line of output from the local process.",Descoped
 ,T42,Revert Project to Stable Streaming Foundation,T42.1,"Preserve the current `pm/sprint_backlog.csv` in a temporary location.",Done
 ,T42,Revert Project to Stable Streaming Foundation,T42.2,"Reset the entire git repository to the stable commit `84b38ca`.",Done
 ,T42,Revert Project to Stable Streaming Foundation,T42.3,"Restore the preserved `pm/sprint_backlog.csv` file.",Done
 ,T42,Revert Project to Stable Streaming Foundation,T42.4,"Re-install the `ferri` binary from the reverted source code to ensure it's globally available.",Done
-,T42,Revert Project to Stable Streaming Foundation,T42.5,"Verify that `ferri flow run pm/code_review_flow.yml` executes without crashing, confirming the revert was successful.",In Progress
+,T42,Revert Project to Stable Streaming Foundation,T42.5,"Verify that `ferri flow run pm/code_review_flow.yml` executes without crashing, confirming the revert was successful.",Done
 ,T43,Re-implement TTY check for `flow run`,T43.1,"Add the `atty` crate to `ferri-cli`.",Done
 ,T43,Re-implement TTY check for `flow run`,T43.2,"In `flow_run_tui.rs`, add a check for an interactive terminal.",Done
 ,T43,Re-implement TTY check for `flow run`,T43.3,"If the terminal is not interactive, fall back to a plain text output.",Done
