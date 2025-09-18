@@ -164,7 +164,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T28,Implement Node-Vertex Graph Layout,T28.1,Replace lane-based logic with a topological sort to determine node depth (x-coordinate).,Done
 ,T28,Implement Node-Vertex Graph Layout,T28.2,Calculate node breadth (y-coordinate) to spread nodes out vertically at each depth level.,Done
 ,T28,Implement Node-Vertex Graph Layout,T28.3,Center the entire calculated graph within the available terminal area.,Done
-,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Done
+,T29,Render Node-Vertex Graph,T29.1,Rewrite the `ui` function to render a single canvas for the graph and a bottom panel for the legend.,Done,
 ,T29,Render Node-Vertex Graph,T29.2,On the canvas, draw lines for vertices connecting the calculated node positions.,Done,
 ,T29,Render Node-Vertex Graph,T29.3,On the canvas, draw a shape (e.g., circle) for each node with its number inside.,Done,
 ,T29,Render Node-Vertex Graph,T29.4,In the bottom panel, render a numbered list that maps each node number to its full step name.,Done,
@@ -254,3 +254,5 @@ line2'`).",Descoped
 ,T39,Add `secrets rm` Command,T39.3,"In secrets.rs, ensure the command fails gracefully if the key does not exist.",Done
 ,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Done
 ,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Done
+,T46,Image Support,T46.1,Allow image files as inputs to model steps.,Pending
+,T46,Image Support,T46.2,Allow models to generate images as outputs.,Pending

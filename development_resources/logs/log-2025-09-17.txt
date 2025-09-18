@@ -46,3 +46,34 @@ OUTCOME:
 - The core functionality for T45 was completed and is working, according to user confirmation.
 - The session was concluded before the unrelated `flow.rs` test failures could be resolved. The overall test suite remains in a failing state.
 ---
+# Session Log: 2025-09-17 (Continued)
+
+## Goal
+The primary goal of this session was to diagnose and fix a critical bug where remote model steps in a `ferri flow` were not streaming their output to the UI in real-time.
+
+## Key Events & Debugging Journey
+
+1.  **Initial Diagnosis & Failed Fixes:** The session began by confirming the bug using the `hybrid_model_test_plan.md`. My initial debugging attempts were a series of incorrect hypotheses that led to a frustrating loop:
+    *   **Hypothesis 1:** Incorrect API endpoint. (Corrected, but did not fix the issue).
+    *   **Hypothesis 2:** Flawed byte-buffer parsing logic. (Refactored, but did not fix the issue).
+    *   **Hypothesis 3:** The stream was Server-Sent Events (SSE). (Implemented an SSE parser, which was incorrect and did not work).
+
+2.  **The Breakthrough (User-Provided Logs):** The turning point came when the user provided detailed logs from a flow run. The logs revealed that the Gemini API was not using SSE, but was instead sending a single, incrementally delivered JSON array. My parsers were failing because they were not designed to handle this specific format.
+
+3.  **The Final, Correct Fix:** With the correct diagnosis, I replaced the faulty parsers with a robust streaming JSON array parser in `ferri-core/src/flow.rs`. This logic correctly identifies the boundaries of the JSON objects within the array as they arrive, parses them, and extracts the text.
+
+4.  **Local Process Deadlock:** After fixing the remote streaming, we discovered a new bug where `process` steps would hang indefinitely. This was caused by the parent `ferri` process failing to pipe the step's input data to the child process's `stdin`.
+    *   **Fix:** Implemented correct `stdin` piping in `ferri-core/src/flow.rs` to resolve the deadlock.
+
+## Additional Work
+
+*   **QA Documentation:** Created a new test plan, `qa/local_process_flow_test_plan.md`, to document and test flows that combine AI models with local shell commands like `grep` and `sed`. Fixed a YAML formatting bug in this documentation.
+*   **Backlog Cleanup:** Analyzed the sprint backlog, and per the user's request, marked the large asynchronous refactor (T40) and its related testing tickets as "Descoped" to focus the project on core features.
+*   **`secrets rm` Command:** Fully implemented the `ferri secrets rm` command (T39), including the core logic, CLI subcommand, and unit tests.
+*   **CSV Formatting:** Cleaned up the `pm/sprint_backlog.csv` file to remove trailing commas that were breaking rendering.
+
+## Outcome
+The session was highly successful. The critical remote streaming bug was fixed, a deadlock in local process execution was resolved, the `secrets rm` feature was completed, and the backlog was significantly cleaned up. All changes were committed and pushed to the remote repository.
+
+## Next Steps (Interrupted)
+Just before the session ended due to a full context window, the user requested to begin work on adding image support (both understanding and generation) to `ferri`. This will be the starting point for our next session.
