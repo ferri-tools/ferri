@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::{self, Error, ErrorKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::fs;
 use base64::Engine as _;
@@ -30,10 +30,18 @@ struct Content {
     parts: Vec<Part>,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Part {
-    text: String,
+    text: Option<String>,
+    #[serde(rename = "inlineData")]
+    inline_data: Option<InlineData>,
+}
+
+#[derive(Deserialize, Debug)]
+struct InlineData {
+    #[serde(rename = "mimeType")]
+    mime_type: String,
+    data: String,
 }
 
 #[allow(dead_code)]
@@ -60,6 +68,7 @@ pub enum ModelProvider {
 pub struct ExecutionArgs {
     pub model: Option<String>,
     pub use_context: bool,
+    pub output_file: Option<PathBuf>,
     pub command_with_args: Vec<String>,
 }
 
@@ -174,11 +183,36 @@ pub fn prepare_command(
     }
 }
 
+/// Decodes a base64 string and saves it as an image file.
+pub fn save_base64_image(path: &Path, b64_data: &str) -> io::Result<()> {
+    let image_bytes = STANDARD.decode(b64_data)
+        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Failed to decode base64: {}", e)))?;
+    fs::write(path, image_bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{initialize_project, models, secrets};
     use tempfile::tempdir;
+
+    #[test]
+    fn test_save_base64_image() {
+        let dir = tempdir().unwrap();
+        let output_path = dir.path().join("test_image.png");
+        
+        // A base64 encoded 1x1 red PNG image
+        let b64_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAwAB/epv2AAAAABJRU5ErkJggg==";
+        
+        let result = save_base64_image(&output_path, b64_image);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+        
+        let expected_bytes = STANDARD.decode(b64_image).unwrap();
+        let file_bytes = fs::read(&output_path).unwrap();
+        assert_eq!(file_bytes, expected_bytes);
+    }
+
 
     #[test]
     fn test_prepare_google_model_request() {
@@ -198,6 +232,7 @@ mod tests {
         let args = ExecutionArgs {
             model: Some("gemini".to_string()),
             use_context: false,
+            output_file: None,
             command_with_args: vec!["hello".to_string()],
         };
 
@@ -208,7 +243,7 @@ mod tests {
             PreparedCommand::Remote(req) => {
                 let req = req.build().unwrap();
                 assert_eq!(req.method(), "POST");
-                assert!(req.url().as_str().contains("gemini-pro:generateContent?key=test-key"));
+                assert!(req.url().as_str().contains("gemini-pro:streamGenerateContent?key=test-key"));
                 let body_bytes = req.body().unwrap().as_bytes().unwrap();
                 let body_json: serde_json::Value = serde_json::from_slice(body_bytes).unwrap();
                 assert_eq!(body_json["contents"][0]["parts"][0]["text"], "hello");

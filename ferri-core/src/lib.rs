@@ -40,7 +40,7 @@ pub fn initialize_project(base_path: &Path) -> std::io::Result<()> {
 
     let context_path = ferri_dir.join("context.json");
     if !context_path.exists() {
-        fs::write(context_path, "[]")?;
+        fs::write(context_path, "{\n  \"files\": []\n}")?;
     }
 
     Ok(())
@@ -134,17 +134,20 @@ mod tests {
         fs::write(base_path.join(&path1), "content1").unwrap();
         fs::write(base_path.join(&path2), "content2").unwrap();
 
+        let abs_path1 = fs::canonicalize(base_path.join(&path1)).unwrap().to_string_lossy().to_string();
+        let abs_path2 = fs::canonicalize(base_path.join(&path2)).unwrap().to_string_lossy().to_string();
+
         // Add paths
         context::add_to_context(base_path, vec![path1.clone(), path2.clone()]).unwrap();
         let mut current_context = context::list_context(base_path).unwrap();
         assert_eq!(current_context.len(), 2);
-        assert!(current_context.contains(&"file1.txt".to_string()));
+        assert!(current_context.contains(&abs_path1));
 
         // Remove one path
         context::remove_from_context(base_path, vec![path1]).unwrap();
         current_context = context::list_context(base_path).unwrap();
         assert_eq!(current_context.len(), 1);
-        assert!(!current_context.contains(&"file1.txt".to_string()));
-        assert!(current_context.contains(&"dir/file2.txt".to_string()));
+        assert!(!current_context.contains(&abs_path1));
+        assert!(current_context.contains(&abs_path2));
     }
 }

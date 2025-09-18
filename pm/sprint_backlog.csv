@@ -261,3 +261,17 @@ line2'`).",Descoped
 ,T47,`secrets ls` Command,T47.3,"In `ferri-core/src/secrets.rs`, add a unit test for the `list_secrets()` function.",Done
 ,T47,`secrets ls` Command,T47.4,"In `ferri-cli/src/main.rs`, call `ferri_core::secrets::list_secrets` from the `secrets ls` match arm and print the keys.",Done
 ,T47,`secrets ls` Command,T47.5,"In `ferri-cli/tests/secrets.rs`, add an integration test for the `ferri secrets ls` command.",Done
+,T48,"Image Generation with ferri with","T48.1","In ferri-cli, add an --output <FILE_PATH> argument to the with command to specify where to save generated content.","Pending"
+,T48,"Image Generation with ferri with","T48.2","In ferri-core, modify the remote model execution logic to detect if the API response contains image data (e.g., base64-encoded).","Pending"
+,T48,"Image Generation with ferri with","T48.3","In ferri-core, implement the logic to decode the base64 content into an image byte buffer.","Pending"
+,T48,"Image Generation with ferri with","T48.4","In ferri-core, if the --output path is provided, write the image byte buffer to the specified file.","Pending"
+,T48,"Image Generation with ferri with","T48.5","Add a ferri-core unit test to verify the base64 decoding and file-writing logic.","Pending"
+,T48,"Image Generation with ferri with","T48.6","Add a ferri-cli integration test for the end-to-end ferri with --output ... command.","Pending"
+,T48,"Image Generation with ferri with","T48.7","Update README.md to document the new --output flag for image generation.","Pending"
+,T49,"Image Generation in ferri flow","T49.1","In ferri-core, update the flow.yml schema to allow a ModelStep to specify an output_image file path.","Pending"
+,T49,"Image Generation in ferri flow","T49.2","In the run_pipeline logic, check for the output_image field during step execution.","Pending"
+,T49,"Image Generation in ferri flow","T49.3","Integrate the image decoding and saving logic from T48 into the run_pipeline function for ModelStep.","Pending"
+,T49,"Image Generation in ferri flow","T49.4","Add a ferri-core unit test to verify a ModelStep with output_image triggers the saving logic.","Pending"
+,T49,"Image Generation in ferri flow","T49.5","Create a sample pm/image_generation_flow.yml to demonstrate the feature.","Pending"
+,T49,"Image Generation in ferri flow","T49.6","Add a ferri-cli integration test that runs the sample flow and verifies the image file is created.","Pending"
+,T49,"Image Generation in ferri flow","T49.7","Update qa/flow_pipeline_test_plan.md with test cases for image generation in a flow.","Pending"

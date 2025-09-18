@@ -152,6 +152,13 @@ Any script or tool can be run with `ferri with` to gain access to stored secrets
 ferri with -- python ./scripts/deploy.py
 ```
 
+**Use Case: Generating and Saving an Image**
+If a model's output is an image, you can save it directly to a file using the `--output` flag.
+```bash
+# Use a model capable of image generation
+ferri with --model gemini-pro --output "cat_photo.png" "a photorealistic picture of a cat"
+```
+
 ---
 
 ### `ferri run`, `ps`, and `yank`

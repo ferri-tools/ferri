@@ -21,6 +21,9 @@ struct SharedArgs {
     /// Inject context into the command
     #[arg(long)]
     ctx: bool,
+    /// The file path to save the output to
+    #[arg(long)]
+    output: Option<PathBuf>,
     /// The command to execute
     #[arg(required = true, trailing_var_arg = true)]
     command: Vec<String>,
@@ -221,6 +224,7 @@ fn main() {
             let exec_args = ferri_core::execute::ExecutionArgs {
                 model: args.model.clone(),
                 use_context: args.ctx,
+                output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
             };
 
@@ -249,21 +253,35 @@ fn main() {
                                         let parsed: Result<Vec<serde_json::Value>, _> = serde_json::from_str(&body);
                                         if let Ok(json_array) = parsed {
                                             let mut full_text = String::new();
-                                            for json in json_array {
-                                                if let Some(text) = json.get("candidates")
+                                            for candidate in json_array {
+                                                if let Some(parts) = candidate.get("candidates")
                                                     .and_then(|c| c.get(0))
                                                     .and_then(|c| c.get("content"))
                                                     .and_then(|c| c.get("parts"))
-                                                    .and_then(|p| p.get(0))
-                                                    .and_then(|p| p.get("text"))
-                                                    .and_then(|t| t.as_str()) {
-                                                    full_text.push_str(text);
+                                                    .and_then(|p| p.as_array())
+                                                {
+                                                    for part in parts {
+                                                        // Handle text content
+                                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                                            full_text.push_str(text);
+                                                        }
+
+                                                        // Handle image content
+                                                        if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
+                                                            if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
+                                                                match ferri_core::execute::save_base64_image(output_path, b64_data) {
+                                                                    Ok(_) => println!("Successfully saved image to {}", output_path.display()),
+                                                                    Err(e) => eprintln!("Error: Failed to save image - {}", e),
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                             if !full_text.is_empty() {
                                                 println!("{}", full_text);
-                                            } else {
-                                                eprintln!("Error: Could not extract text from API response.");
+                                            } else if exec_args.output_file.is_none() {
+                                                eprintln!("Error: Could not extract text or image data from API response.");
                                                 eprintln!("Full response: {}", body);
                                                 std::process::exit(1);
                                             }
@@ -376,6 +394,7 @@ fn main() {
             let exec_args = ferri_core::execute::ExecutionArgs {
                 model: args.model.clone(),
                 use_context: args.ctx,
+                output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
             };
 

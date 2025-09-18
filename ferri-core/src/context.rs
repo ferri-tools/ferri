@@ -26,7 +26,8 @@ pub fn add_to_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<()> {
     let mut current_files = read_context_file(&context_path)?;
 
     for path_buf in paths {
-        let absolute_path = fs::canonicalize(&path_buf)?;
+        let full_path = base_path.join(&path_buf);
+        let absolute_path = fs::canonicalize(&full_path)?;
         let path_str = absolute_path.to_string_lossy().to_string();
 
         let content_type = match absolute_path.extension().and_then(|s| s.to_str()) {
@@ -63,7 +64,8 @@ pub fn remove_from_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<
     let mut removals = HashSet::new();
 
     for path_buf in paths {
-        let absolute_path = fs::canonicalize(&path_buf)?;
+        let full_path = base_path.join(&path_buf);
+        let absolute_path = fs::canonicalize(&full_path)?;
         removals.insert(absolute_path.to_string_lossy().to_string());
     }
 
@@ -71,6 +73,11 @@ pub fn remove_from_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<
 
     write_context_file(&context_path, &current_files)?;
     Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Context {
+    files: HashSet<ContextFile>,
 }
 
 // --- Internal Helper Functions ---
@@ -83,11 +90,14 @@ fn read_context_file(path: &Path) -> io::Result<HashSet<ContextFile>> {
     if content.trim().is_empty() {
         return Ok(HashSet::new());
     }
-    serde_json::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    let context: Context = serde_json::from_str(&content)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    Ok(context.files)
 }
 
 fn write_context_file(path: &Path, files: &HashSet<ContextFile>) -> io::Result<()> {
-    let content = serde_json::to_string_pretty(files)?;
+    let context = Context { files: files.clone() };
+    let content = serde_json::to_string_pretty(&context)?;
     let mut file = fs::File::create(path)?;
     file.write_all(content.as_bytes())
 }

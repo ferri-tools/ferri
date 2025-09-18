@@ -126,6 +126,7 @@ pub fn run_pipeline(
                 let exec_args = ExecutionArgs {
                     model: Some(model_step.model.clone()),
                     use_context: false,
+                    output_file: None,
                     command_with_args: vec![final_prompt],
                 };
                 crate::execute::prepare_command(base_path, &exec_args)?
