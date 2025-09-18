@@ -164,6 +164,7 @@ pub fn prepare_command(
 
                 let body = json!({ "contents": [{ "parts": parts }] });
 
+                let client = reqwest::blocking::Client::new();
                 let mut request_builder = client.post(&url)
                     .header("x-goog-api-key", api_key)
                     .header("User-Agent", "ferri-cli");

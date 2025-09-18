@@ -123,6 +123,7 @@ fn discover_ollama_models() -> Result<Vec<Model>, reqwest::Error> {
             provider: "ollama".to_string(),
             model_name: tag.name,
             api_key_secret: None,
+            project_id: None,
             discovered: true,
         })
         .collect();
