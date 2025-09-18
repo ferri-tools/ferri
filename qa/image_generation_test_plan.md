@@ -20,11 +20,11 @@
 3.  **Add Image Generation Model:** Register a model that can generate images. This test plan assumes you are using a Gemini model.
     ```bash
     ferri models add gemini-image-generator \
-      --provider google \
+      --provider google-gemini-image \
       --api-key-secret GOOGLE_API_KEY \
-      --model-name gemini-pro-vision
+      --model-name gemini-2.5-flash-image-preview
     ```
-    *(Note: The `gemini-pro-vision` model name is used as an example. Use the correct model name for image generation provided by Google.)*
+    *(Note: The `gemini-2.5-flash-image-preview` model name is used as an example. Use the correct model name for image generation provided by Google.)*
 
 ---
 

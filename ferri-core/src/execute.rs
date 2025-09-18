@@ -61,6 +61,7 @@ struct GoogleApiError {
 pub enum ModelProvider {
     Ollama,
     Google,
+    GoogleImagen,
     Unknown,
 }
 
@@ -94,6 +95,7 @@ pub fn prepare_command(
         let provider = match model.provider.as_str() {
             "ollama" => ModelProvider::Ollama,
             "google" => ModelProvider::Google,
+            "google-gemini-image" => ModelProvider::GoogleGeminiImage,
             _ => ModelProvider::Unknown,
         };
 
@@ -162,6 +164,14 @@ pub fn prepare_command(
 
                 let body = json!({ "contents": [{ "parts": parts }] });
 
+                let client = reqwest::blocking::Client::new();
+                let request = client.post(&url).json(&body);
+                Ok((PreparedCommand::Remote(request), decrypted_secrets))
+            }
+            ModelProvider::GoogleGeminiImage => {
+                let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
+                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model.model_name, api_key);
+                let body = json!({ "contents": [{ "parts": [{ "text": prompt }] }] });
                 let client = reqwest::blocking::Client::new();
                 let request = client.post(&url).json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
