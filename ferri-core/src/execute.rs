@@ -164,11 +164,13 @@ pub fn prepare_command(
 
                 let body = json!({ "contents": [{ "parts": parts }] });
 
-                let client = reqwest::blocking::Client::new();
-                let request = client.post(&url)
+                let mut request_builder = client.post(&url)
                     .header("x-goog-api-key", api_key)
-                    .header("User-Agent", "ferri-cli")
-                    .json(&body);
+                    .header("User-Agent", "ferri-cli");
+                if let Some(project_id) = &model.project_id {
+                    request_builder = request_builder.header("x-goog-user-project", project_id);
+                }
+                let request = request_builder.json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::GoogleGeminiImage => {
@@ -176,10 +178,13 @@ pub fn prepare_command(
                 let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model.model_name);
                 let body = json!({ "contents": [{ "parts": [{ "text": prompt }] }] });
                 let client = reqwest::blocking::Client::new();
-                let request = client.post(&url)
+                let mut request_builder = client.post(&url)
                     .header("x-goog-api-key", api_key)
-                    .header("User-Agent", "ferri-cli")
-                    .json(&body);
+                    .header("User-Agent", "ferri-cli");
+                if let Some(project_id) = &model.project_id {
+                    request_builder = request_builder.header("x-goog-user-project", project_id);
+                }
+                let request = request_builder.json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {

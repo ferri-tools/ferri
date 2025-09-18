@@ -14,6 +14,8 @@ pub struct Model {
     pub model_name: String,
     #[serde(rename = "apiKeySecret", skip_serializing_if = "Option::is_none")]
     pub api_key_secret: Option<String>,
+    #[serde(rename = "projectId", skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
     #[serde(default, skip_serializing)]
     pub discovered: bool,
 }

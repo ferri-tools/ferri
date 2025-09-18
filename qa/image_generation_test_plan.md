@@ -19,10 +19,12 @@
 
 3.  **Add Image Generation Model:** Register a model that can generate images. This test plan assumes you are using a Gemini model.
     ```bash
+    # Replace "your-gcp-project-id" with your actual Google Cloud Project ID
     ferri models add gemini-image-generator \
       --provider google-gemini-image \
       --api-key-secret GOOGLE_API_KEY \
-      --model-name gemini-2.5-flash-image-preview
+      --model-name gemini-2.5-flash-image-preview \
+      --project-id "your-gcp-project-id"
     ```
     *(Note: The `gemini-2.5-flash-image-preview` model name is used as an example. Use the correct model name for image generation provided by Google.)*
 

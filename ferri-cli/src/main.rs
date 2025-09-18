@@ -143,6 +143,9 @@ enum ModelsCommand {
         /// The name of the secret holding the API key (if required)
         #[arg(long)]
         api_key_secret: Option<String>,
+        /// The Google Cloud Project ID (if required)
+        #[arg(long)]
+        project_id: Option<String>,
     },
     /// List all available models
     Ls,
@@ -349,12 +352,13 @@ fn main() {
             }
         },
         Commands::Models { action } => match action {
-            ModelsCommand::Add { alias, provider, model_name, api_key_secret } => {
+            ModelsCommand::Add { alias, provider, model_name, api_key_secret, project_id } => {
                 let model = ferri_core::models::Model {
                     alias: alias.clone(),
                     provider: provider.clone(),
                     model_name: model_name.clone(),
                     api_key_secret: api_key_secret.clone(),
+                    project_id: project_id.clone(),
                     discovered: false,
                 };
                 match ferri_core::models::add_model(&current_path, model) {
