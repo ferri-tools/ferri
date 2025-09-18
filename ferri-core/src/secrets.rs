@@ -57,6 +57,14 @@ pub fn read_all_secrets(base_path: &Path) -> io::Result<HashMap<String, String>>
     read_all_secrets_internal(base_path, &secrets_path, &crypt)
 }
 
+/// Lists the keys of all stored secrets.
+pub fn list_secrets(base_path: &Path) -> io::Result<Vec<String>> {
+    let secrets = read_all_secrets(base_path)?;
+    let mut keys: Vec<String> = secrets.keys().cloned().collect();
+    keys.sort();
+    Ok(keys)
+}
+
 /// Reads and decrypts a single secret by its key.
 pub fn read_secret(base_path: &Path, key: &str) -> io::Result<String> {
     let secrets = read_all_secrets(base_path)?;
@@ -68,10 +76,10 @@ pub fn read_secret(base_path: &Path, key: &str) -> io::Result<String> {
 
 // --- Internal Helper Functions ---
 
-fn read_all_secrets_internal(
-    base_path: &Path,
+fn read_all_secrets_internal<M: MagicCryptTrait>(
+    _base_path: &Path,
     secrets_path: &Path,
-    crypt: &magic_crypt::MagicCrypt,
+    crypt: &M,
 ) -> io::Result<HashMap<String, String>> {
     let file_content = match fs::read_to_string(&secrets_path) {
         Ok(content) => content,
@@ -91,9 +99,9 @@ fn read_all_secrets_internal(
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-fn write_all_secrets_internal(
+fn write_all_secrets_internal<M: MagicCryptTrait>(
     secrets_path: &Path,
-    crypt: &magic_crypt::MagicCrypt,
+    crypt: &M,
     secrets: &HashMap<String, String>,
 ) -> io::Result<()> {
     let new_json_string = serde_json::to_string(secrets)?;
@@ -143,5 +151,25 @@ mod tests {
         let non_existent_result = remove_secret(base_path, "NON_EXISTENT");
         assert!(non_existent_result.is_err());
         assert_eq!(non_existent_result.err().unwrap().kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_list_secrets() {
+        let dir = tempdir().unwrap();
+        let base_path = dir.path();
+        initialize_project(base_path).unwrap();
+
+        // Initially, the list should be empty
+        let secrets = list_secrets(base_path).unwrap();
+        assert!(secrets.is_empty());
+
+        // Add some secrets
+        set_secret(base_path, "ZULU_KEY", "zulu").unwrap();
+        set_secret(base_path, "ALPHA_KEY", "alpha").unwrap();
+        set_secret(base_path, "CHARLIE_KEY", "charlie").unwrap();
+
+        // Get the list and check if it's sorted correctly
+        let secrets = list_secrets(base_path).unwrap();
+        assert_eq!(secrets, vec!["ALPHA_KEY", "CHARLIE_KEY", "ZULU_KEY"]);
     }
 }

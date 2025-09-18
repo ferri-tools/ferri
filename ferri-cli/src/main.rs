@@ -121,6 +121,8 @@ enum SecretsCommand {
         /// The name of the secret to remove
         key: String,
     },
+    /// List all secret keys
+    Ls,
 }
 
 #[derive(Subcommand)]
@@ -298,6 +300,21 @@ fn main() {
                 match ferri_core::secrets::remove_secret(&current_path, key) {
                     Ok(_) => println!("Secret '{}' removed successfully.", key),
                     Err(e) => eprintln!("Error: Failed to remove secret - {}", e),
+                }
+            }
+            SecretsCommand::Ls => {
+                match ferri_core::secrets::list_secrets(&current_path) {
+                    Ok(keys) => {
+                        if keys.is_empty() {
+                            println!("No secrets found.");
+                        } else {
+                            println!("Available secrets:");
+                            for key in keys {
+                                println!("- {}", key);
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("Error: Failed to list secrets - {}", e),
                 }
             }
         },
