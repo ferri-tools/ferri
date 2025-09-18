@@ -256,3 +256,8 @@ line2'`).",Descoped
 ,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Done
 ,T46,Image Support,T46.1,Allow image files as inputs to model steps.,Pending
 ,T46,Image Support,T46.2,Allow models to generate images as outputs.,Pending
+,T47,`secrets ls` Command,T47.1,"In `ferri-cli/src/main.rs`, add an `ls` subcommand to the `SecretsCommand` enum.",Done
+,T47,`secrets ls` Command,T47.2,"In `ferri-core/src/secrets.rs`, implement a `list_secrets()` function that returns a `Vec<String>` of secret keys.",Done
+,T47,`secrets ls` Command,T47.3,"In `ferri-core/src/secrets.rs`, add a unit test for the `list_secrets()` function.",Done
+,T47,`secrets ls` Command,T47.4,"In `ferri-cli/src/main.rs`, call `ferri_core::secrets::list_secrets` from the `secrets ls` match arm and print the keys.",Done
+,T47,`secrets ls` Command,T47.5,"In `ferri-cli/tests/secrets.rs`, add an integration test for the `ferri secrets ls` command.",Done
