@@ -1,18 +1,38 @@
-# QA Walkthrough: Long-Running Jobs & `ps` Dashboard
+# QA Walkthrough: Long-Running AI Jobs & `ps` Dashboard
 
-**Objective:** This document provides a guide to test the creation of long-running background jobs with `ferri run` and to verify their status using the `ferri ps` command.
+**Objective:** This document provides a guide to test the creation of long-running AI-powered background jobs with `ferri run` and to verify their status using the `ferri ps` command.
 
-**Goal:** Successfully start multiple background jobs and view their real-time status in the `ps` dashboard.
+**Goal:** Successfully start multiple background AI jobs and view their real-time status and output in the `ps` dashboard.
 
 ---
 
-### Step 1: Start a Long-Running Job
+### Step 1: Prerequisites - Configure Your Models
 
-First, let's create a simple, long-running process. This command will start a process that prints the date every five seconds and runs in the background.
+For this walkthrough, you will need two models configured:
+1.  A local model running via Ollama (e.g., `gemma`).
+2.  A remote model for Google's Gemini API.
+
+**Commands:**
+```bash
+# 1. Add the local gemma model
+ferri models add gemma --provider ollama --model-name gemma
+
+# 2. Add your Google API key as a secret
+ferri secrets set GOOGLE_API_KEY "YOUR_API_KEY_HERE"
+
+# 3. Add the remote gemini model that uses the key
+ferri models add gemini-pro --provider google --model-name gemini-pro --api-key-secret GOOGLE_API_KEY
+```
+
+---
+
+### Step 2: Start a Local AI Job
+
+Let's start a background job to have a local model write a short story. This simulates a long-running text generation task.
 
 **Command:**
 ```bash
-ferri run -- "while true; do date; sleep 5; done"
+ferri run --model gemma -- "Write a 500-word sci-fi story about a cat who discovers a hidden portal in its litter box."
 ```
 
 **Expected Result:**
@@ -25,13 +45,13 @@ Process ID: 12345
 
 ---
 
-### Step 2: Start a Job That Finishes Quickly
+### Step 3: Start a Remote AI Job
 
-Next, let's create a job that completes almost instantly to ensure we can see different statuses in the dashboard.
+Next, let's start a job that uses the remote Gemini model to generate a travel plan. This demonstrates using secrets for API keys in background processes.
 
 **Command:**
 ```bash
-ferri run -- "echo 'This job is already finished.'"
+ferri run --model gemini-pro -- "Create a 3-day travel itinerary for a trip to Tokyo, focusing on cyberpunk and technology hotspots."
 ```
 
 **Expected Result:**
@@ -43,31 +63,9 @@ Process ID: 12346
 
 ---
 
-### Step 3: Start a Job with a Model
-
-Now, let's start a more complex background job that uses an AI model. This will simulate a real-world use case, like generating a large piece of text.
-
-**Prerequisite:** Ensure you have a local model like `gemma` registered.
-```bash
-ferri models add gemma --provider ollama --model-name gemma
-```
-
-**Command:**
-```bash
-ferri run --model gemma -- "write a short history of the internet"
-```
-
-**Expected Result:**
-A third confirmation message will appear.
-```
-Successfully submitted job 'job-zzzzzz'.
-```
-
----
-
 ### Step 4: View the `ps` Dashboard
 
-With three jobs running (one long-running, one finished, one in progress), we can now view the dashboard.
+With two powerful AI jobs running, we can now view the dashboard to monitor them.
 
 **Command:**
 ```bash
@@ -75,16 +73,27 @@ ferri ps
 ```
 
 **Expected Result:**
-1.  The terminal will clear and a Text-based User Interface (TUI) will appear.
-2.  You will see a table listing the three jobs you created (`job-xxxxxx`, `job-yyyyyy`, `job-zzzzzz`).
-3.  The statuses should be varied:
-    *   The first job (`while true...`) should show as **Running**.
-    *   The second job (`echo...`) should show as **Completed**.
-    *   The third job (`--model gemma...`) will likely show as **Running** or **Completed**, depending on how fast it finishes.
-4.  You can use the **up and down arrow keys** to select different jobs in the list.
-5.  When you select a job, the panel on the right should update to show the full command and the output of that job.
-6.  Pressing **'q'** will exit the TUI and return you to your normal terminal prompt.
+1.  The terminal will clear and the cyberpunk-themed `ps` dashboard will appear.
+2.  You will see a table listing the two jobs you created (`job-xxxxxx` and `job-yyyyyy`).
+3.  The statuses will likely both show as **Running** initially, and then transition to **Completed** as the models finish generating their responses.
+4.  You can use the **(j/k)** or **(↑/↓)** keys to select a job. The selected row will be highlighted.
+5.  Pressing **'q'** will exit the TUI and return you to your normal terminal prompt.
 
 ---
 
-This concludes the long-running jobs walkthrough. If you can see all three jobs with their different statuses and view their output, the feature is working correctly.
+### Step 5: Verify Job Output with `yank`
+
+Once a job is marked as "Completed" in the `ps` dashboard, you can retrieve its full output.
+
+**Command:**
+```bash
+# Replace 'job-xxxxxx' with the ID of your sci-fi story job
+ferri yank job-xxxxxx
+```
+
+**Expected Result:**
+The terminal will print the complete, multi-paragraph story generated by the `gemma` model. This confirms that the background process ran successfully and its output was captured.
+
+---
+
+This concludes the long-running AI jobs walkthrough. If you can see both jobs, watch their status change, and yank their output, the feature is working correctly and is ready for the demo.
