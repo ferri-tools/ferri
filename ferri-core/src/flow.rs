@@ -41,7 +41,6 @@ pub struct Step {
     #[serde(flatten)]
     pub kind: StepKind,
     pub input: Option<String>,
-    pub output: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -55,11 +54,15 @@ pub enum StepKind {
 pub struct ModelStep {
     pub model: String,
     pub prompt: String,
+    #[serde(rename = "outputImage", default)]
+    pub output_image: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProcessStep {
     pub process: String,
+    #[serde(default)]
+    pub output: Option<String>,
 }
 
 pub fn parse_pipeline_file(file_path: &Path) -> io::Result<Pipeline> {
@@ -126,7 +129,7 @@ pub fn run_pipeline(
                 let exec_args = ExecutionArgs {
                     model: Some(model_step.model.clone()),
                     use_context: false,
-                    output_file: None,
+                    output_file: model_step.output_image.as_ref().map(PathBuf::from),
                     command_with_args: vec![final_prompt],
                 };
                 crate::execute::prepare_command(base_path, &exec_args)?
@@ -207,42 +210,38 @@ pub fn run_pipeline(
                     return Err(io::Error::new(io::ErrorKind::Other, stderr));
                 }
 
-                let mut reader = BufReader::new(response);
-                let mut accumulated_stdout = Vec::new();
-                let mut buffer = Vec::new();
-
-                loop {
-                    let mut chunk = [0; 1024];
-                    let bytes_read = reader.read(&mut chunk)?;
-                    writeln!(log_file, "Read {} bytes from stream.", bytes_read)?;
-                    if bytes_read == 0 {
-                        writeln!(log_file, "Stream ended.")?;
-                        break;
-                    }
-                    buffer.extend_from_slice(&chunk[..bytes_read]);
-
-                    // This logic finds complete JSON objects in the buffer
-                    let mut de = serde_json::Deserializer::from_slice(&buffer).into_iter::<serde_json::Value>();
-                    while let Some(Ok(json_value)) = de.next() {
-                        writeln!(log_file, "Parsed JSON value: {:?}", json_value)?;
-                        if let serde_json::Value::Array(chunks) = json_value {
-                            for chunk in chunks {
-                                if let Some(text) = chunk["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                                    writeln!(log_file, "Extracted text: {}", text)?;
-                                    sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
-                                    accumulated_stdout.extend_from_slice(text.as_bytes());
+                // For remote responses, the output is handled by the TUI and the image is saved directly
+                // by the logic in `main.rs`. We just need to consume the response here.
+                let body_bytes = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?.to_vec();
+                
+                // We can still try to parse and log the text part for debugging
+                if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
+                     let response_chunks = if let Some(array) = json.as_array() {
+                        array.to_vec()
+                    } else {
+                        vec![json]
+                    };
+                    for chunk in response_chunks {
+                        if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
+                            for candidate in candidates {
+                                if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                    for part in parts {
+                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                            writeln!(log_file, "Extracted text from remote response: {}", text)?;
+                                            sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                    // Keep the remainder of the buffer that wasn't parsed
-                    buffer = buffer[de.byte_offset()..].to_vec();
                 }
+
 
                 writeln!(log_file, "Finished processing remote stream.")?;
                 std::process::Output {
                     status: Command::new("true").status()?,
-                    stdout: accumulated_stdout,
+                    stdout: body_bytes, // Pass the raw body through
                     stderr: vec![],
                 }
             }
@@ -255,9 +254,21 @@ pub fn run_pipeline(
             return Err(io::Error::new(io::ErrorKind::Other, format!("Step '{}' failed.", step.name)));
         }
 
-        if let Some(output_path) = &step.output {
-            writeln!(log_file, "Writing output to '{}'.", output_path)?;
-            fs::write(output_path, &final_output.stdout)?;
+        // Handle output for different step kinds
+        match &step.kind {
+            StepKind::Process(process_step) => {
+                if let Some(output_path) = &process_step.output {
+                    writeln!(log_file, "Writing process output to '{}'.", output_path)?;
+                    fs::write(output_path, &final_output.stdout)?;
+                }
+            }
+            StepKind::Model(model_step) => {
+                if let Some(output_path) = &model_step.output_image {
+                    // The image is saved by the remote execution logic in main.rs,
+                    // but we can log it here.
+                    writeln!(log_file, "Model step was instructed to save an image to '{}'.", output_path)?;
+                }
+            }
         }
         
         let mut outputs = step_outputs.lock().unwrap();

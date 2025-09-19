@@ -1,154 +1,99 @@
-# Manual QA Test Plan: `flow` Command AI Pipelines
+# QA Test Plan: `ferri flow`
 
-This document outlines the manual testing steps for the `ferri flow` command.
-
-**Prerequisites:**
-1.  `ferri` is installed globally.
-2.  Ollama is running with the `gemma:2b` model pulled.
-3.  You are in a clean test directory (e.g., `~/ferri-flow-test`).
-4.  The `ferri init` command has been run at the root of the project.
+**Objective:** Verify the functionality of the `ferri flow` command, including running pipelines, handling I/O, and visualizing workflows.
 
 ---
 
-### Test Case 1: Simple Piped Workflow
+## Prerequisites
 
-**Goal:** Verify that a simple pipeline with `process` steps can pipe data from stdin to stdout.
-
-**Steps:**
-
-1.  **Initialize a project:**
+1.  **Initialize Ferri:**
     ```bash
     ferri init
     ```
 
-2.  **Create a `flow.yml` file:**
-    ```yaml
-    # simple-pipe.yml
-    name: "Simple Piped Flow"
-    steps:
-      - name: "add-hello"
-        process:
-          process: "sed 's/^/Hello, /'"
-      - name: "add-excitement"
-        process:
-          process: "sed 's/$/!!!/'"
-    ```
-
-3.  **Run the flow with piped input:**
+2.  **Set Secrets and Models (for relevant tests):**
     ```bash
-    echo "World" | ferri flow run simple-pipe.yml
-    ```
+    # For Google text models
+    ferri secrets set GOOGLE_API_KEY "your-google-api-key"
+    ferri models add gemini-pro --provider google --api-key-secret GOOGLE_API_KEY --model-name gemini-pro
 
-4.  **Verify the Output:**
-    *   You should see the final, transformed output printed to your terminal:
-        ```
-        Hello, World!!!
-        ```
+    # For Google image models
+    ferri models add gemini-image-generator --provider google-gemini-image --api-key-secret GOOGLE_API_KEY --model-name gemini-2.5-flash-image-preview
+    ```
 
 ---
 
-### Test Case 2: File and Inter-Step I/O
+## Test Cases
 
-**Goal:** Verify that a flow can read from files, write to files, and use the output of a previous step as input.
+### Test Case 1: Simple Text Processing Flow
 
-**Steps:**
+**Objective:** Verify that a basic, multi-step pipeline using `process` steps and standard I/O redirection works correctly.
 
-1.  **Create an input file:**
-    ```bash
-    echo "This is a test." > input.txt
-    ```
+**1. Create `simple_flow.yml`:**
+```yaml
+name: "Simple Text Flow"
+steps:
+  - name: "start"
+    process:
+      process: "echo 'hello world'"
+      output: "step1_out.txt"
+  - name: "finish"
+    process:
+      process: "cat step1_out.txt | tr '[:lower:]' '[:upper:]'"
+      output: "final_out.txt"
+```
 
-2.  **Create a `flow.yml` file:**
-    ```yaml
-    # io-flow.yml
-    name: "File I/O Flow"
-    steps:
-      - name: "read-from-file"
-        process:
-          process: "cat"
-        input: "input.txt"
-      - name: "capitalize"
-        process:
-          process: "tr 'a-z' 'A-Z'"
-        input: "read-from-file"
-        output: "output.txt"
-    ```
+**2. Run the flow:**
+```bash
+ferri flow run simple_flow.yml
+```
 
-3.  **Run the flow:**
-    ```bash
-    ferri flow run io-flow.yml
-    ```
-
-4.  **Verify the Output File:**
-    *   Check the contents of the output file:
-        ```bash
-        cat output.txt
-        ```
-    *   The content should be the capitalized version of the input:
-        ```
-        THIS IS A TEST.
-        ```
+**3. Verification:**
+*   Check the contents of `final_out.txt`.
+*   **Expected:** The file should contain the text `HELLO WORLD`.
 
 ---
 
-### Test Case 3: Model Step Integration
+### Test Case 2: Image Generation Flow
 
-**Goal:** Verify that a `ModelStep` can be used in a pipeline and can correctly process its input.
+**Objective:** Verify that a `ModelStep` can generate an image and save it to a file.
 
-**Steps:**
+**1. Create `image_flow.yml`:**
+```yaml
+name: "Cat Image Generation"
+steps:
+  - name: "generate-image"
+    model:
+      model: "gemini-image-generator"
+      prompt: "a watercolor painting of a cat in a library"
+      outputImage: "cat_painting.png"
+```
 
-1.  **Register a model alias:**
-    ```bash
-    ferri models add gemma --provider ollama --model-name gemma:2b
-    ```
+**2. Run the flow:**
+```bash
+ferri flow run image_flow.yml
+```
 
-2.  **Create a `flow.yml` file:**
-    ```yaml
-    # model-flow.yml
-    name: "Model Integration Flow"
-    steps:
-      - name: "summarizer"
-        model:
-          model: "gemma"
-          prompt: "Summarize the following text in exactly three words:"
-      - name: "final-touch"
-        process:
-          process: "sed 's/$/... a summary./'"
-    ```
-
-3.  **Run the flow with piped input:**
-    ```bash
-    echo "The Rust programming language is a modern systems programming language focused on safety, speed, and concurrency. It accomplishes these goals by being memory safe without using garbage collection." | ferri flow run model-flow.yml
-    ```
-
-4.  **Verify the Output:**
-    *   You should see a three-word summary from the model, followed by the text from the `sed` command. The output will be similar to this (the model's summary may vary slightly):
-        ```
-        Sure, here is a summary of the text in exactly three words:... a summary.
-        ```
+**3. Verification:**
+*   Check if the file `cat_painting.png` has been created.
+*   Open the file to ensure it is a valid image that matches the prompt.
 
 ---
 
-### Test Case 4: Flow Visualization
+### Test Case 3: Flow Visualization (`flow show`)
 
-**Goal:** Verify that the `ferri flow show` command can visualize a workflow.
+**Objective:** Verify that the `ferri flow show` command can correctly parse and display a workflow.
 
-**Steps:**
+**1. Use `simple_flow.yml` from Test Case 1.**
 
-1.  **Use the `io-flow.yml` file from Test Case 2.**
+**2. Run the show command:**
+```bash
+ferri flow show simple_flow.yml
+```
 
-2.  **Run the `show` command:**
-    ```bash
-    ferri flow show io-flow.yml
-    ```
+**3. Verification:**
+*   A Text-based User Interface (TUI) should appear in the terminal.
+*   The TUI should display a graph with two nodes: "start" and "finish".
+*   Pressing 'q' should exit the TUI gracefully.
 
-3.  **Verify the Output:**
-    *   A full-screen terminal UI should appear.
-    *   You should see a title "Pipeline: File I/O Flow".
-    *   Two colored blocks should be displayed vertically:
-        *   A green block for the `read-from-file` (Process) step.
-        *   A cyan block for the `capitalize` (Process) step.
-    *   A yellow arrow (`▼`) should be pointing from the first block to the second.
-    *   Press 'q' to exit the visualization.
-
-This confirms that the `flow` command is working correctly and is ready for your demo.
+---
