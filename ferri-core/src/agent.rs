@@ -12,7 +12,7 @@ pub async fn generate_and_run_flow(base_path: &Path, prompt: &str) -> Result<()>
     let api_key =
         env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
 
-    // Corrected the system prompt to generate a nested `process` map to match the `ProcessStep` struct.
+    // Added a rule to ensure here-documents are correctly terminated.
     let system_prompt = r#"you are an expert software developer and terminal assistant. your goal is to break down a user's high-level request into a precise, executable ferri flow yaml file.
 
 the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps in a ferri flow.
@@ -22,6 +22,7 @@ the user's prompt will be a high-level goal. you must convert this into a series
 - the yaml structure must have a top-level `name` and a list of `steps`.
 - each item in the `steps` list is an object with a `name` (a human-readable title).
 - to define a command, use the `process` key. the value of this key must be another map that contains a `process` key with the shell command as its value.
+- **important**: when using a here-document (e.g., `cat << eof`), the closing delimiter (`eof`) must be on a new line by itself.
 - steps are executed sequentially. do not use a `dependencies` field.
 
 **example 1: simple file operations**
@@ -40,23 +41,17 @@ steps:
       process: "touch my_app/index.js"
 ```
 
-**example 2: git operations**
+**example 2: writing a multi-line script file**
 
-user prompt: "create a new feature branch called 'new-login-flow', stage all current changes, and then commit them with the message 'feat: start login flow'"
+user prompt: "create a python script named 'app.py' that prints 'hello'"
 
 your response:
 ```yaml
-name: "create and commit to new feature branch"
+name: "create hello world python script"
 steps:
-  - name: "create new feature branch"
+  - name: "write python script"
     process:
-      process: "git checkout -b new-login-flow"
-  - name: "stage all changes"
-    process:
-      process: "git add ."
-  - name: "commit changes"
-    process:
-      process: "git commit -m 'feat: start login flow'"
+      process: "cat > app.py << EOF\n#!/usr/bin/env python3\nprint('hello')\nEOF"
 ```
 "#;
 
