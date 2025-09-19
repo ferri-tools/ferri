@@ -325,3 +325,60 @@ line2'`).",Descoped
 ,T60,Create `ferri do` Walkthrough,T60.2,"Add a ""Setup"" section explaining how to set the `GEMINI_API_KEY` using `ferri secrets set`.",Pending
 ,T60,Create `ferri do` Walkthrough,T60.3,"Add a ""Usage"" section with an example command like `ferri do ""create a rust project that prints hello world""`.",Pending
 ,T60,Create `ferri do` Walkthrough,T60.4,"Add an ""Expected Output"" section describing the agents thinking process, the generated YAML, and the final output of the executed flow.",Pending
+,T61,`ferri init` TUI Overhaul,T61.1,"In `ferri-cli`, replace the simple `init` command with an interactive TUI walkthrough.",Pending
+,T61,`ferri init` TUI Overhaul,T61.2,"The TUI should guide the user through creating the `.ferri` directory and default files.",Pending
+,T61,`ferri init` TUI Overhaul,T61.3,"Add steps to the TUI for optionally configuring secrets (like `GEMINI_API_KEY`) during initialization.",Pending
+,T61,`ferri init` TUI Overhaul,T61.4,"Add steps to the TUI for adding the first model configuration.",Pending
+,T61,`ferri init` TUI Overhaul,T61.5,"Provide clear visual feedback (e.g., checkmarks) for each successful step in the TUI.",Pending
+,T61,`ferri init` TUI Overhaul,T61.6,"Ensure the TUI has a final summary screen showing what was configured.",Pending
+,T62,Core TUI Framework & Layout,T62.1,"Create a new `ferri-tui` crate to house all UI components.",Pending
+,T62,Core TUI Framework & Layout,T62.2,"Add `ratatui` and a backend (e.g., `crossterm`) as dependencies to `ferri-tui`.",Pending
+,T62,Core TUI Framework & Layout,T62.3,"Implement a `bottom`-inspired default layout with placeholders for different widgets.",Pending
+,T62,Core TUI Framework & Layout,T62.4,"The layout should be resizable and responsive to terminal window changes.",Pending
+,T62,Core TUI Framework & Layout,T62.5,"Integrate the `ferri-tui` crate into `ferri-cli` as the main interface for a new `ferri ui` command.",Pending
+,T63,TUI Process Widget,T63.1,"In `ferri-tui`, create a `ProcessWidget` that displays a list of running Ferri jobs.",Pending
+,T63,TUI Process Widget,T63.2,"The widget should display Job ID, Status, Command, and Start Time.",Pending
+,T63,TUI Process Widget,T63.3,"Implement a tree view mode to show parent/child relationships between jobs if applicable.",Pending
+,T63,TUI Process Widget,T63.4,"Add color-coding for different job statuses (e.g., Running, Completed, Failed).",Pending
+,T63,TUI Process Widget,T63.5,"The data in the widget should refresh automatically at a configurable interval.",Pending
+,T64,TUI System Resource Widgets,T64.1,"In `ferri-tui`, create a `CpuWidget` to display current CPU usage as a graph.",Pending
+,T64,TUI System Resource Widgets,T64.2,"In `ferri-tui`, create a `MemoryWidget` to display current RAM and Swap usage.",Pending
+,T64,TUI System Resource Widgets,T64.3,"In `ferri-tui`, create a `NetworkWidget` to display network I/O over time.",Pending
+,T64,TUI System Resource Widgets,T64.4,"In `ferri-tui`, create a `DiskWidget` for displaying disk capacity and usage.",Pending
+,T64,TUI System Resource Widgets,T64.5,"Integrate these new widgets into the main dashboard layout.",Pending
+,T65,TUI Interactivity & Navigation,T65.1,"Implement keybindings for quitting the application (e.g., 'q').",Pending
+,T65,TUI Interactivity & Navigation,T65.2,"Implement keyboard navigation to move between and select different widgets.",Pending
+,T65,TUI Interactivity & Navigation,T65.3,"Implement sorting for the Process Widget (e.g., by CPU, memory, start time).",Pending
+,T65,TUI Interactivity & Navigation,T65.4,"Implement a search/filter feature for the Process Widget.",Pending
+,T65,TUI Interactivity & Navigation,T65.5,"Implement an 'expansion' mode to allow a single widget to take up the full screen.",Pending
+,T65,TUI Interactivity & Navigation,T65.6,"Add a help popup that displays all available keybindings.",Pending
+,T66,TUI Theming & Configuration,T66.1,"Create a configuration file (e.g., `tui.toml`) for UI settings.",Pending
+,T66,TUI Theming & Configuration,T66.2,"Allow users to define custom color schemes in the configuration file.",Pending
+,T66,TUI Theming & Configuration,T66.3,"Allow users to customize the layout of widgets in the configuration file.",Pending
+,T66,TUI Theming & Configuration,T66.4,"Allow users to set the default refresh rate and other behavioral settings.",Pending
+,T66,TUI Theming & Configuration,T66.5,"Implement a mechanism to load the theme and layout from the config file at startup.",Pending
+,T67,`ferri do` Interactive TUI,T67.1,"Refactor `ferri do` to launch a new TUI for interactive plan generation and execution.",Pending
+,T67,`ferri do` Interactive TUI,T67.2,"The TUI should display the agent's ""thinking"" process in a dedicated panel in real-time.",Pending
+,T67,`ferri do` Interactive TUI,T67.3,"Display the generated YAML flow in a syntax-highlighted panel for user review.",Pending
+,T67,`ferri do` Interactive TUI,T67.4,"Add a confirmation step (e.g., press 'Y' to proceed) in the TUI before executing the generated flow.",Pending
+,T67,`ferri do` Interactive TUI,T67.5,"After confirmation, integrate and display the existing `flow_run_tui` to show the live execution.",Pending
+,T68,Nautical Theming & Agent Personality,T68.1,"In `ferri-tui`, create a `themes` module.",Pending
+,T68,Nautical Theming & Agent Personality,T68.2,"Design and implement a default ""Crab"" color scheme (deep sea blues, sandy oranges, coral reds).",Pending
+,T68,Nautical Theming & Agent Personality,T68.3,"Replace standard loading spinners and placeholders with ASCII art of a crab or boat.",Pending
+,T68,Nautical Theming & Agent Personality,T68.4,"Phrase the agent's ""thinking"" messages in the `ferri do` TUI as if from a helpful crab captain (e.g., ""Plotting a course..."").",Pending
+,T68,Nautical Theming & Agent Personality,T68.5,"Update the `ferri init` TUI to include a friendly welcome message from the crab captain.",Pending
+,T69,`ferri secrets` TUI Management,T69.1,"Create a new `secrets_tui.rs` module in `ferri-cli`.",Pending
+,T69,`ferri secrets` TUI Management,T69.2,"Implement a TUI for `ferri secrets ls` that displays keys in a selectable list.",Pending
+,T69,`ferri secrets` TUI Management,T69.3,"Add an ""Add"" (`a`) keybinding to the TUI to prompt for a new key/value pair in a popup.",Pending
+,T69,`ferri secrets` TUI Management,T69.4,"Add a ""Remove"" (`d`) keybinding to the TUI to remove the selected secret after a confirmation dialog.",Pending
+,T69,`ferri secrets` TUI Management,T69.5,"Refactor `ferri secrets` subcommands (`set`, `rm`, `ls`) to launch the new TUI by default.",Pending
+,T70,`ferri models` TUI Management,T70.1,"Create a new `models_tui.rs` module in `ferri-cli`.",Pending
+,T70,`ferri models` TUI Management,T70.2,"Implement a TUI for `ferri models ls` that displays models in a detailed, selectable table.",Pending
+,T70,`ferri models` TUI Management,T70.3,"Add an ""Add"" (`a`) keybinding to launch a form for adding a new model.",Pending
+,T70,`ferri models` TUI Management,T70.4,"Add a ""Remove"" (`d`) keybinding to remove the selected model after a confirmation dialog.",Pending
+,T70,`ferri models` TUI Management,T70.5,"Refactor `ferri models` subcommands (`add`, `rm`, `ls`) to launch the new TUI by default.",Pending
+,T71,`ferri ctx` TUI Management,T71.1,"Create a new `ctx_tui.rs` module in `ferri-cli`.",Pending
+,T71,`ferri ctx` TUI Management,T71.2,"Implement a TUI for `ferri ctx ls` that displays context paths in a selectable list.",Pending
+,T71,`ferri ctx` TUI Management,T71.3,"Add an ""Add"" (`a`) keybinding to open a text input for adding new paths.",Pending
+,T71,`ferri ctx` TUI Management,T71.4,"Add a ""Remove"" (`d`) keybinding to remove the selected path from the context after a confirmation dialog.",Pending
+,T71,`ferri ctx` TUI Management,T71.5,"Refactor `ferri ctx` subcommands (`add`, `rm`, `ls`) to launch the new TUI by default.",Pending
