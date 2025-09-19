@@ -3,6 +3,7 @@ pub mod execute;
 pub mod jobs;
 pub mod models;
 pub mod secrets;
+pub mod agent;
 pub mod flow;
 pub mod logging;
 

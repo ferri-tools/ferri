@@ -317,3 +317,55 @@ pub fn run_pipeline(
 pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
     tui::run_tui(pipeline)
 }
+
+pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow::Result<()> {
+    println!("--- Starting flow: {} ---", pipeline.name);
+    for step in &pipeline.steps {
+        println!("\n--- Step '{}': Starting ---", step.name);
+        
+        let (prepared_command, secrets) = match &step.kind {
+            StepKind::Model(model_step) => {
+                let exec_args = ExecutionArgs {
+                    model: Some(model_step.model.clone()),
+                    use_context: false,
+                    output_file: model_step.output_image.as_ref().map(PathBuf::from),
+                    command_with_args: vec![model_step.prompt.clone()],
+                };
+                crate::execute::prepare_command(base_path, &exec_args)?
+            }
+            StepKind::Process(process_step) => {
+                let mut cmd = tokio::process::Command::new("sh");
+                cmd.arg("-c").arg(&process_step.process);
+                (PreparedCommand::Local(cmd), HashMap::new())
+            }
+        };
+
+        match prepared_command {
+            PreparedCommand::Local(mut command) => {
+                let output = command
+                    .envs(secrets)
+                    .output()
+                    .await?;
+
+                io::stdout().write_all(&output.stdout)?;
+                io::stderr().write_all(&output.stderr)?;
+
+                if !output.status.success() {
+                    return Err(anyhow::anyhow!("Step '{}' failed.", step.name));
+                }
+            }
+            PreparedCommand::Remote(request) => {
+                let response = request.send().await?;
+                if !response.status().is_success() {
+                    let error_body = response.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
+                    return Err(anyhow::anyhow!("API request failed with status: {}. Body: {}", response.status(), error_body));
+                }
+                let response_body: serde_json::Value = response.json().await?;
+                let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"].as_str().unwrap_or("");
+                println!("{}", generated_text);
+            }
+        }
+        println!("\n--- Step '{}': Completed ---", step.name);
+    }
+    Ok(())
+}

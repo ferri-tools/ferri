@@ -42,7 +42,7 @@ JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
 ,T5,`ctx` Command,T5.5,"In `context` module, implement `list_context()` function.",Done
 ,T5,`ctx` Command,T5.6,"In `ferri-core`, write unit tests for adding valid, invalid, and duplicate paths to the context.",Done
 ,T5,`ctx` Command,T5.7,"In `ferri-cli`, call the corresponding `ferri_core::context` functions from the `ctx` match arms.",Done
-,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write integration tests for `ctx add` and `ctx ls`.",Done
+,T5,`ctx` Command,T5.8,"In `ferri-cli/tests/`, write an integration tests for `ctx add` and `ctx ls`.",Done
 ,T6,`with` Command,T6.1,"In `ferri-cli`, define the `with` command to accept a command to execute (e.g., `ferri with -- echo 'hello'`).",Done
 ,T6,`with` Command,T6.2,"In `ferri-core`, create an `execute` module with a `execute_with_context` function.",Done
 ,T6,`with` Command,T6.3,`execute_with_context` logic: Read secrets from `.ferri/secrets.json` and decrypt them.,Done
@@ -306,3 +306,22 @@ line2'`).",Descoped
 ,T53,`ps` TUI - Visual Polish,T53.4,"Add a ""Last Updated"" timestamp to the UI that updates on each refresh.",Pending
 ,T53,`ps` TUI - Visual Polish,T53.5,"Add sparklines or gauges for CPU/Memory usage (visual mockup).",Pending
 ,T53,`ps` TUI - Visual Polish,T53.6,"Style the footer to show keybindings (e.g., `q` to quit).",Pending
+,T54,`ferri do` Command Integration,T54.1,"In `ferri-cli/src/main.rs`, add a `Do` variant to the `Commands` enum with a `prompt` field.",Done
+,T54,`ferri do` Command Integration,T54.2,"In `ferri-cli/src/main.rs`, add a `match` arm for the `Do` command.",Done
+,T55,Agent Core Module,T55.1,"In `ferri-core/src/lib.rs`, create and expose a new public `agent` module.",Done
+,T55,Agent Core Module,T55.2,"In `ferri-core/src/agent.rs`, create a public async function `generate_and_run_flow`.",Done
+,T56,Gemini Planner Implementation,T56.1,"In `agent.rs`, implement the logic to read the `GEMINI_API_KEY` from the environment.",Done
+,T56,Gemini Planner Implementation,T56.2,"In `agent.rs`, implement the logic to construct a system prompt for generating Ferri flow YAML.",Done
+,T56,Gemini Planner Implementation,T56.3,"In `agent.rs`, use `reqwest` to make a streaming API call to Gemini Pro.",Done
+,T57,Flow Execution Integration,T57.1,"In `agent.rs`, parse the YAML response from the Gemini API.",Done
+,T57,Flow Execution Integration,T57.2,"In `agent.rs`, save the generated flow to a temporary file.",Done
+,T57,Flow Execution Integration,T57.3,"In `agent.rs`, call `ferri_core::flow::run_pipeline` to execute the temporary flow file.",Pending
+,T58,Final CLI Integration,T58.1,"In `ferri-cli/src/main.rs`, call `ferri_core::agent::generate_and_run_flow` from the `Do` command's match arm.",Pending
+,T59,Create `async` Plain Text Pipeline Runner,T59.1,"In `ferri-core/src/flow.rs`, create a new `async` function `run_pipeline_plain`.",Pending
+,T59,Create `async` Plain Text Pipeline Runner,T59.2,"The function will take a `&Pipeline` and print status updates and command outputs directly to stdout/stderr.",Pending
+,T59,Create `async` Plain Text Pipeline Runner,T59.3,"It will need to handle `async` execution of both local and remote commands.",Pending
+,T59,Create `async` Plain Text Pipeline Runner,T59.4,"Update `ferri-core/src/agent.rs` to call this new `run_pipeline_plain` function.",Pending
+,T60,Create `ferri do` Walkthrough,T60.1,"Create a new file `qa/agentic_do_walkthrough.md`.",Pending
+,T60,Create `ferri do` Walkthrough,T60.2,"Add a ""Setup"" section explaining how to set the `GEMINI_API_KEY` using `ferri secrets set`.",Pending
+,T60,Create `ferri do` Walkthrough,T60.3,"Add a ""Usage"" section with an example command like `ferri do ""create a rust project that prints hello world""`.",Pending
+,T60,Create `ferri do` Walkthrough,T60.4,"Add an ""Expected Output"" section describing the agents thinking process, the generated YAML, and the final output of the executed flow.",Pending
