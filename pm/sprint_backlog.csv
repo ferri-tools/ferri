@@ -261,3 +261,14 @@ line2'`).",Descoped
 ,T47,`secrets ls` Command,T47.3,"In `ferri-core/src/secrets.rs`, add a unit test for the `list_secrets()` function.",Done
 ,T47,`secrets ls` Command,T47.4,"In `ferri-cli/src/main.rs`, call `ferri_core::secrets::list_secrets` from the `secrets ls` match arm and print the keys.",Done
 ,T47,`secrets ls` Command,T47.5,"In `ferri-cli/tests/secrets.rs`, add an integration test for the `ferri secrets ls` command.",Done
+,T48,Implement Read-Only TUI for `ps` Command (Revised),T48.1,"In `ferri-cli`, create a new `ps_tui.rs` module.",Pending
+,T48,Implement Read-Only TUI for `ps` Command (Revised),T48.2,"Implement the minimal `ratatui` boilerplate in `ps_tui.rs` to simply set up the terminal, display a placeholder message (e.g., ""TUI is running...""), and close cleanly on any key press.",Pending
+,T48,Implement Read-Only TUI for `ps` Command (Revised),T48.3,Refactor the `ps` command handler in `main.rs` to call this new TUI function.,Pending
+,T48,Implement Read-Only TUI for `ps` Command (Revised),T48.4,"Modify the `ps` handler to fetch the job list *before* calling the TUI, and pass the list of jobs into the `ps_tui` function.",Pending
+,T48,Implement Read-Only TUI for `ps` Command (Revised),T48.5,"In the TUI, replace the placeholder message with a `ratatui-table` that renders the jobs list. The table will not be interactive yet.",Pending
+,T48,Implement Read-Only TUI for `ps` Command (Revised),T48.6,"Add color-coding for the job status (e.g., green for ""Running"") and basic table styling.",Pending
+,T49,Add Interactivity to `ps` TUI (Revised),T49.1,"In the `ps_tui` module, add state management to track the selected row in the job table.",Pending
+,T49,Add Interactivity to `ps` TUI (Revised),T49.2,"Implement keyboard controls (up/down arrows) to update the selected row state and highlight it in the UI.",Pending
+,T49,Add Interactivity to `ps` TUI (Revised),T49.3,"Create a new layout with two vertical panels: the job list on the left, and a new, empty ""Output"" panel on the right.",Pending
+,T49,Add Interactivity to `ps` TUI (Revised),T49.4,"When a job is selected, call the existing `ferri_core::jobs::get_job_output` function to fetch its stdout.",Pending
+,T49,Add Interactivity to `ps` TUI (Revised),T49.5,"Display the fetched stdout content in the ""Output"" panel.",Pending
