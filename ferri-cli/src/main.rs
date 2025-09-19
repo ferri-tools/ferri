@@ -4,6 +4,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 mod flow_run_tui;
+mod ps_tui;
 
 
 #[derive(Parser)]
@@ -410,7 +411,15 @@ fn main() {
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
                 Ok((prepared_command, secrets)) => {
                     match prepared_command {
-                        ferri_core::execute::PreparedCommand::Local(command) => {
+                        ferri_core::execute::PreparedCommand::Local(mut command) => {
+                            let full_command_str = args.command.join(" ");
+                            // If the command looks like a shell command, wrap it in sh -c
+                            if args.command.len() > 1 || full_command_str.contains(|c: char| c.is_whitespace() || c == '|' || c == '&' || c == ';') {
+                                let mut shell_command = std::process::Command::new("sh");
+                                shell_command.arg("-c").arg(full_command_str);
+                                command = shell_command;
+                            }
+
                             let mut original_command_parts = Vec::new();
                             if let Some(model) = &args.model {
                                 original_command_parts.push(format!("--model {}", model));
@@ -452,23 +461,9 @@ fn main() {
             }
         }
         Commands::Ps => {
-            match ferri_core::jobs::list_jobs(&current_path) {
-                Ok(jobs) => {
-                    if jobs.is_empty() {
-                        println!("No jobs found.");
-                    } else {
-                        println!("{:<15} {:<15} {:<15} {:<10} {}", "JOB ID", "PID", "PGID", "STATUS", "COMMAND");
-                        for job in jobs {
-                            let pid_str = job.pid.map_or("N/A".to_string(), |p| p.to_string());
-                            let pgid_str = job.pgid.map_or("N/A".to_string(), |p| p.to_string());
-                            println!("{:<15} {:<15} {:<15} {:<10} {}", job.id, pid_str, pgid_str, job.status, job.command);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error: Failed to list jobs - {}", e);
-                    std::process::exit(1);
-                }
+            if let Err(e) = ps_tui::run() {
+                eprintln!("Error: Failed to launch ps dashboard - {}", e);
+                std::process::exit(1);
             }
         }
         Commands::Kill { job_id } => {
