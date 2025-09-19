@@ -254,10 +254,37 @@ line2'`).",Descoped
 ,T39,Add `secrets rm` Command,T39.3,"In secrets.rs, ensure the command fails gracefully if the key does not exist.",Done
 ,T39,Add `secrets rm` Command,T39.4,Add a unit test in the core library to verify the key removal logic.,Done
 ,T39,Add `secrets rm` Command,T39.5,Add an integration test in the CLI tests to verify the `ferri secrets rm` command works end-to-end.,Done
-,T46,Image Support,T46.1,Allow image files as inputs to model steps.,Pending
-,T46,Image Support,T46.2,Allow models to generate images as outputs.,Pending
+,T46,Image Support,T46.1,Allow image files as inputs to model steps.,Done
+,T46,Image Support,T46.2,Allow models to generate images as outputs.,Done
 ,T47,`secrets ls` Command,T47.1,"In `ferri-cli/src/main.rs`, add an `ls` subcommand to the `SecretsCommand` enum.",Done
 ,T47,`secrets ls` Command,T47.2,"In `ferri-core/src/secrets.rs`, implement a `list_secrets()` function that returns a `Vec<String>` of secret keys.",Done
 ,T47,`secrets ls` Command,T47.3,"In `ferri-core/src/secrets.rs`, add a unit test for the `list_secrets()` function.",Done
 ,T47,`secrets ls` Command,T47.4,"In `ferri-cli/src/main.rs`, call `ferri_core::secrets::list_secrets` from the `secrets ls` match arm and print the keys.",Done
 ,T47,`secrets ls` Command,T47.5,"In `ferri-cli/tests/secrets.rs`, add an integration test for the `ferri secrets ls` command.",Done
+,T48,"Image Generation with ferri with","T48.1","In ferri-cli, add an --output <FILE_PATH> argument to the with command to specify where to save generated content.","Done"
+,T48,"Image Generation with ferri with","T48.2","In ferri-core, modify the remote model execution logic to detect if the API response contains image data (e.g., base64-encoded).","Done"
+,T48,"Image Generation with ferri with","T48.3","In ferri-core, implement the logic to decode the base64 content into an image byte buffer.","Done"
+,T48,"Image Generation with ferri with","T48.4","In ferri-core, if the --output path is provided, write the image byte buffer to the specified file.","Done"
+,T48,"Image Generation with ferri with","T48.5","Add a ferri-core unit test to verify the base64 decoding and file-writing logic.","Done"
+,T48,"Image Generation with ferri with","T48.6","Add a ferri-cli integration test for the end-to-end ferri with --output ... command.","Done"
+,T48,"Image Generation with ferri with","T48.7","Update README.md to document the new --output flag for image generation.","Done"
+,T49,"Image Generation in ferri flow","T49.1","In ferri-core, update the flow.yml schema to allow a ModelStep to specify an output_image file path.","Done"
+,T49,"Image Generation in ferri flow","T49.2","In the run_pipeline logic, check for the output_image field during step execution.","Done"
+,T49,"Image Generation in ferri flow","T49.3","Integrate the image decoding and saving logic from T48 into the run_pipeline function for ModelStep.","Done"
+,T49,"Image Generation in ferri flow","T49.4","Add a ferri-core unit test to verify a ModelStep with output_image triggers the saving logic.","Done"
+,T49,"Image Generation in ferri flow","T49.5","Create a sample pm/image_generation_flow.yml to demonstrate the feature.","Done"
+,T49,"Image Generation in ferri flow","T49.6","Add a ferri-cli integration test that runs the sample flow and verifies the image file is created.","Done"
+,T49,"Image Generation in ferri flow","T49.7","Update qa/flow_pipeline_test_plan.md with test cases for image generation in a flow.","Done"
+,T50,Multimodal Image Editing Flow,T50.1,Create a new git branch named `feature/T50-image-editing-flow`.,Pending
+,T50,Multimodal Image Editing Flow,T50.2,"In the `pm` directory, create a new flow file named `image_editing_flow.yml`.",Pending
+,T50,Multimodal Image Editing Flow,T50.3,"In `image_editing_flow.yml`, define the first `ModelStep` (""Generate Detailed Prompt"") to use a local Ollama model (e.g., `gemma`).",Pending
+,T50,Multimodal Image Editing Flow,T50.4,"Configure the ""Generate Detailed Prompt"" step to take a simple user request as input and output the generated prompt to a file named `detailed_prompt.txt`.",Pending
+,T50,Multimodal Image Editing Flow,T50.5,"In `image_editing_flow.yml`, define the second `ModelStep` (""Generate Edited Image"") to use the `gemini-image-generator` model.",Pending
+,T50,Multimodal Image Editing Flow,T50.6,"Configure the ""Generate Edited Image"" step to use `detailed_prompt.txt` as its input.",Pending
+,T50,Multimodal Image Editing Flow,T50.7,"Configure the ""Generate Edited Image"" step to save its output to a file named `edited_image.png`.",Pending
+,T50,Multimodal Image Editing Flow,T50.8,Create a new `qa/image_editing_walkthrough.md` file.,Pending
+,T50,Multimodal Image Editing Flow,T50.9,"In the walkthrough, provide a complete, step-by-step guide for setting up the necessary models (`gemma`).",Pending
+,T50,Multimodal Image Editing Flow,T50.10,"In the walkthrough, provide the full YAML content for `image_editing_flow.yml`.",Pending
+,T50,Multimodal Image Editing Flow,T50.11,"In the walkthrough, provide the exact `ferri flow run` command to execute the workflow.",Pending
+,T50,Multimodal Image Editing Flow,T50.12,"In the walkthrough, define the expected outputs, including the final `edited_image.png`.",Pending
+,T50,Multimodal Image Editing Flow,T50.13,"Commit and push all new and modified files to the remote branch.",Pending

@@ -1,0 +1,21 @@
+name: "Multimodal Image Editing Flow"
+steps:
+  # Step 1: Use a local model to expand a simple user request into a detailed prompt.
+  - name: "Generate Detailed Prompt"
+    model:
+      model: "gemma" # Assumes a local Ollama model with the alias 'gemma' is registered.
+      prompt: |
+        You are a creative assistant that expands simple user requests into detailed, imaginative prompts for an AI image generator.
+        Take the user's request from the input and create a rich, descriptive paragraph.
+        Focus on visual details, style, lighting, and composition.
+        USER REQUEST: {{input}}
+    input: "user_request.txt" # The user will create this file.
+    output: "detailed_prompt.txt"
+
+  # Step 2: Use the detailed prompt to generate an image with a remote model.
+  - name: "Generate Edited Image"
+    model:
+      model: "gemini-image-generator"
+      prompt: "Generate an image based on the following description: {{input}}"
+      outputImage: "edited_image.png"
+    input: "detailed_prompt.txt"

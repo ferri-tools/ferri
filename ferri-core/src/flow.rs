@@ -7,7 +7,7 @@ use crossbeam_channel::Sender;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::{fs, io, thread};
@@ -186,6 +186,8 @@ pub fn run_pipeline(
                 stderr_thread.join().unwrap();
                 let status = child.wait()?;
                 writeln!(log_file, "Local command finished with status: {}", status)?;
+                
+                // Only use stdout for the final output
                 std::process::Output {
                     status,
                     stdout: accumulated_stdout,
@@ -214,6 +216,36 @@ pub fn run_pipeline(
                 // by the logic in `main.rs`. We just need to consume the response here.
                 let body_bytes = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?.to_vec();
                 
+                // Try to parse the response to find and save an image if requested
+                if let StepKind::Model(model_step) = &step.kind {
+                    if let Some(output_path_str) = &model_step.output_image {
+                        if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
+                            let response_chunks = if let Some(array) = json.as_array() {
+                                array.to_vec()
+                            } else {
+                                vec![json]
+                            };
+                            for chunk in response_chunks {
+                                if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
+                                    for candidate in candidates {
+                                        if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                            for part in parts {
+                                                if let Some(inline_data) = part.get("inlineData") {
+                                                    if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
+                                                        let output_path = Path::new(output_path_str);
+                                                        crate::execute::save_base64_image(output_path, b64_data)?;
+                                                        writeln!(log_file, "Successfully saved image to {}", output_path.display())?;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // We can still try to parse and log the text part for debugging
                 if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
                      let response_chunks = if let Some(array) = json.as_array() {
