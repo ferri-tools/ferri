@@ -6,7 +6,7 @@ use crate::execute::{ExecutionArgs, PreparedCommand};
 use crossbeam_channel::Sender;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -355,10 +355,10 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
             }
             PreparedCommand::Remote(request) => {
                 let response = tokio::task::spawn_blocking(move || request.send()).await??;
-
-                if !response.status().is_success() {
+                let status = response.status();
+                if !status.is_success() {
                     let error_body = response.text().unwrap_or_else(|_| "Could not read error body".to_string());
-                    return Err(anyhow::anyhow!("API request failed with status: {}. Body: {}", response.status(), error_body));
+                    return Err(anyhow::anyhow!("API request failed with status: {}. Body: {}", status, error_body));
                 }
                 let response_body: serde_json::Value = response.json()?;
                 let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"].as_str().unwrap_or("");

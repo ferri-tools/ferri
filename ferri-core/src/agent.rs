@@ -12,7 +12,6 @@ pub async fn generate_and_run_flow(base_path: &Path, prompt: &str) -> Result<()>
     let api_key =
         env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
 
-    // Corrected the system prompt to remove characters that conflict with Rust 2021 edition syntax.
     let system_prompt = r#"# You are an expert software developer and terminal assistant. Your goal is to break down a user's high-level request into a precise, executable Ferri flow YAML file.
 
 The user's prompt will be a high-level goal. You must convert this into a series of shell commands organized as jobs in a Ferri flow.
@@ -88,14 +87,15 @@ jobs:
         .await
         .context("Failed to send request to Gemini API")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_body = response
             .text()
             .await
             .unwrap_or_else(|_| "Could not read error body".to_string());
         return Err(anyhow!(
-            "Gemini API request failed with status: {{}}. Body: {{}}",
-            response.status(),
+            "Gemini API request failed with status: {}. Body: {}",
+            status,
             error_body
         ));
     }
@@ -111,7 +111,6 @@ jobs:
         .as_str()
         .context("Could not extract generated text from Gemini API response")?;
 
-    // Clean the response to get only the YAML
     let yaml_content = generated_text
         .trim()
         .strip_prefix("```yaml")
@@ -121,7 +120,7 @@ jobs:
         .trim();
 
     println!(
-        "\n--- Generated Flow ---\n{{}}\n----------------------\n",
+        "\n--- Generated Flow ---\n{}\n----------------------\n",
         yaml_content
     );
 
