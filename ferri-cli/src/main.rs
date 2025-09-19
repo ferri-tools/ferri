@@ -21,6 +21,9 @@ struct SharedArgs {
     /// Inject context into the command
     #[arg(long)]
     ctx: bool,
+    /// The file path to save the output to
+    #[arg(long)]
+    output: Option<PathBuf>,
     /// The command to execute
     #[arg(required = true, trailing_var_arg = true)]
     command: Vec<String>,
@@ -221,6 +224,7 @@ fn main() {
             let exec_args = ferri_core::execute::ExecutionArgs {
                 model: args.model.clone(),
                 use_context: args.ctx,
+                output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
             };
 
@@ -246,29 +250,52 @@ fn main() {
                                     let status = response.status();
                                     let body = response.text().unwrap_or_default();
                                     if status.is_success() {
-                                        let parsed: Result<Vec<serde_json::Value>, _> = serde_json::from_str(&body);
-                                        if let Ok(json_array) = parsed {
-                                            let mut full_text = String::new();
-                                            for json in json_array {
-                                                if let Some(text) = json.get("candidates")
-                                                    .and_then(|c| c.get(0))
-                                                    .and_then(|c| c.get("content"))
-                                                    .and_then(|c| c.get("parts"))
-                                                    .and_then(|p| p.get(0))
-                                                    .and_then(|p| p.get("text"))
-                                                    .and_then(|t| t.as_str()) {
-                                                    full_text.push_str(text);
+                                        let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
+                                        if let Ok(json) = parsed {
+                                            let mut text_content = String::new();
+                                            let mut image_saved = false;
+
+                                            // Handle both a single response object and an array of stream chunks
+                                            let response_chunks = if let Some(array) = json.as_array() {
+                                                array.to_vec()
+                                            } else {
+                                                vec![json]
+                                            };
+
+                                            for chunk in response_chunks {
+                                                if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
+                                                    for candidate in candidates {
+                                                        if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                                            for part in parts {
+                                                                if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                                                    text_content.push_str(text);
+                                                                }
+                                                                if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
+                                                                    if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
+                                                                        match ferri_core::execute::save_base64_image(output_path, b64_data) {
+                                                                            Ok(_) => {
+                                                                                println!("Successfully saved image to {}", output_path.display());
+                                                                                image_saved = true;
+                                                                            },
+                                                                            Err(e) => eprintln!("Error: Failed to save image - {}", e),
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
-                                            if !full_text.is_empty() {
-                                                println!("{}", full_text);
-                                            } else {
-                                                eprintln!("Error: Could not extract text from API response.");
+
+                                            if !text_content.is_empty() {
+                                                print!("{}", text_content); // Use print! to avoid extra newline for streaming
+                                            } else if !image_saved {
+                                                eprintln!("Error: Could not extract text or image data from API response.");
                                                 eprintln!("Full response: {}", body);
                                                 std::process::exit(1);
                                             }
                                         } else {
-                                            eprintln!("Error: Failed to parse API response as a JSON array.");
+                                            eprintln!("Error: Failed to parse API response as JSON.");
                                             eprintln!("Full response: {}", body);
                                             std::process::exit(1);
                                         }
@@ -276,7 +303,7 @@ fn main() {
                                         eprintln!("Error: API request failed with status: {}", status);
                                         let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
                                         if let Ok(json) = parsed {
-                                            if let Some(msg) = json["error"]["message"].as_str() {
+                                            if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
                                                 eprintln!("Details: {}", msg);
                                             } else {
                                                 eprintln!("Full response: {}", body);
@@ -376,6 +403,7 @@ fn main() {
             let exec_args = ferri_core::execute::ExecutionArgs {
                 model: args.model.clone(),
                 use_context: args.ctx,
+                output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
             };
 
