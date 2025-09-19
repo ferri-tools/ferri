@@ -282,6 +282,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link 0.2.0",
 ]
@@ -548,6 +549,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "atty",
+ "chrono",
  "clap",
  "crossbeam-channel",
  "crossterm",
