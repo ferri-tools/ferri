@@ -95,9 +95,37 @@ impl<'a> App<'a> {
 
 
         // --- Footer ---
-        let footer = Paragraph::new("Press 'q' to quit.")
+        let footer = Paragraph::new("Press 'q' to quit, 'j'/'k' to navigate.")
             .style(Style::default().fg(Color::LightCyan))
             .block(Block::default().borders(Borders::ALL).title("Controls"));
         f.render_widget(footer, main_chunks[2]);
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.process_table_state.selected() {
+            Some(i) => {
+                if i >= self.jobs.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.process_table_state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.process_table_state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.jobs.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.process_table_state.select(Some(i));
     }
 }
