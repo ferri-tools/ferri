@@ -25,6 +25,6 @@ sysinfo = "0.30.13"
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", features = ["full"] }
 topological-sort = "0.2.1"
+tempfile = "3.10.1"
 
 [dev-dependencies]
-tempfile = "3.10.1"

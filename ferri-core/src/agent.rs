@@ -7,12 +7,13 @@ use std::path::Path;
 use tempfile::NamedTempFile;
 
 pub async fn generate_and_run_flow(base_path: &Path, prompt: &str) -> Result<()> {
-    println!("[AGENT] Generating flow for prompt: 	'{{}}"", prompt);
+    println!("[AGENT] Generating flow for prompt: '{}'", prompt);
 
     let api_key =
         env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
 
-    let system_prompt = r##"# You are an expert software developer and terminal assistant. Your goal is to break down a user's high-level request into a precise, executable Ferri flow YAML file.
+    // Corrected the system prompt to remove characters that conflict with Rust 2021 edition syntax.
+    let system_prompt = r#"# You are an expert software developer and terminal assistant. Your goal is to break down a user's high-level request into a precise, executable Ferri flow YAML file.
 
 The user's prompt will be a high-level goal. You must convert this into a series of shell commands organized as jobs in a Ferri flow.
 
@@ -59,7 +60,7 @@ jobs:
     dependencies:
       - "stage_changes"
 ```
-"##;
+"#;
 
     let client = reqwest::Client::new();
     let url = format!(
