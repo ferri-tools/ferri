@@ -288,14 +288,21 @@ line2'`).",Descoped
 ,T50,Multimodal Image Editing Flow,T50.11,"In the walkthrough, provide the exact `ferri flow run` command to execute the workflow.",Done
 ,T50,Multimodal Image Editing Flow,T50.12,"In the walkthrough, define the expected outputs, including the final `edited_image.png`.",Done
 ,T50,Multimodal Image Editing Flow,T50.13,"Commit and push all new and modified files to the remote branch.",Done
-,T51,"Implement Read-Only TUI for `ps` Command","T51.1","In `ferri-cli`, create a new `ps_tui.rs` module.",Pending
-,T51,"Implement Read-Only TUI for `ps` Command","T51.2","Implement the minimal `ratatui` boilerplate in `ps_tui.rs` to simply set up the terminal, display a placeholder message (e.g., ""TUI is running...""), and close cleanly on any key press.",Pending
-,T51,"Implement Read-Only TUI for `ps` Command","T51.3","Refactor the `ps` command handler in `main.rs` to call this new TUI function.",Pending
-,T51,"Implement Read-Only TUI for `ps` Command","T51.4","Modify the `ps` handler to fetch the job list *before* calling the TUI, and pass the list of jobs into the `ps_tui` function.",Pending
-,T51,"Implement Read-Only TUI for `ps` Command","T51.5","In the TUI, replace the placeholder message with a `ratatui-table` that renders the jobs list. The table will not be interactive yet.",Pending
-,T51,"Implement Read-Only TUI for `ps` Command","T51.6","Add color-coding for the job status (e.g., green for ""Running"") and basic table styling.",Pending
-,T52,"Add Interactivity to `ps` TUI","T52.1","In the `ps_tui` module, add state management to track the selected row in the job table.",Pending
-,T52,"Add Interactivity to `ps` TUI","T52.2","Implement keyboard controls (up/down arrows) to update the selected row state and highlight it in the UI.",Pending
-,T52,"Add Interactivity to `ps` TUI","T52.3","Create a new layout with two vertical panels: the job list on the left, and a new, empty ""Output"" panel on the right.",Pending
-,T52,"Add Interactivity to `ps` TUI","T52.4","When a job is selected, call the existing `ferri_core::jobs::get_job_output` function to fetch its stdout.",Pending
-,T52,"Add Interactivity to `ps` TUI","T52.5","Display the fetched stdout content in the ""Output"" panel.",Pending
+,T51,"Implement Read-Only TUI for `ps` Command","T51.1","In `ferri-cli`, create a new `ps_tui.rs` module.",Done
+,T51,"Implement Read-Only TUI for `ps` Command","T51.2","Implement the minimal `ratatui` boilerplate in `ps_tui.rs` to simply set up the terminal, display a placeholder message (e.g., ""TUI is running...""), and close cleanly on any key press.",Done
+,T51,"Implement Read-Only TUI for `ps` Command","T51.3","Refactor the `ps` command handler in `main.rs` to call this new TUI function.",Done
+,T51,"Implement Read-Only TUI for `ps` Command","T51.4","Modify the `ps` handler to fetch the job list *before* calling the TUI, and pass the list of jobs into the `ps_tui` function.",Done
+,T51,"Implement Read-Only TUI for `ps` Command","T51.5","In the TUI, replace the placeholder message with a `ratatui-table` that renders the jobs list. The table will not be interactive yet.",Done
+,T51,"Implement Read-Only TUI for `ps` Command","T51.6","Add color-coding for the job status (e.g., green for ""Running"") and basic table styling.",Done
+,T52,`ps` TUI - Data Integration,T52.1,"In `ferri-core`, implement logic to read job status from the `.ferri/jobs` directory.",Pending
+,T52,`ps` TUI - Data Integration,T52.2,"Define a `JobInfo` struct to hold display data (ID, Status, Command, Start Time).",Pending
+,T52,`ps` TUI - Data Integration,T52.3,"Pass a `Vec<JobInfo>` from the `ps` command handler to the TUI.",Pending
+,T52,`ps` TUI - Data Integration,T52.4,"In the TUI, create a `Table` widget to display the list of jobs.",Pending
+,T52,`ps` TUI - Data Integration,T52.5,"Populate the table with data from the `JobInfo` structs.",Pending
+,T52,`ps` TUI - Data Integration,T52.6,"Implement a ticker to refresh job data every 2 seconds.",Pending
+,T53,`ps` TUI - Visual Polish,T53.1,"Design a layout with sections for Job Summary, Job Details, and a footer with controls.",Pending
+,T53,`ps` TUI - Visual Polish,T53.2,"Apply a cyberpunk-inspired color scheme with bright neons on a dark background.",Pending
+,T53,`ps` TUI - Visual Polish,T53.3,"Style the jobs table with borders, styled headers, and alternating row colors.",Pending
+,T53,`ps` TUI - Visual Polish,T53.4,"Add a ""Last Updated"" timestamp to the UI that updates on each refresh.",Pending
+,T53,`ps` TUI - Visual Polish,T53.5,"Add sparklines or gauges for CPU/Memory usage (visual mockup).",Pending
+,T53,`ps` TUI - Visual Polish,T53.6,"Style the footer to show keybindings (e.g., `q` to quit).",Pending

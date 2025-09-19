@@ -461,9 +461,17 @@ fn main() {
             }
         }
         Commands::Ps => {
-            if let Err(e) = ps_tui::run() {
-                eprintln!("Error: Failed to launch ps dashboard - {}", e);
-                std::process::exit(1);
+            match ferri_core::jobs::list_jobs(&current_path) {
+                Ok(jobs) => {
+                    if let Err(e) = ps_tui::run(jobs) {
+                        eprintln!("Error: Failed to launch ps dashboard - {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error: Failed to list jobs - {}", e);
+                    std::process::exit(1);
+                }
             }
         }
         Commands::Kill { job_id } => {

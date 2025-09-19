@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,7 @@ pub struct Job {
     pub status: String,
     pub pid: Option<u32>,
     pub pgid: Option<u32>,
+    pub start_time: DateTime<Utc>,
 }
 
 fn generate_job_id() -> String {
@@ -29,13 +31,55 @@ fn get_jobs_file_path(base_path: &Path) -> PathBuf {
     base_path.join(".ferri").join("jobs.json")
 }
 
+// A temporary struct to represent the old job format for migration.
+#[derive(Deserialize)]
+struct OldJob {
+    id: String,
+    command: String,
+    status: String,
+    pid: Option<u32>,
+    pgid: Option<u32>,
+}
+
 fn read_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
     let jobs_file = get_jobs_file_path(base_path);
     if !jobs_file.exists() {
         return Ok(Vec::new());
     }
-    let content = fs::read_to_string(jobs_file)?;
-    serde_json::from_str(&content).map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
+    let content = fs::read_to_string(&jobs_file)?;
+
+    // Handle empty or whitespace-only file
+    if content.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Try parsing the new format first.
+    match serde_json::from_str::<Vec<Job>>(&content) {
+        Ok(jobs) => Ok(jobs),
+        Err(e) if e.is_data() && e.to_string().contains("missing field `start_time`") => {
+            // If it fails because of the missing field, try the old format.
+            let old_jobs: Vec<OldJob> = serde_json::from_str(&content)
+                .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))?;
+
+            // Migrate old jobs to the new format.
+            let new_jobs: Vec<Job> = old_jobs
+                .into_iter()
+                .map(|old| Job {
+                    id: old.id,
+                    command: old.command,
+                    status: old.status,
+                    pid: old.pid,
+                    pgid: old.pgid,
+                    start_time: Utc::now(), // Assign a default time.
+                })
+                .collect();
+
+            // Write the migrated data back to the file immediately.
+            write_jobs(base_path, &new_jobs)?;
+            Ok(new_jobs)
+        }
+        Err(e) => Err(std::io::Error::new(ErrorKind::InvalidData, e)),
+    }
 }
 
 fn write_jobs(base_path: &Path, jobs: &[Job]) -> std::io::Result<()> {
@@ -88,6 +132,7 @@ pub fn submit_job(
         status: "Running".to_string(),
         pid,
         pgid,
+        start_time: Utc::now(),
     };
 
     let mut jobs = read_jobs(base_path)?;
