@@ -76,6 +76,12 @@ enum Commands {
         #[command(subcommand)]
         action: FlowCommand,
     },
+    /// Execute a high-level goal with an AI-powered agentic engine
+    Do {
+        /// The high-level goal to accomplish
+        #[arg(required = true, trailing_var_arg = true)]
+        prompt: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -154,7 +160,8 @@ enum ModelsCommand {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     // Get the current directory once for all commands that need it.
@@ -528,5 +535,12 @@ fn main() {
                 }
             }
         },
+        Commands::Do { prompt } => {
+            let prompt_str = prompt.join(" ");
+            if let Err(e) = ferri_core::agent::generate_and_run_flow(&current_path, &prompt_str).await {
+                eprintln!("Error: Agent execution failed - {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }
