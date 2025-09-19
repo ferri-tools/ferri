@@ -1,0 +1,12 @@
+name: "Generate an Image of a Cat"
+steps:
+  - name: "Generate Cat Image"
+    model:
+      model: "gemini-image-generator"
+      prompt: "a photorealistic picture of a cat sitting on a windowsill"
+      outputImage: "flow_cat.png"
+
+  - name: "Verify Image Exists"
+    process:
+      process: "ls flow_cat.png"
+      output: "verification.txt"
