@@ -125,7 +125,7 @@ jobs:
     );
 
     let mut temp_file = NamedTempFile::new().context("Failed to create temporary file")?;
-    writeln!(temp_file, "{{}}", yaml_content).context("Failed to write to temporary file")?;
+    writeln!(temp_file, "{}", yaml_content).context("Failed to write to temporary file")?;
 
     let pipeline = parse_pipeline_file(temp_file.path())?;
 
