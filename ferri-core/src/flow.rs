@@ -322,7 +322,7 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
     println!("--- Starting flow: {} ---", pipeline.name);
     for step in &pipeline.steps {
         println!("\n--- Step '{}': Starting ---", step.name);
-        
+
         let (prepared_command, secrets) = match &step.kind {
             StepKind::Model(model_step) => {
                 let exec_args = ExecutionArgs {
@@ -334,7 +334,7 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
                 crate::execute::prepare_command(base_path, &exec_args)?
             }
             StepKind::Process(process_step) => {
-                let mut cmd = tokio::process::Command::new("sh");
+                let mut cmd = std::process::Command::new("sh");
                 cmd.arg("-c").arg(&process_step.process);
                 (PreparedCommand::Local(cmd), HashMap::new())
             }
@@ -342,10 +342,9 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
 
         match prepared_command {
             PreparedCommand::Local(mut command) => {
-                let output = command
-                    .envs(secrets)
-                    .output()
-                    .await?;
+                command.envs(secrets);
+                let mut tokio_command = tokio::process::Command::from(command);
+                let output = tokio_command.output().await?;
 
                 io::stdout().write_all(&output.stdout)?;
                 io::stderr().write_all(&output.stderr)?;
@@ -355,12 +354,13 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
                 }
             }
             PreparedCommand::Remote(request) => {
-                let response = request.send().await?;
+                let response = tokio::task::spawn_blocking(move || request.send()).await??;
+
                 if !response.status().is_success() {
-                    let error_body = response.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
+                    let error_body = response.text().unwrap_or_else(|_| "Could not read error body".to_string());
                     return Err(anyhow::anyhow!("API request failed with status: {}. Body: {}", response.status(), error_body));
                 }
-                let response_body: serde_json::Value = response.json().await?;
+                let response_body: serde_json::Value = response.json()?;
                 let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"].as_str().unwrap_or("");
                 println!("{}", generated_text);
             }
@@ -369,3 +369,4 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
     }
     Ok(())
 }
+
