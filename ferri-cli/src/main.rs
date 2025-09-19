@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 mod flow_run_tui;
 mod ps_tui;
+mod tui;
 
 
 #[derive(Parser)]
@@ -82,6 +83,8 @@ enum Commands {
         #[arg(required = true, trailing_var_arg = true)]
         prompt: Vec<String>,
     },
+    /// Launch the main TUI dashboard
+    Ui,
 }
 
 #[derive(Subcommand)]
@@ -539,6 +542,12 @@ async fn main() {
             let prompt_str = prompt.join(" ");
             if let Err(e) = ferri_core::agent::generate_and_run_flow(&current_path, &prompt_str).await {
                 eprintln!("Error: Agent execution failed - {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Ui => {
+            if let Err(e) = tui::runner::run_tui() {
+                eprintln!("Error: Failed to launch UI - {}", e);
                 std::process::exit(1);
             }
         }
