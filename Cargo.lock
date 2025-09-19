@@ -554,12 +554,11 @@ dependencies = [
  "crossbeam-channel",
  "crossterm",
  "ferri-core",
- "magic-crypt",
  "predicates",
  "ratatui",
- "serde",
  "serde_json",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
