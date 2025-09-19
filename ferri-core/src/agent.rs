@@ -110,13 +110,19 @@ steps:
         .as_str()
         .context("Could not extract generated text from Gemini API response")?;
 
-    let yaml_content = generated_text
-        .trim()
-        .strip_prefix("```yaml")
-        .unwrap_or(generated_text)
-        .strip_suffix("```")
-        .unwrap_or(generated_text)
-        .trim();
+    // More robustly find and extract the YAML content from the response.
+    let yaml_content = if let Some(start_index) = generated_text.find("```yaml") {
+        let after_start = &generated_text[start_index + 7..];
+        if let Some(end_index) = after_start.find("```") {
+            &after_start[..end_index]
+        } else {
+            after_start // Fallback if the closing fence is missing
+        }
+    } else {
+        generated_text // Fallback if no yaml block is found
+    };
+
+    let yaml_content = yaml_content.trim();
 
     println!(
         "\n--- Generated Flow ---\n{}\n----------------------\n",
