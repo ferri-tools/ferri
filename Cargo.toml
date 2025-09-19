@@ -4,3 +4,6 @@ members = [
     "ferri-core",
     "ferri-cli",
 ]
+exclude = [
+    "development_resources/google_api_test",
+]

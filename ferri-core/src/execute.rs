@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::{self, Error, ErrorKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::fs;
 use base64::Engine as _;
@@ -53,6 +53,7 @@ struct GoogleApiError {
 pub enum ModelProvider {
     Ollama,
     Google,
+    GoogleGeminiImage,
     Unknown,
 }
 
@@ -60,6 +61,7 @@ pub enum ModelProvider {
 pub struct ExecutionArgs {
     pub model: Option<String>,
     pub use_context: bool,
+    pub output_file: Option<PathBuf>,
     pub command_with_args: Vec<String>,
 }
 
@@ -85,6 +87,7 @@ pub fn prepare_command(
         let provider = match model.provider.as_str() {
             "ollama" => ModelProvider::Ollama,
             "google" => ModelProvider::Google,
+            "google-gemini-image" => ModelProvider::GoogleGeminiImage,
             _ => ModelProvider::Unknown,
         };
 
@@ -102,12 +105,10 @@ pub fn prepare_command(
             ModelProvider::Ollama => {
                 let mut command = Command::new("ollama");
                 let final_prompt = if args.use_context {
-                    let full_context = context::get_full_multimodal_context(base_path)?;
-                    // NOTE: Ollama doesn't support multimodal input in the same way as Gemini yet.
-                    // We will only use the text context for now.
+                    let full_context = context::get_full_context(base_path)?;
                     format!(
                         "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
-                        full_context.text_content.trim(),
+                        full_context.trim(),
                         prompt
                     )
                 } else {
@@ -118,7 +119,7 @@ pub fn prepare_command(
             }
             ModelProvider::Google => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
-                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?key={}", model.model_name, api_key);
+                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent", model.model_name);
 
                 let mut parts = Vec::new();
 
@@ -154,7 +155,21 @@ pub fn prepare_command(
                 let body = json!({ "contents": [{ "parts": parts }] });
 
                 let client = reqwest::blocking::Client::new();
-                let request = client.post(&url).json(&body);
+                let request = client.post(&url)
+                    .header("x-goog-api-key", api_key)
+                    .header("Content-Type", "application/json")
+                    .json(&body);
+                Ok((PreparedCommand::Remote(request), decrypted_secrets))
+            }
+            ModelProvider::GoogleGeminiImage => {
+                let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
+                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model.model_name);
+                let body = json!({ "contents": [{ "parts": [{ "text": prompt }] }] });
+                let client = reqwest::blocking::Client::new();
+                let request = client.post(&url)
+                    .header("x-goog-api-key", api_key)
+                    .header("Content-Type", "application/json")
+                    .json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {
@@ -172,6 +187,13 @@ pub fn prepare_command(
         command.args(command_args);
         Ok((PreparedCommand::Local(command), decrypted_secrets))
     }
+}
+
+/// Decodes a base64 string and saves it as an image file.
+pub fn save_base64_image(path: &Path, b64_data: &str) -> io::Result<()> {
+    let image_bytes = STANDARD.decode(b64_data)
+        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Failed to decode base64: {}", e)))?;
+    fs::write(path, image_bytes)
 }
 
 #[cfg(test)]
