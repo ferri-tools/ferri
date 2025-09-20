@@ -189,11 +189,32 @@ fn ui(f: &mut Frame, app: &mut App) {
     .highlight_symbol(">> ");
     f.render_stateful_widget(table, main_chunks[0], &mut app.table_state);
 
-    // Job Details Placeholder
-    let details = Block::default()
-        .borders(Borders::ALL)
-        .title(" Details (Coming Soon) ");
-    f.render_widget(details, main_chunks[1]);
+    // Job Details View
+    let details_block = Block::default().borders(Borders::ALL);
+    let details_content = if let Some(selected_index) = app.table_state.selected() {
+        if let Some(job) = app.jobs.get(selected_index) {
+            if job.status == "Failed" {
+                if let Some(error_preview) = &job.error_preview {
+                    Paragraph::new(error_preview.as_str())
+                        .block(details_block.title(" Error Preview (stderr) "))
+                        .wrap(ratatui::widgets::Wrap { trim: true })
+                } else {
+                    Paragraph::new("No error details available.")
+                        .block(details_block.title(" Details "))
+                }
+            } else {
+                Paragraph::new(job.command.as_str())
+                    .block(details_block.title(" Job Details "))
+                    .wrap(ratatui::widgets::Wrap { trim: true })
+            }
+        } else {
+            Paragraph::new("").block(details_block.title(" Details "))
+        }
+    } else {
+        Paragraph::new("Select a job to see details.")
+            .block(details_block.title(" Details "))
+    };
+    f.render_widget(details_content, main_chunks[1]);
 
     // Footer
     let footer = Paragraph::new("Use (j/k) or (↑/↓) to navigate. Press (q) to quit.")

@@ -3,6 +3,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -16,6 +17,7 @@ pub struct Job {
     pub pid: Option<u32>,
     pub pgid: Option<u32>,
     pub start_time: DateTime<Utc>,
+    pub error_preview: Option<String>,
 }
 
 fn generate_job_id() -> String {
@@ -71,6 +73,7 @@ fn read_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
                     pid: old.pid,
                     pgid: old.pgid,
                     start_time: Utc::now(), // Assign a default time.
+                    error_preview: None,
                 })
                 .collect();
 
@@ -116,8 +119,7 @@ pub fn submit_job(
 
     unsafe {
         command.pre_exec(|| {
-            nix::unistd::setpgid(nix::unistd::Pid::from_raw(0), nix::unistd::Pid::from_raw(0))
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            nix::unistd::setpgid(nix::unistd::Pid::from_raw(0), nix::unistd::Pid::from_raw(0))?;
             Ok(())
         });
     }
@@ -133,6 +135,7 @@ pub fn submit_job(
         pid,
         pgid,
         start_time: Utc::now(),
+        error_preview: None,
     };
 
     let mut jobs = read_jobs(base_path)?;
@@ -152,25 +155,18 @@ pub fn list_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
         if job.status == "Running" {
             if let Some(pid) = job.pid {
                 if s.process(Pid::from(pid as usize)).is_none() {
-                    let stdout_path = base_path
+                    let stderr_path = base_path
                         .join(".ferri/jobs")
                         .join(&job.id)
-                        .join("stdout.log");
-                    let stdout_content = fs::read_to_string(stdout_path).unwrap_or_default();
+                        .join("stderr.log");
+                    let stderr_content = fs::read_to_string(stderr_path).unwrap_or_default();
 
-                    if !stdout_content.trim().is_empty() {
+                    if stderr_content.trim().is_empty() {
                         job.status = "Completed".to_string();
                     } else {
-                        let stderr_path = base_path
-                            .join(".ferri/jobs")
-                            .join(&job.id)
-                            .join("stderr.log");
-                        let stderr_content = fs::read_to_string(stderr_path).unwrap_or_default();
-                        if stderr_content.trim().is_empty() {
-                            job.status = "Completed".to_string();
-                        } else {
-                            job.status = "Failed".to_string();
-                        }
+                        job.status = "Failed".to_string();
+                        let preview: String = stderr_content.chars().take(200).collect();
+                        job.error_preview = Some(preview);
                     }
                     needs_write = true;
                 }
@@ -188,25 +184,26 @@ pub fn list_jobs(base_path: &Path) -> std::io::Result<Vec<Job>> {
     Ok(jobs)
 }
 
-pub fn get_job_output(base_path: &Path, job_id: &str) -> std::io::Result<String> {
+pub fn get_job_output(base_path: &Path, job_id: &str) -> io::Result<String> {
     let jobs = read_jobs(base_path)?;
     let job = jobs.iter().find(|j| j.id == job_id).ok_or_else(|| {
         std::io::Error::new(ErrorKind::NotFound, format!("Job '{}' not found.", job_id))
     })?;
 
-    let stdout_path = base_path
-        .join(".ferri/jobs")
-        .join(&job.id)
-        .join("stdout.log");
+    let job_dir = base_path.join(".ferri/jobs").join(&job.id);
+    let stdout_path = job_dir.join("stdout.log");
+    let stderr_path = job_dir.join("stderr.log");
 
-    if !stdout_path.exists() {
-        return Err(std::io::Error::new(
-            ErrorKind::NotFound,
-            "Job output not found.",
-        ));
+    let stdout_content = fs::read_to_string(stdout_path).unwrap_or_default();
+    let stderr_content = fs::read_to_string(stderr_path).unwrap_or_default();
+
+    if !stderr_content.trim().is_empty() {
+        Ok(format!("Error Log:\n---\n{}", stderr_content))
+    } else if !stdout_content.trim().is_empty() {
+        Ok(stdout_content)
+    } else {
+        Ok("Job produced no output.".to_string())
     }
-
-    fs::read_to_string(stdout_path)
 }
 
 pub fn kill_job(base_path: &Path, job_id: &str) -> std::io::Result<()> {
