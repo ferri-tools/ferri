@@ -27,7 +27,13 @@ pub fn add_to_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<()> {
 
     for path_buf in paths {
         let absolute_path = fs::canonicalize(&path_buf)?;
-        let path_str = absolute_path.to_string_lossy().to_string();
+        let relative_path = absolute_path.strip_prefix(base_path).map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "File path is not within the project directory.",
+            )
+        })?;
+        let path_str = relative_path.to_string_lossy().to_string();
 
         let content_type = match absolute_path.extension().and_then(|s| s.to_str()) {
             Some("png") => ContentType::Png,
@@ -64,7 +70,13 @@ pub fn remove_from_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<
 
     for path_buf in paths {
         let absolute_path = fs::canonicalize(&path_buf)?;
-        removals.insert(absolute_path.to_string_lossy().to_string());
+        let relative_path = absolute_path.strip_prefix(base_path).map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "File path is not within the project directory.",
+            )
+        })?;
+        removals.insert(relative_path.to_string_lossy().to_string());
     }
 
     current_files.retain(|f| !removals.contains(&f.path));
@@ -101,7 +113,8 @@ pub fn get_full_context(base_path: &Path) -> io::Result<String> {
 
     for context_file in files {
         if matches!(context_file.content_type, ContentType::Text) {
-            let content = fs::read_to_string(&context_file.path)?;
+            let full_path = base_path.join(&context_file.path);
+            let content = fs::read_to_string(&full_path)?;
             full_context.push_str(&format!(
                 "\n--- File: {} ---\n{}\n",
                 context_file.path, content
@@ -126,16 +139,20 @@ pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<FullContext> 
     let mut full_context = FullContext::default();
 
     for context_file in files {
+        let full_path = base_path.join(&context_file.path);
         match context_file.content_type {
             ContentType::Text => {
-                let content = fs::read_to_string(&context_file.path)?;
+                let content = fs::read_to_string(&full_path)?;
                 full_context.text_content.push_str(&format!(
                     "\n--- File: {} ---\n{}\n",
                     context_file.path, content
                 ));
             }
             ContentType::Png | ContentType::Jpeg | ContentType::WebP => {
-                full_context.image_files.push(context_file);
+                // We need to pass the full path to the image files as well
+                let mut updated_context_file = context_file.clone();
+                updated_context_file.path = full_path.to_string_lossy().to_string();
+                full_context.image_files.push(updated_context_file);
             }
         }
     }
