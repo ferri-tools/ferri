@@ -173,11 +173,7 @@ pub fn prepare_command(
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {
-                let command_name = &final_command_with_args[0];
-                let command_args = &final_command_with_args[1..];
-                let mut command = Command::new(command_name);
-                command.args(command_args);
-                Ok((PreparedCommand::Local(command), decrypted_secrets))
+                return Err(Error::new(ErrorKind::InvalidInput, format!("Unknown model provider: {}", model.provider)));
             }
         }
     } else {

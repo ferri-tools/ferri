@@ -174,7 +174,7 @@ async fn main() {
     if let Commands::Init = &cli.command {
         let current_path = current_path_result.expect("Failed to get current directory");
         match ferri_core::initialize_project(&current_path) {
-            Ok(_) => println!("Successfully initialized Ferri project in ./.ferri"),
+            Ok(_) => print_init_message(),
             Err(e) => {
                 eprintln!("Error: Failed to initialize project - {}", e);
                 std::process::exit(1);
@@ -422,12 +422,15 @@ async fn main() {
                 Ok((prepared_command, secrets)) => {
                     match prepared_command {
                         ferri_core::execute::PreparedCommand::Local(mut command) => {
-                            let full_command_str = args.command.join(" ");
-                            // If the command looks like a shell command, wrap it in sh -c
-                            if args.command.len() > 1 || full_command_str.contains(|c: char| c.is_whitespace() || c == '|' || c == '&' || c == ';') {
-                                let mut shell_command = std::process::Command::new("sh");
-                                shell_command.arg("-c").arg(full_command_str);
-                                command = shell_command;
+                            // Only wrap in a shell if no model is specified. Model commands are already fully prepared.
+                            if args.model.is_none() {
+                                let full_command_str = args.command.join(" ");
+                                // If the command looks like a shell command, wrap it in sh -c
+                                if args.command.len() > 1 || full_command_str.contains(|c: char| c.is_whitespace() || c == '|' || c == '&' || c == ';') {
+                                    let mut shell_command = std::process::Command::new("sh");
+                                    shell_command.arg("-c").arg(full_command_str);
+                                    command = shell_command;
+                                }
                             }
 
                             let mut original_command_parts = Vec::new();
@@ -553,3 +556,25 @@ async fn main() {
         }
     }
 }
+
+fn print_init_message() {
+    println!(r#"
+       ___     ___
+     .i .-'   `-. i.
+   .'   `/     \'  _`.
+   |,-../ o   o \.' `|
+(| |   /  _\ /_  \   | |)
+ \\\  (_.'.'"`.`._)  ///
+  \\`._(..:   :..)_.'//
+   \`.__\ .:-:. /__.'/
+    `-i-->.___.<--i-'
+    .'.-'/.=^=.\`-.`.
+   /.'  //     \\  `.\
+  ||   ||       ||   ||
+  \)   ||       ||  (/
+       \)       (/
+    "#);
+    println!("Ferri project initialized!");
+    println!("Run `ferri --help` to see what you can do.");
+}
+
