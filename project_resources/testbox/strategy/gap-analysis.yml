@@ -1,0 +1,16 @@
+name: "Gemini Full Repo Code Review"
+jobs:
+  - id: package-codebase
+    # This command uses git to create a clean tarball of the repository's source code.
+    # It avoids including the .git directory, build artifacts, and respects .gitignore.
+    command: 'git archive --format=tar -o codebase.tar HEAD'
+  - id: run-review
+    # This job depends on the 'package-codebase' job completing successfully.
+    dependencies: [package-codebase]
+    # This command executes the core logic:
+    # - `ferri with`: Runs a synchronous command with context.
+    # - `--model gemini-pro`: Specifies our powerful remote model.
+    # - `--ctx codebase.tar`: Adds the entire archived codebase as context.
+    # - `"Perform a comprehensive code review..."`: The prompt for the AI.
+    # - `> gemini_review.txt`: Redirects the model's output to a file.
+    command: 'ferri with --model gemini-pro --ctx codebase.tar "Perform a comprehensive code review of the entire codebase provided in the tarball. Focus on architecture, potential bugs, and suggest improvements." > gemini_review.txt'

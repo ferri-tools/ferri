@@ -1,0 +1,86 @@
+[
+  {
+    "callId": "1851ff47-49d3-47f2-89ce-60f10d7e0d77",
+    "timestamp": "2025-09-21T02:02:03.719Z",
+    "type": "calorie",
+    "description": "Hotdog",
+    "value": 200
+  },
+  {
+    "callId": "1851ff47-49d3-47f2-89ce-60f10d7e0d77",
+    "timestamp": "2025-09-21T02:02:03.719Z",
+    "type": "calorie",
+    "description": "Ice Cream",
+    "value": 5000
+  },
+  {
+    "callId": "88fd6e72-5c39-4b67-bbab-86998a3b1ebe",
+    "timestamp": "2025-09-21T02:39:51.702Z",
+    "type": "calorie",
+    "description": "cheese pizza",
+    "value": 200
+  },
+  {
+    "callId": "b042092e-cf2b-4d57-89bf-8a584398cb98",
+    "timestamp": "2025-09-21T02:36:56.833Z",
+    "type": "calorie",
+    "description": "cheese pizza",
+    "value": 400
+  },
+  {
+    "callId": "1134cce6-7ee7-420c-bd6e-710c219b5b03",
+    "timestamp": "2025-09-21T02:32:28.379Z",
+    "type": "calorie",
+    "description": "two slices of plain cheese pizza",
+    "value": 450
+  },
+  {
+    "callId": "76af6bb3-9166-417f-bf20-e1b4498eb46e",
+    "timestamp": "2025-09-21T02:24:50.714Z",
+    "type": "food",
+    "description": "pizza",
+    "value": 550
+  },
+  {
+    "callId": "c0c27990-ef1a-4fc3-91dc-2c4f55654f3a",
+    "timestamp": "2025-09-21T02:09:31.698Z",
+    "type": "calorie",
+    "description": "burger",
+    "value": 300
+  },
+  {
+    "callId": "babf7bdb-762d-42ad-84aa-c4e16188bbed",
+    "timestamp": "2025-09-21T01:52:40.056Z",
+    "type": "calorie",
+    "description": "burger",
+    "value": 500
+  },
+  {
+    "callId": "354600ca-4627-4760-b3c7-7ce9a23f812d",
+    "timestamp": "2025-09-21T00:43:26.268Z",
+    "type": "calorie",
+    "description": "Panda Express orange chicken",
+    "value": 250
+  },
+  {
+    "callId": "ebbcb5c8-8154-4ed5-b965-df5d357dd2e8",
+    "timestamp": "2025-09-21T00:24:32.501Z",
+    "type": "food",
+    "description": "McDonald's Quarter Pounder",
+    "value": 520
+  },
+  {
+    "callId": "7899c950-08ed-40b1-8239-70f65c5d3acb",
+    "timestamp": "2025-09-21T00:22:54.923Z",
+    "type": "food",
+    "description": "burger",
+    "value": 500
+  },
+  {
+    "callId": "a6067143-2610-4857-b6ba-55a60dcdfe93",
+    "timestamp": "2025-09-20T23:46:10.492Z",
+    "type": "food",
+    "description": "burger",
+    "value": 650
+  },
+]

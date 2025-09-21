@@ -1,0 +1,12 @@
+name: "Artery Contour Detection Flow"
+steps:
+  - name: "Identify and Draw Artery Contours"
+    model:
+      # Using the correct, user-specified model name
+      model: "gemini-image-generator"
+      # Updated prompt to find and outline large arteries
+      prompt: "Analyze the input image to identify the large arteries. Draw a bright green, 4-pixel-wide outline around the edges of these arteries."
+      # Specify the input image for the model
+      inputImage: "source_image.png"
+      # Specify the name for the output image
+      outputImage: "artery_contours.png"

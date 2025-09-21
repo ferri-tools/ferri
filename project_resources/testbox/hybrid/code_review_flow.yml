@@ -1,0 +1,22 @@
+name: "AI-Powered Code Review & Enhancement"
+steps:
+  - name: "triage-code"
+    model:
+      model: "gemma" # Local model for speed
+      prompt: "You are a code triager. Summarize the following Python script, identify any obvious flaws or style issues, and create a checklist for a senior developer to perform a deeper review. Focus on security and performance."
+    input: "demo_script.py"
+    output: "triage_report.txt"
+
+  - name: "expert-review-and-enhance"
+    model:
+      model: "gemini-pro" # Remote model for power
+      prompt: "You are an expert Python developer. Using the original code and the triage report, perform a deep code review based on the checklist. Then, generate an enhanced, production-ready version of the script that fixes all identified issues."
+    input: "triage_report.txt" # Conceptually also uses the original script
+    output: "enhanced_script.py"
+
+  - name: "generate-commit-message"
+    model:
+      model: "gemma" # Local model for speed
+      prompt: "You are a git expert. Based on the enhanced code, write a concise and conventional commit message."
+    input: "enhanced_script.py"
+    output: "commit_message.txt"
