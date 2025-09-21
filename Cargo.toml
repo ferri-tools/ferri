@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "ferri-core",
-    "ferri-cli",
+    "ferri-cli", "testbox/dodo",
 ]
 exclude = [
     "development_resources/google_api_test",

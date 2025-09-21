@@ -6,8 +6,15 @@ use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
 
-pub async fn generate_and_run_flow(base_path: &Path, prompt: &str) -> Result<()> {
-    println!("[AGENT] Generating flow for prompt: '{}'", prompt);
+pub async fn generate_and_run_flow<F>(
+    base_path: &Path,
+    prompt: &str,
+    mut status_callback: F,
+) -> Result<()>
+where
+    F: FnMut(&str),
+{
+    status_callback(&format!("Generating flow for prompt: '{}'", prompt));
 
     let api_key =
         env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
@@ -51,7 +58,7 @@ name: "create hello world python script"
 steps:
   - name: "write python script"
     process:
-      process: "cat > app.py << EOF\n#!/usr/bin/env python3\nprint('hello')\nEOF"
+      process: "cat > app.py << EOF\n#!/usr/-bin/env python3\nprint('hello')\nEOF"
 ```
 "#;
 
@@ -72,7 +79,7 @@ steps:
         ]
     });
 
-    println!("[AGENT] Sending request to Gemini API...");
+    status_callback("Sending request to Gemini API...");
 
     let response = client
         .post(&url)
@@ -99,7 +106,7 @@ steps:
         .await
         .context("Failed to parse Gemini API response")?;
 
-    println!("[AGENT] Received response from Gemini API.");
+    status_callback("Received response from Gemini API. Parsing flow...");
 
     let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
@@ -119,15 +126,19 @@ steps:
 
     let yaml_content = yaml_content.trim();
 
-    println!(
-        "\n--- Generated Flow ---\n{}\n----------------------\n",
+    status_callback(&format!(
+        "Generated Flow:\n---\n{}\n---",
         yaml_content
-    );
+    ));
 
     let mut temp_file = NamedTempFile::new().context("Failed to create temporary file")?;
     writeln!(temp_file, "{}", yaml_content).context("Failed to write to temporary file")?;
 
     let pipeline = parse_pipeline_file(temp_file.path())?;
 
-    run_pipeline_plain(base_path, &pipeline).await
+    status_callback("Executing generated flow...");
+
+    run_pipeline_plain(base_path, &pipeline, |step_name| {
+        status_callback(&format!("Running step: {}", step_name));
+    }).await
 }
