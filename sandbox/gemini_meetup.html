@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local-First Workflows: Gemma + Gemini</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .aurora-bg::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: radial-gradient(circle at 15% 15%, hsla(196, 81%, 69%, 0.2) 0px, transparent 40%),
+                              radial-gradient(circle at 85% 75%, hsla(340, 81%, 79%, 0.2) 0px, transparent 40%),
+                              radial-gradient(circle at 50% 50%, hsla(45, 100%, 50%, 0.1) 0px, transparent 40%);
+            z-index: -1;
+            animation: move-aurora 30s infinite alternate ease-in-out;
+            transform-origin: center center;
+        }
+
+        @keyframes move-aurora {
+            from { transform: rotate(-20deg) scale(1.2); opacity: 0.8; }
+            to { transform: rotate(20deg) scale(1.5); opacity: 1; }
+        }
+
+        .inspired-title-bg {
+            background-color: #1a1a1a;
+        }
+
+        .slide {
+            transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+        }
+        .slide:not(.active) {
+            opacity: 0;
+            transform: translateY(20px) scale(0.98);
+            pointer-events: none;
+            position: absolute;
+        }
+        .slide.active {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        .gem-text {
+            background: -webkit-linear-gradient(45deg, #4285F4, #34A853, #FBBC05, #EA4335);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .code-block, .terminal {
+            font-family: 'Fira Code', monospace;
+            background-color: #282c34;
+        }
+        
+        /* Terminal animation styles */
+        .terminal-cursor {
+            display: inline-block;
+            background-color: #a0a0a0;
+            width: 10px;
+            height: 1.2em;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            from, to { background-color: transparent }
+            50% { background-color: #a0a0a0; }
+        }
+        .terminal-line {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .terminal-line.visible {
+            opacity: 1;
+        }
+
+        #leap-canvas {
+            background: #f0f2f5;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-full flex flex-col antialiased">
+
+    <main id="presentation-container" class="flex-grow w-full h-full flex items-center justify-center p-4 md:p-8 relative">
+        <!-- Slides will be injected here -->
+    </main>
+
+    <!-- Navigation -->
+    <footer class="w-full p-4 flex items-center justify-center space-x-4 fixed bottom-0 z-20">
+        <button id="prevBtn" class="bg-white/50 hover:bg-white/80 text-gray-600 rounded-full p-3 transition-all backdrop-blur-sm ring-1 ring-gray-900/10 shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+        <div id="slide-counter" class="text-gray-600 text-lg font-medium bg-white/50 px-4 py-2 rounded-full ring-1 ring-gray-900/10 shadow-md backdrop-blur-sm"></div>
+        <button id="nextBtn" class="bg-white/50 hover:bg-white/80 text-gray-600 rounded-full p-3 transition-all backdrop-blur-sm ring-1 ring-gray-900/10 shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>
+    </footer>
+
+    <script>
+        const slidesData = [
+            {
+                type: 'inspired-title',
+                title: 'Local-First Workflows',
+                subtitle: 'Bridging the gap between the Speed of <span class="gem-text">Gemma</span> and the Scale of <span class="gem-text">Gemini</span>',
+                presenters: [
+                    { name: 'Jorge Jimenez', linkedin: 'jorgeajimenezla' },
+                    { name: 'Gretchen Boria, PhD', linkedin: 'drgretchenboria' }
+                ]
+            },
+            {
+                title: 'A New Paradigm: Local Speed, Cloud Scale',
+                points: [
+                    { 
+                        icon: '⚡️',
+                        heading: '<span class="text-blue-600">Gemma (Local):</span> Provides incredible speed for iterative, low-cost tasks.',
+                        text: 'Perfect for triage, summarization, and interactive loops.'
+                    },
+                    { 
+                        icon: '☁️',
+                        heading: '<span class="text-green-600">Gemini (Cloud):</span> Offers unparalleled scale and multimodal power for deep analysis.',
+                        text: 'Perfect for complex reasoning, and large-context tasks.'
+                    }
+                ],
+                summary: 'The opportunity is clear: How do we make these two powerful models work together as a single, intelligent system?'
+            },
+            {
+                title: 'The Orchestration Challenge',
+                points: [
+                    {
+                        heading: 'Model Switching',
+                        text: 'How do you seamlessly route a task to Gemma vs. Gemini based on the need?'
+                    },
+                    {
+                        heading: 'Context Management',
+                        text: 'How do you manage shared context between a local job and a cloud API call?'
+                    },
+                    {
+                        heading: 'Workflow Logic',
+                        text: 'How do you build multi-step workflows that pass the output of a local Gemma task as the input for a large-scale Gemini analysis?'
+                    }
+                ],
+                 summary: 'Manually "gluing together" local and remote models is difficult and brittle.'
+            },
+            {
+                type: 'canvas-animation',
+                title: 'The Difficult Leap',
+                text: 'Getting from simple, isolated model calls to powerful, orchestrated workflows is the hardest part. This is the leap from 80% to the optimal last 20% of capability.',
+            },
+            {
+                title: '<span class="gem-text">Ferri</span>: The Orchestration Layer',
+                text: 'Ferri is a local-first, agentic director that solves the orchestration problem. It was built with Gemini to act as a unified command line for the entire Gemini ecosystem. It allows you to treat local (Gemma) and remote (Gemini) models as interchangeable, complementary parts of a single, powerful workflow.',
+                points: [
+                    '<strong>Unified Model Registry:</strong> Manage aliases for all your models in one place.',
+                    '<strong>Seamless Context Passing:</strong> Run a local job and pipe its output directly into a cloud call.',
+                    '<strong>Agentic Workflow Execution:</strong> Define complex, multi-model logic in a simple, declarative way.'
+                ]
+            },
+            {
+                type: 'animated-terminal',
+                title: 'Live Demo: The "Triage & Deep Dive" Workflow',
+                text: "Watch how Ferri orchestrates a workflow using the right model for each job.",
+                animation: [
+                    { type: 'comment', text: '# 1. Triage with Gemma (Fast & Cheap)' },
+                    { type: 'command', text: 'ferri with --model gemma:2b "Find the log with the fatal exception" > relevant_log.txt' },
+                    { type: 'output', text: 'Processing... Found relevant log file: `server_log_2023-10-27_error.log`' },
+                    { type: 'pause', duration: 500 },
+                    { type: 'comment', text: '# 2. Deep Dive with Gemini (Powerful & Scalable)' },
+                    { type: 'command', text: 'ferri with --ctx relevant_log.txt --model gemini-pro "Perform a root cause analysis..."' },
+                    { type: 'output', text: `Analyzing...
+**Root Cause Analysis:**
+The fatal exception was caused by a NullPointerException in the \`com.example.UserService\` at line 128. This occurred because the user authentication token expired, but the session handler failed to catch the invalid token. 
+**Recommendation:**
+Implement a global exception handler for expired tokens and ensure the session manager gracefully redirects to the login page.`
+                    },
+                ],
+                summary: 'This is the best of both worlds: local speed combined with cloud intelligence.'
+            },
+            {
+                title: 'The Resilient Paradigm: Built-in Failover',
+                text: 'If a large-scale Gemini call fails, Ferri can automatically fall back to a local Gemma model to provide a useful, if less detailed, result.',
+                code: [
+                    {
+                        lang: 'yaml',
+                        label: 'Example ferri.yml',
+                        content: `jobs:
+  - id: generate-documentation
+    command: 'ferri with --ctx ./src --model gemini-pro "Write full docs..."'
+    # If the Gemini API fails, generate a basic summary with local Gemma.
+    on-failure:
+      command: 'ferri with --ctx ./src --model gemma:2b "Write a brief summary..."'`
+                    }
+                ],
+                summary: 'Your application never truly fails; it gracefully degrades.'
+            },
+            {
+                title: 'Why This Matters: Augmenting Your Capabilities',
+                points: [
+                    {
+                        heading: 'Build Smarter Workflows',
+                        text: 'Design intelligent pipelines that use the right model for the right task, optimizing for speed and cost.'
+                    },
+                    {
+                        heading: 'Unify Your AI Toolchain',
+                        text: 'Treat the entire Gemini ecosystem—from the smallest Gemma model to the largest Gemini Ultra—as a single, coherent toolkit.'
+                    },
+                    {
+                        heading: 'Maximize Your Gemini Investment',
+                        text: 'Use fast local models to pre-process data, making your calls to the powerful Gemini APIs more focused, efficient, and valuable.'
+                    }
+                ]
+            },
+            {
+                title: 'The Agentic Leap: Your Vision, Automated',
+                text: "This isn't just about connecting models. It's about empowering you to build autonomous systems that execute your complex workflows. The power to orchestrate sophisticated, multi-step AI processes is now directly in your hands.",
+                points: [
+                    {
+                        icon: '🤝',
+                        heading: 'From Tools to Teammates',
+                        text: 'Move beyond simple API calls. Treat Gemma and Gemini as specialized agents in a team that you direct to achieve a goal.'
+                    },
+                    {
+                        icon: '🧩',
+                        heading: 'Complex Problem Decomposition',
+                        text: 'Break down massive challenges into a chain of local and cloud-based tasks that Ferri executes automatically.'
+                    },
+                    {
+                        icon: '🚀',
+                        heading: 'The Power is "At Hand"',
+                        text: 'You no longer need a massive engineering team. With a simple declarative file, you can build AI systems that were previously out of reach.'
+                    }
+                ]
+            },
+            {
+                title: 'Key Takeaways: The Future is Local-First',
+                points: [
+                    {
+                        icon: '🎯',
+                        heading: 'The Challenge is Orchestration',
+                        text: 'Combining local and cloud models is powerful, but manually connecting them is complex and brittle.'
+                    },
+                    {
+                        icon: '🌉',
+                        heading: 'Ferri is the Bridge',
+                        text: 'Ferri provides the essential orchestration layer, making multi-model workflows simple and declarative.'
+                    },
+                    {
+                        icon: '✨',
+                        heading: 'Unlock Agentic Power',
+                        text: 'This approach enables you to build smarter, more resilient, and truly autonomous AI systems today.'
+                    }
+                ],
+                summary: 'Start building the next generation of AI workflows. Find Ferri on GitHub.'
+            },
+            {
+                title: 'How This Was Built: A Gemini Partnership',
+                points: [
+                    {
+                        icon: '🦀',
+                        heading: 'Built with Rust',
+                        text: 'Leveraging Rust for performance, safety, and reliability, ensuring Ferri is a robust foundation for your workflows.'
+                    },
+                    {
+                        icon: '💬',
+                        heading: 'Designed with Gemini',
+                        text: 'The core concepts, architecture, and even the name "Ferri" were developed through iterative conversations with Gemini.'
+                    },
+                    {
+                        icon: '💻',
+                        heading: 'Coded with Gemini CLI',
+                        text: 'A significant portion of the boilerplate, functions, and tests were generated using the Gemini CLI, accelerating development.'
+                    }
+                ],
+                summary: 'This presentation and the tool itself are a testament to building *with* AI, not just using it.'
+            },
+            {
+                type: 'final',
+                title: 'Thank You',
+                text: 'Q&A'
+            }
+        ];
+
+        const container = document.getElementById('presentation-container');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const slideCounter = document.getElementById('slide-counter');
+        const bodyEl = document.body;
+
+        let currentSlide = 0;
+        let animationController = null;
+
+        function renderSlides() {
+            container.innerHTML = '';
+            slidesData.forEach((slide, index) => {
+                const slideEl = document.createElement('div');
+                slideEl.className = 'slide w-full max-w-5xl h-full flex flex-col justify-center items-center text-center p-6';
+                slideEl.id = `slide-${index}`;
+                
+                let content = '';
+
+                if (slide.type === 'inspired-title') {
+                    slideEl.classList.add('inspired-title-bg');
+                    content = `
+                        <div class="text-white text-center flex flex-col items-center">
+                            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 pt-20 md:pt-24">${slide.title}</h1>
+                             <div class="w-full max-w-md my-4 h-px bg-gradient-to-r from-transparent via-yellow-300 to-transparent"></div>
+                            <p class="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-8">${slide.subtitle}</p>
+                            <div class="flex flex-col md:flex-row md:space-x-6 text-lg text-gray-400 mt-4">
+                               ${slide.presenters.map(p => `
+                                    <span class="mb-2 md:mb-0">${p.name} (<a href="https://linkedin.com/in/${p.linkedin}" target="_blank" class="text-blue-400 hover:text-blue-300 transition-colors">in/${p.linkedin}</a>)</span>
+                               `).join('<span class="hidden md:inline">&</span>')}
+                            </div>
+                        </div>
+                    `;
+                } else if (slide.type === 'final') {
+                    const qrCodeBaseUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=';
+                    const jorgeUrl = 'https://linkedin.com/in/jorgeajimenezla';
+                    const gretchenUrl = 'https://linkedin.com/in/drgretchenboria';
+                    content = `
+                        <div class="text-center">
+                           <h1 class="text-5xl md:text-7xl font-extrabold mb-4 gem-text">${slide.title}</h1>
+                           <p class="text-3xl md:text-5xl text-gray-500 mb-8">${slide.text}</p>
+                           <div class="mt-12 flex flex-col md:flex-row items-center justify-center gap-12 md:gap-20">
+                                <div class="flex flex-col items-center">
+                                    <img src="${qrCodeBaseUrl}${encodeURIComponent(jorgeUrl)}" alt="QR code for Jorge Jimenez's LinkedIn" class="rounded-lg shadow-lg ring-2 ring-gray-200">
+                                    <p class="mt-4 font-semibold text-gray-700">Jorge Jimenez</p>
+                                </div>
+                                <div class="flex flex-col items-center">
+                                    <img src="${qrCodeBaseUrl}${encodeURIComponent(gretchenUrl)}" alt="QR code for Gretchen Boria's LinkedIn" class="rounded-lg shadow-lg ring-2 ring-gray-200">
+                                    <p class="mt-4 font-semibold text-gray-700">Gretchen Boria, PhD</p>
+                                </div>
+                           </div>
+                        </div>
+                    `;
+                } else if (slide.type === 'canvas-animation') {
+                     content = `
+                        <div class="w-full">
+                            <h2 class="text-3xl md:text-5xl font-bold mb-4 text-center text-gray-900">${slide.title}</h2>
+                            <p class="text-lg text-gray-600 mb-4 max-w-3xl mx-auto text-center">${slide.text}</p>
+                            <canvas id="leap-canvas-${index}" class="w-full max-w-2xl mx-auto rounded-lg shadow-lg bg-white" height="400"></canvas>
+                            <p class="text-center mt-2 text-gray-500 text-sm">Click canvas to animate</p>
+                        </div>
+                     `;
+                } else if (slide.type === 'animated-terminal') {
+                    content = `
+                        <div class="w-full">
+                            <h2 class="text-3xl md:text-5xl font-bold mb-4 text-center text-gray-900">${slide.title}</h2>
+                            <p class="text-lg text-gray-600 mb-8 max-w-3xl mx-auto text-center">${slide.text}</p>
+                            <div class="terminal text-left max-w-3xl mx-auto rounded-lg shadow-2xl overflow-hidden">
+                                <div class="bg-gray-700 p-2 flex items-center">
+                                    <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                    <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                    <div class="flex-grow text-center text-sm text-gray-300">bash</div>
+                                    <button id="restart-anim-${index}" class="text-gray-300 hover:text-white transition-colors text-sm">Restart</button>
+                                </div>
+                                <div id="terminal-content-${index}" class="p-4 text-white text-sm md:text-base min-h-[250px] overflow-y-auto"></div>
+                            </div>
+                            ${slide.summary ? `<p class="text-lg text-blue-600 font-semibold mt-8 max-w-3xl mx-auto text-center">${slide.summary}</p>` : ''}
+                        </div>
+                    `;
+                }
+                else {
+                    content = `<div class="w-full">
+                         <div class="flex justify-center items-center mb-6 text-center">
+                            <h2 class="text-3xl md:text-5xl font-bold text-gray-900">${slide.title}</h2>
+                        </div>
+                        ${slide.text ? `<p class="text-lg text-gray-600 mb-8 max-w-3xl mx-auto text-center">${slide.text}</p>` : ''}
+                        
+                        ${slide.points ? `<div class="grid grid-cols-1 ${slide.points.length > 2 ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6 mb-8">
+                            ${slide.points.map(point => {
+                                if (typeof point === 'string') {
+                                    return `
+                                        <div class="bg-white/80 backdrop-blur-md p-6 rounded-xl shadow-lg ring-1 ring-black/5 text-left transition-all hover:scale-105 hover:shadow-xl flex items-center">
+                                            <p class="text-gray-700 text-lg">${point}</p>
+                                        </div>
+                                    `;
+                                }
+                                return `
+                                <div class="bg-white/80 backdrop-blur-md p-6 rounded-xl shadow-lg ring-1 ring-black/5 text-left transition-all hover:scale-105 hover:shadow-xl">
+                                    <h3 class="text-xl font-bold mb-2 text-gray-800">${point.icon ? `<span class="mr-2 text-2xl">${point.icon}</span>` : ''}${point.heading}</h3>
+                                    <p class="text-gray-600">${point.text}</p>
+                                </div>
+                            `}).join('')}
+                        </div>` : ''}
+
+                        ${slide.code ? `<div class="space-y-6 mb-8">
+                            ${slide.code.map(block => `
+                                <div class="text-left">
+                                    <p class="text-sm font-semibold text-gray-500 mb-2 ml-2">${block.label}</p>
+                                    <pre class="code-block text-white p-4 rounded-lg overflow-x-auto text-sm md:text-base shadow-2xl"><code class="language-${block.lang}">${escapeHtml(block.content)}</code></pre>
+                                </div>
+                            `).join('')}
+                        </div>` : ''}
+
+                        ${slide.summary ? `<p class="text-lg text-blue-600 font-semibold mt-8 max-w-3xl mx-auto text-center">${slide.summary}</p>` : ''}
+                    </div>`;
+                }
+
+                slideEl.innerHTML = content;
+                container.appendChild(slideEl);
+                 if (slide.type === 'animated-terminal') {
+                    document.getElementById(`restart-anim-${index}`).addEventListener('click', () => runTerminalAnimation(index));
+                }
+                if (slide.type === 'canvas-animation') {
+                    const canvas = document.getElementById(`leap-canvas-${index}`);
+                    canvas.addEventListener('click', () => runLeapAnimation(index));
+                }
+            });
+            updateSlide();
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+        function updateSlide() {
+            if (animationController) {
+                animationController.abort();
+                animationController = null;
+            }
+
+            const isInspired = slidesData[currentSlide].type === 'inspired-title';
+            
+            if (isInspired) {
+                bodyEl.classList.remove('aurora-bg', 'bg-gray-50');
+                bodyEl.classList.add('inspired-title-bg');
+            } else {
+                bodyEl.classList.remove('inspired-title-bg');
+                bodyEl.classList.add('aurora-bg', 'bg-gray-50');
+            }
+
+            document.querySelectorAll('.slide').forEach((slide, index) => {
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                    if (slidesData[index].type === 'animated-terminal') {
+                        runTerminalAnimation(index);
+                    }
+                    if (slidesData[index].type === 'canvas-animation') {
+                        runLeapAnimation(index);
+                    }
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            slideCounter.textContent = `${currentSlide + 1} / ${slidesData.length}`;
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slidesData.length - 1;
+        }
+
+        function runLeapAnimation(slideIndex) {
+            if (animationController) animationController.abort();
+            animationController = new AbortController();
+            const signal = animationController.signal;
+
+            const canvas = document.getElementById(`leap-canvas-${slideIndex}`);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            let animationFrameId;
+
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            // Config
+            const platformWidth = width * 0.3;
+            const platformHeight = 40;
+            const chasmWidth = width * 0.4;
+            const particleCount = 100;
+
+            let particles = [];
+            let state = 'chaos'; // chaos -> beam -> forming -> bridged -> complete
+            let beamProgress = 0;
+            let bridgeProgress = 0;
+
+            function init() {
+                // Initialize particles in the chasm
+                particles = [];
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: platformWidth + Math.random() * chasmWidth,
+                        y: height / 2 + (Math.random() - 0.5) * height * 0.6,
+                        vx: (Math.random() - 0.5) * 1,
+                        vy: (Math.random() - 0.5) * 1,
+                        radius: Math.random() * 2 + 1,
+                        color: `rgba(0, 100, 255, ${Math.random() * 0.5 + 0.3})`
+                    });
+                }
+                state = 'chaos';
+                beamProgress = 0;
+                bridgeProgress = 0;
+                if(animationFrameId) cancelAnimationFrame(animationFrameId);
+                animate();
+            }
+            
+            canvas.onclick = () => {
+                if(state === 'chaos') state = 'beam';
+                else if (state === 'complete') init();
+            };
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Platforms
+                ctx.fillStyle = '#a0aec0'; // gray-400
+                ctx.fillRect(0, height / 2 - platformHeight / 2, platformWidth, platformHeight);
+                ctx.fillStyle = '#e53e3e'; // red-600
+                ctx.fillRect(width - platformWidth, height / 2 - platformHeight / 2, platformWidth, platformHeight);
+
+                // Platform Text
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('INITIAL 80%', platformWidth / 2, height / 2);
+                ctx.fillText('OPTIMAL 20%', width - platformWidth / 2, height / 2);
+
+                // Particles & Bridge
+                particles.forEach(p => {
+                    // Update position
+                    if (state === 'chaos') {
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        if (p.x < platformWidth || p.x > width - platformWidth) p.vx *= -1;
+                        if (p.y < 0 || p.y > height) p.vy *= -1;
+                    } else if (state === 'forming') {
+                         const targetY = height / 2;
+                         p.y += (targetY - p.y) * 0.05; // Ease towards center
+                    }
+
+                    // Draw particle
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                });
+                
+                if (state === 'beam') {
+                    beamProgress += 0.05;
+                    const beamX = platformWidth + chasmWidth * beamProgress;
+                    ctx.beginPath();
+                    ctx.moveTo(platformWidth, height/2);
+                    ctx.lineTo(beamX, height/2);
+                    ctx.strokeStyle = 'rgba(66, 153, 225, 0.8)';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'rgba(66, 153, 225, 1)';
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    if (beamProgress >= 1) {
+                        state = 'forming';
+                    }
+                }
+                
+                if(state === 'forming' || state === 'bridged' || state === 'complete') {
+                    bridgeProgress = Math.min(1, bridgeProgress + 0.01);
+                    ctx.beginPath();
+                    ctx.moveTo(platformWidth, height / 2);
+                    ctx.lineTo(width - platformWidth, height / 2);
+                    const gradient = ctx.createLinearGradient(platformWidth, 0, width - platformWidth, 0);
+                    gradient.addColorStop(0, '#4285F4');
+                    gradient.addColorStop(0.33, '#34A853');
+                    gradient.addColorStop(0.66, '#FBBC05');
+                    gradient.addColorStop(1, '#EA4335');
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 10 * bridgeProgress; // Bridge "grows"
+                    ctx.stroke();
+                    if(bridgeProgress >= 1 && state === 'forming') {
+                        state = 'bridged';
+                    }
+                }
+
+                if (state === 'bridged' || state === 'complete') {
+                     if (state === 'bridged') {
+                         state = 'complete'; // Immediately transition to the final state
+                     }
+                     // Draw the final text and celebration
+                     ctx.fillStyle = '#2b6cb0'; // blue-700
+                     ctx.font = 'bold 20px Inter';
+                     ctx.textAlign = 'center';
+                     ctx.fillText('THE DIFFICULT LEAP', width / 2, height / 2 + 80);
+
+                     ctx.font = '80px sans-serif';
+                     ctx.textAlign = 'center';
+                     ctx.textBaseline = 'middle';
+                     ctx.fillText('🎉', width - (platformWidth / 2), height / 2);
+                }
+            }
+
+            function animate() {
+                if (signal.aborted) {
+                    cancelAnimationFrame(animationFrameId);
+                    return;
+                }
+                draw();
+                animationFrameId = requestAnimationFrame(animate);
+            }
+            init();
+        }
+
+        async function runTerminalAnimation(slideIndex) {
+            if (animationController) animationController.abort();
+            animationController = new AbortController();
+            const signal = animationController.signal;
+
+            const slide = slidesData[slideIndex];
+            const contentEl = document.getElementById(`terminal-content-${slideIndex}`);
+            contentEl.innerHTML = '';
+
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            for (const step of slide.animation) {
+                if (signal.aborted) return;
+                
+                const lineEl = document.createElement('div');
+                lineEl.className = 'terminal-line whitespace-pre-wrap';
+                contentEl.appendChild(lineEl);
+
+                await sleep(100);
+                lineEl.classList.add('visible');
+
+                if (step.type === 'comment') {
+                    lineEl.innerHTML = `<span class="text-green-400">${step.text}</span>`;
+                } else if (step.type === 'command') {
+                    lineEl.innerHTML = `<span class="text-gray-400">$ </span><span id="cmd-${slideIndex}-${contentEl.children.length}"></span><span class="terminal-cursor"></span>`;
+                    const cmdEl = document.getElementById(`cmd-${slideIndex}-${contentEl.children.length}`);
+                    for (let i = 0; i < step.text.length; i++) {
+                        if (signal.aborted) return;
+                        cmdEl.textContent += step.text[i];
+                        await sleep(50);
+                    }
+                    lineEl.querySelector('.terminal-cursor').remove();
+                } else if (step.type === 'output') {
+                    lineEl.innerHTML = `<span class="text-gray-300">${step.text}</span>`;
+                } else if (step.type === 'pause') {
+                    await sleep(step.duration);
+                }
+                 contentEl.scrollTop = contentEl.scrollHeight;
+            }
+        }
+
+        prevBtn.addEventListener('click', () => {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentSlide < slidesData.length - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                nextBtn.click();
+            } else if (e.key === 'ArrowLeft') {
+                prevBtn.click();
+            }
+        });
+
+        renderSlides();
+
+    </script>
+</body>
+</html>
+
+
+
