@@ -318,10 +318,17 @@ pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
     tui::run_tui(pipeline)
 }
 
-pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow::Result<()> {
-    println!("--- Starting flow: {} ---", pipeline.name);
+pub async fn run_pipeline_plain<F>(
+    base_path: &Path,
+    pipeline: &Pipeline,
+    mut status_callback: F,
+) -> anyhow::Result<()>
+where
+    F: FnMut(&str),
+{
+    status_callback(&format!("--- Starting flow: {} ---", pipeline.name));
     for step in &pipeline.steps {
-        println!("\n--- Step '{}': Starting ---", step.name);
+        status_callback(&format!("\n--- Step '{}': Starting ---", step.name));
 
         let (prepared_command, secrets) = match &step.kind {
             StepKind::Model(model_step) => {
@@ -346,8 +353,12 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
                 let mut tokio_command = tokio::process::Command::from(command);
                 let output = tokio_command.output().await?;
 
-                io::stdout().write_all(&output.stdout)?;
-                io::stderr().write_all(&output.stderr)?;
+                if !output.stdout.is_empty() {
+                    status_callback(&String::from_utf8_lossy(&output.stdout));
+                }
+                if !output.stderr.is_empty() {
+                    status_callback(&String::from_utf8_lossy(&output.stderr));
+                }
 
                 if !output.status.success() {
                     return Err(anyhow::anyhow!("Step '{}' failed.", step.name));
@@ -357,15 +368,22 @@ pub async fn run_pipeline_plain(base_path: &Path, pipeline: &Pipeline) -> anyhow
                 let response = tokio::task::spawn_blocking(move || request.send()).await??;
                 let status = response.status();
                 if !status.is_success() {
-                    let error_body = response.text().unwrap_or_else(|_| "Could not read error body".to_string());
-                    return Err(anyhow::anyhow!("API request failed with status: {}. Body: {}", status, error_body));
+                    let error_body =
+                        response.text().unwrap_or_else(|_| "Could not read error body".to_string());
+                    return Err(anyhow::anyhow!(
+                        "API request failed with status: {}. Body: {}",
+                        status,
+                        error_body
+                    ));
                 }
                 let response_body: serde_json::Value = response.json()?;
-                let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"].as_str().unwrap_or("");
-                println!("{}", generated_text);
+                let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"]
+                    .as_str()
+                    .unwrap_or("");
+                status_callback(generated_text);
             }
         }
-        println!("\n--- Step '{}': Completed ---", step.name);
+        status_callback(&format!("\n--- Step '{}': Completed ---", step.name));
     }
     Ok(())
 }
