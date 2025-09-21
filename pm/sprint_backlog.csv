@@ -18,22 +18,3 @@
 ,T74,Comprehensive Documentation Overhaul,T74.4,"Create a new `CONTRIBUTING.md` file outlining the project structure, development workflow, and coding conventions.",Pending
 ,T74,Comprehensive Documentation Overhaul,T74.5,"Review and update `COMMAND_MODIFIERS.md` to ensure all listed modifiers are implemented and correctly described.",Pending
 ,T74,Comprehensive Documentation Overhaul,T74.6,"Add a ""Project Status"" section to the `README.md` that explicitly states the tool is in active development and documentation may lag.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.1,"In `ferri-cli/src/main.rs`, remove the explicit block preventing `PreparedCommand::Remote` from being used by the `run` command.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.2,"In `ferri-core/src/jobs.rs`, modify `submit_job` to handle a `PreparedCommand::Remote` variant.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.3,"For remote jobs, `submit_job` should spawn a new async task (e.g., using `tokio::spawn`) to execute the HTTP request.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.4,"The async task must write the API response to the job's `stdout.log` and any errors to `stderr.log`.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.5,"The async task must write the final exit code (0 for success, 1 for failure) to `exit_code.log` upon completion.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.6,"Update the `Job` struct to store the task handle or another identifier for the async operation.",Pending
-,T75,Enable Remote Model Execution for `ferri run`,T75.7,"Add an integration test in `ferri-cli` to verify that `ferri run --model <remote_model>` works correctly.",Pending
-,T76,Refactor Job Process Management,T76.1,"In `ferri-core/src/jobs.rs`, refactor `submit_job` to remove the dependency on the `sh -c` wrapper script.",Pending
-,T76,Refactor Job Process Management,T76.2,"Use Rust's `std::process::Stdio::from(File::create(...))` to directly pipe the child process's stdout and stderr to the respective log files.",Pending
-,T76,Refactor Job Process Management,T76.3,"Modify the process spawning logic to capture the exit code directly using `child.wait()` in a separate, monitored thread.",Pending
-,T76,Refactor Job Process Management,T76.4,"Ensure the `exit_code.log` is written atomically after the process completes to eliminate the race condition with `ferri ps`.",Pending
-,T76,Refactor Job Process Management,T76.5,"Verify that the new implementation is portable and does not rely on Unix-specific shell features.",Pending
-,T76,Refactor Job Process Management,T76.6,"Update the `kill_job` function to ensure it can still terminate the correctly spawned process group.",Pending
-,T77,Clarify and Enhance `ferri yank` Behavior,T77.1,"In `ferri-cli/src/main.rs`, add a `--stderr` flag to the `yank` command.",Pending
-,T77,Clarify and Enhance `ferri yank` Behavior,T77.2,"In `ferri-core/src/jobs.rs`, modify `get_job_output` to accept a boolean flag indicating whether to retrieve stderr.",Pending
-,T77,Clarify and Enhance `ferri yank` Behavior,T77.3,"If the `--stderr` flag is present, the function should return the contents of `stderr.log`.",Pending
-,T77,Clarify and Enhance `ferri yank` Behavior,T77.4,"If the flag is absent, the function should *only* return the contents of `stdout.log`, regardless of whether `stderr.log` has content.",Pending
-,T77,Clarify and Enhance `ferri yank` Behavior,T77.5,"Update the documentation for `ferri yank` in `README.md` to explain the new default behavior and the `--stderr` flag.",Pending
-,T77,Clarify and Enhance `ferri yank` Behavior,T77.6,"Add an integration test to `ferri-cli` to verify the behavior of `yank` both with and without the `--stderr` flag.",Pending
