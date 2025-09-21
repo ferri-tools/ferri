@@ -1,3 +1,15 @@
+> ---
+>
+> ### **Notice: Pre-Release Alpha Software**
+>
+> This repository contains an early, pre-release version of Ferri and should be considered **alpha-quality software**.
+>
+> * **Stability:** The software is not stable and is not suitable for production use.
+> * **Breaking Changes:** The API, command structure, and workflow schemas are under active development and are subject to change without notice in future updates.
+> * **Feedback:** This version is released for evaluation and feedback purposes. Please report any bugs or suggestions by opening an issue or contacting us at **[me@jorgeajimenez.com](mailto:me@jorgeajimenez.com)** or **[me@gretchenboria.com](mailto:me@gretchenboria.com)**.
+>
+> ---
+
 # Ferri
 
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
