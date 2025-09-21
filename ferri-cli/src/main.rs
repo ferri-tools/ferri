@@ -3,6 +3,7 @@ use std::env;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
+mod agent_tui;
 mod flow_run_tui;
 mod ps_tui;
 mod tui;
@@ -85,6 +86,9 @@ enum Commands {
     },
     /// Launch the main TUI dashboard
     Ui,
+    /// Perform a series of checks to diagnose common issues
+    #[command(hide = true)]
+    Doctor,
 }
 
 #[derive(Subcommand)]
@@ -445,7 +449,7 @@ async fn main() {
 
                             match ferri_core::jobs::submit_job(
                                 &current_path,
-                                command,
+                                &mut command,
                                 secrets,
                                 &original_command_parts,
                             ) {
@@ -543,8 +547,8 @@ async fn main() {
         },
         Commands::Do { prompt } => {
             let prompt_str = prompt.join(" ");
-            if let Err(e) = ferri_core::agent::generate_and_run_flow(&current_path, &prompt_str).await {
-                eprintln!("Error: Agent execution failed - {}", e);
+            if let Err(e) = agent_tui::run(&prompt_str) {
+                eprintln!("Error: Agent TUI failed - {}", e);
                 std::process::exit(1);
             }
         }
@@ -553,6 +557,72 @@ async fn main() {
                 eprintln!("Error: Failed to launch UI - {}", e);
                 std::process::exit(1);
             }
+        }
+        Commands::Doctor => {
+            println!("--- Ferri Doctor ---");
+            println!("Running diagnostics...");
+
+            // Check 1: Is ollama in the PATH?
+            print!("1. Checking for 'ollama' executable... ");
+            let ollama_path = std::process::Command::new("which")
+                .arg("ollama")
+                .output();
+            match ollama_path {
+                Ok(output) if output.status.success() => {
+                    println!("OK (Found at {})", String::from_utf8_lossy(&output.stdout).trim());
+                }
+                _ => {
+                    println!("FAIL");
+                    eprintln!("   Error: 'ollama' command not found in your system's PATH.");
+                    eprintln!("   Please install Ollama from https://ollama.com and ensure it's accessible.");
+                    std::process::exit(1);
+                }
+            }
+
+            // Check 2: Is the ollama service running?
+            print!("2. Checking 'ollama' service status... ");
+            let ollama_status = std::process::Command::new("ollama")
+                .arg("ps")
+                .output();
+            match ollama_status {
+                Ok(output) if output.status.success() => {
+                    println!("OK (Service is responsive)");
+                }
+                Ok(output) => {
+                    println!("FAIL");
+                    eprintln!("   Error: The 'ollama' service appears to be down.");
+                    eprintln!("   Please start the Ollama application and try again.");
+                    eprintln!("   Details: {}", String::from_utf8_lossy(&output.stderr));
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    println!("FAIL");
+                    eprintln!("   Error: Failed to execute 'ollama ps'.");
+                    eprintln!("   Details: {}", e);
+                    std::process::exit(1);
+                }
+            }
+
+            // Check 3: .ferri directory permissions
+            print!("3. Checking '.ferri' directory permissions... ");
+            let ferri_dir = current_path.join(".ferri");
+            match std::fs::metadata(&ferri_dir) {
+                Ok(metadata) => {
+                    if metadata.permissions().readonly() {
+                        println!("FAIL");
+                        eprintln!("   Error: The '.ferri' directory is read-only.");
+                    } else {
+                        println!("OK");
+                    }
+                }
+                Err(_) => {
+                    println!("FAIL");
+                    eprintln!("   Error: The '.ferri' directory does not exist or cannot be accessed.");
+                    eprintln!("   Please run 'ferri init' first.");
+                }
+            }
+
+            println!("\n--- Diagnostics Complete ---");
         }
     }
 }
