@@ -1,0 +1,1 @@
+Your primary goal is to identify the main subject in the image. Your secondary goal is to guess its name. Based on the image, a good name would be "Whiskers".

@@ -1,0 +1,12 @@
+Sure, here's the commit message:
+
+```python
+# Fix security vulnerabilities and improve code style
+
+- Removed command injection vulnerability by using `os.listdir()`.
+- Added error handling and proper JSON response format.
+- Sanitized user input before accessing `name` variable.
+- Improved code formatting and readability with PEP 8 compliance.
+- Updated the commit message to provide a more concise overview of the changes.
+```
+
