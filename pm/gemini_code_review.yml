@@ -1,0 +1,7 @@
+name: "Gemini Full Repo Code Review"
+jobs:
+  - id: package-codebase
+    command: 'git archive --format=tar -o codebase.tar HEAD'
+  - id: run-review
+    dependencies: [package-codebase]
+    command: 'ferri with --model gemini-pro --ctx codebase.tar "Perform a comprehensive code review of the entire codebase provided in the tarball. Focus on architecture, potential bugs, and suggest improvements." > gemini_review.txt'
