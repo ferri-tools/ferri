@@ -1,0 +1,9 @@
+fn print_init_message() {
+    println!(r#"
+        /\_/\
+       ( o.o )
+        > ^ <
+    "#);
+    println!("Ferri project initialized!");
+    println!("Run `ferri --help` to see what you can do.");
+}
