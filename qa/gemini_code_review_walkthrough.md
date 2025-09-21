@@ -33,21 +33,15 @@ Create a new file named `gemini_code_review.yml` in the `pm/` directory with the
 
 ```yaml
 name: "Gemini Full Repo Code Review"
-jobs:
-  - id: package-codebase
-    # This command uses git to create a clean tarball of the repository's source code.
-    # It avoids including the .git directory, build artifacts, and respects .gitignore.
-    command: 'git archive --format=tar -o codebase.tar HEAD'
-  - id: run-review
-    # This job depends on the 'package-codebase' job completing successfully.
-    dependencies: [package-codebase]
-    # This command executes the core logic:
-    # - `ferri with`: Runs a synchronous command with context.
-    # - `--model gemini-pro`: Specifies our powerful remote model.
-    # - `--ctx codebase.tar`: Adds the entire archived codebase as context.
-    # - `"Perform a comprehensive code review..."`: The prompt for the AI.
-    # - `> gemini_review.txt`: Redirects the model's output to a file.
-    command: 'ferri with --model gemini-pro --ctx codebase.tar "Perform a comprehensive code review of the entire codebase provided in the tarball. Focus on architecture, potential bugs, and suggest improvements." > gemini_review.txt'
+steps:
+  - name: package-codebase
+    kind:
+      process:
+        process: 'git archive --format=tar -o codebase.tar HEAD'
+  - name: run-review
+    kind:
+      process:
+        process: 'ferri with --model gemini-pro --ctx codebase.tar "Perform a comprehensive code review of the entire codebase provided in the tarball. Focus on architecture, potential bugs, and suggest improvements." > gemini_review.txt'
 ```
 
 *(This file has already been created for you in `pm/gemini_code_review.yml`)*
@@ -60,7 +54,7 @@ Now that the flow is defined, you can execute it with the `ferri flow run` comma
 ferri flow run pm/gemini_code_review.yml
 ```
 
-Ferri will now execute the jobs defined in the YAML file in the correct order. You will see output indicating that the `package-codebase` job runs first, followed by the `run-review` job.
+Ferri will now execute the steps defined in the YAML file in sequential order. You will see output indicating that the `package-codebase` step runs first, followed by the `run-review` step.
 
 ## Step 3: Expected Outcome
 
