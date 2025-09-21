@@ -1,0 +1,10 @@
+name: "Gemini Full Repo Code Review"
+steps:
+  - name: package-codebase
+    kind:
+      process:
+        process: 'git archive --format=tar -o codebase.tar HEAD'
+  - name: run-review
+    kind:
+      process:
+        process: 'ferri with --model gemini-pro --ctx codebase.tar "Perform a comprehensive code review of the entire codebase provided in the tarball. Focus on architecture, potential bugs, and suggest improvements." > gemini_review.txt'

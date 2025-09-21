@@ -1,0 +1,26 @@
+name: "Hybrid AI Quote Processing"
+steps:
+  - name: "generate-quotes"
+    model:
+      model: "gemini-pro" # Use remote model for a high-quality list
+      prompt: "Generate a list of 5 famous quotes about love. Each quote should be on a new line."
+    output: "all_quotes.txt"
+
+  - name: "filter-for-love"
+    process:
+      process: "grep -i 'love'" # Filter for lines containing 'love'
+    input: "all_quotes.txt"
+    output: "love_quotes.txt"
+
+  - name: "replace-love-with-code"
+    process:
+      process: "sed 's/love/code/gi'" # Replace 'love' with 'code' (case-insensitive)
+    input: "love_quotes.txt"
+    output: "code_quotes.txt"
+
+  - name: "summarize-quotes"
+    model:
+      model: "gemma" # Use local model for a quick summary
+      prompt: "You are a tech philosopher. Briefly summarize the meaning of the following quotes in a single sentence."
+    input: "code_quotes.txt"
+    output: "summary.txt"
