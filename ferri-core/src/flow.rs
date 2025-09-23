@@ -41,6 +41,7 @@ pub struct Step {
     #[serde(flatten)]
     pub kind: StepKind,
     pub input: Option<String>,
+    pub output: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -61,8 +62,6 @@ pub struct ModelStep {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProcessStep {
     pub process: String,
-    #[serde(default)]
-    pub output: Option<String>,
 }
 
 pub fn parse_pipeline_file(file_path: &Path) -> io::Result<Pipeline> {
@@ -145,8 +144,10 @@ pub fn run_pipeline(
         let final_output = match prepared_command {
             PreparedCommand::Local(mut command) => {
                 writeln!(log_file, "Executing local command.")?;
+                for (key, value) in secrets {
+                    command.env(key, value);
+                }
                 let mut child = command
-                    .envs(secrets)
                     .stdin(Stdio::piped()) // Pipe stdin
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
@@ -212,9 +213,8 @@ pub fn run_pipeline(
                     return Err(io::Error::new(io::ErrorKind::Other, stderr));
                 }
 
-                // For remote responses, the output is handled by the TUI and the image is saved directly
-                // by the logic in `main.rs`. We just need to consume the response here.
                 let body_bytes = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?.to_vec();
+                let mut extracted_text = String::new();
                 
                 // Try to parse the response to find and save an image if requested
                 if let StepKind::Model(model_step) = &step.kind {
@@ -261,6 +261,7 @@ pub fn run_pipeline(
                                         if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
                                             writeln!(log_file, "Extracted text from remote response: {}", text)?;
                                             sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
+                                            extracted_text.push_str(text);
                                         }
                                     }
                                 }
@@ -273,7 +274,7 @@ pub fn run_pipeline(
                 writeln!(log_file, "Finished processing remote stream.")?;
                 std::process::Output {
                     status: Command::new("true").status()?,
-                    stdout: body_bytes, // Pass the raw body through
+                    stdout: extracted_text.into_bytes(), // Pass the extracted text through
                     stderr: vec![],
                 }
             }
@@ -286,23 +287,11 @@ pub fn run_pipeline(
             return Err(io::Error::new(io::ErrorKind::Other, format!("Step '{}' failed.", step.name)));
         }
 
-        // Handle output for different step kinds
-        match &step.kind {
-            StepKind::Process(process_step) => {
-                if let Some(output_path) = &process_step.output {
-                    writeln!(log_file, "Writing process output to '{}'.", output_path)?;
-                    fs::write(output_path, &final_output.stdout)?;
-                }
-            }
-            StepKind::Model(model_step) => {
-                if let Some(output_path) = &model_step.output_image {
-                    // The image is saved by the remote execution logic in main.rs,
-                    // but we can log it here.
-                    writeln!(log_file, "Model step was instructed to save an image to '{}'.", output_path)?;
-                }
-            }
+        if let Some(output_path) = &step.output {
+            writeln!(log_file, "Writing output to '{}'.", output_path)?;
+            fs::write(output_path, &final_output.stdout)?;
         }
-        
+
         let mut outputs = step_outputs.lock().unwrap();
         outputs.insert(step.name.clone(), final_output.stdout);
 
