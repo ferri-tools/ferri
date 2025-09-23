@@ -84,16 +84,19 @@ pub fn submit_job(
 
     // Create a wrapper script to execute the command and capture its exit code
     let wrapper_script = format!(
-        "exec {} > {} 2> {}; echo $? > {}",
+        "{} > {} 2> /dev/null; echo $? > {}",
         executable_command,
         stdout_path.to_string_lossy(),
-        stderr_path.to_string_lossy(),
         exit_code_path.to_string_lossy()
     );
 
+
     let mut shell_command = Command::new("sh");
+    shell_command.stdin(Stdio::null());
     shell_command.arg("-c").arg(wrapper_script);
-    shell_command.envs(secrets);
+    for (key, value) in secrets {
+        shell_command.env(key, value);
+    }
 
     // The new process needs to be in its own process group to be killable
     unsafe {
