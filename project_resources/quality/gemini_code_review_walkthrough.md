@@ -29,7 +29,7 @@ Automate a full-repo code review using a multi-step Ferri flow that:
 
 Ferri flows are defined in YAML files. We will create a new flow that defines the two steps of our process: packaging the code and running the review.
 
-Create a new file named `gemini_code_review.yml` in the `pm/` directory with the following content:
+Create a new file named `gemini_code_review.yml` in the `project_resources/engineering/demos/` directory with the following content:
 
 ```yaml
 name: "Gemini Full Repo Code Review"
@@ -44,14 +44,14 @@ steps:
         process: 'ferri with --model gemini-pro --ctx codebase.tar "Perform a comprehensive code review of the entire codebase provided in the tarball. Focus on architecture, potential bugs, and suggest improvements." > gemini_review.txt'
 ```
 
-*(This file has already been created for you in `pm/gemini_code_review.yml`)*
+*(This file has already been created for you in `project_resources/engineering/demos/gemini_code_review.yml`)*
 
 ## Step 2: Run the Flow
 
 Now that the flow is defined, you can execute it with the `ferri flow run` command.
 
 ```bash
-ferri flow run pm/gemini_code_review.yml
+ferri flow run project_resources/engineering/demos/gemini_code_review.yml
 ```
 
 Ferri will now execute the steps defined in the YAML file in sequential order. You will see output indicating that the `package-codebase` step runs first, followed by the `run-review` step.

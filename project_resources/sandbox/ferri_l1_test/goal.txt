@@ -1,0 +1,1 @@
+The primary goal of Ferri is to simplify AI development workflows.

@@ -12,6 +12,10 @@
 
 # Ferri
 
+<div align="center">
+  <img src="logo.png" alt="Ferri Logo" width="200"/>
+</div>
+
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
 
 Ferri creates secure, project-based environments with portable context, unifying your workflow across local (Ollama) and remote (API) models. The goal is to let you focus on your high-level goals, not on the minutiae of context management and command execution.
@@ -248,10 +252,10 @@ ferri models add gemini-pro \
 
 **2. Run the Flow:**
 
-Execute the `code_review_flow.yml` pipeline. This flow uses the `pm/demo_script.py` file as its input.
+Execute the `code_review_flow.yml` pipeline. This flow uses the `engineering/demos/demo_script.py` file as its input.
 
 ```bash
-ferri flow run pm/code_review_flow.yml
+ferri flow run project_resources/engineering/demos/code_review_flow.yml
 ```
 
 **3. What it Does:**
