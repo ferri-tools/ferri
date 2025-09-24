@@ -13,11 +13,11 @@ At the start of each session, I will:
 
 ## What would you like to do?
 
-**1. Check project status:** I will analyze `pm/sprint_backlog.csv` and cross-reference it with the actual implementation in the codebase to give you a summary of completed, in-progress, and pending tasks.
+**1. Check project status:** I will analyze `project_resources/product/planning/sprints/general_backlog.csv` and cross-reference it with the actual implementation in the codebase to give you a summary of completed, in-progress, and pending tasks.
 
 **2. Work on a ticket:** Tell me which ticket you want to work on (e.g., "Let's work on T8"). I will then focus on implementing the subtasks for that ticket.
 
-**3. Create a new ticket:** I will help you add a new row to `pm/sprint_backlog.csv`, ensuring the goal and subtasks match the existing style and granularity.
+**3. Create a new ticket:** I will help you add a new row to `project_resources/product/planning/sprints/general_backlog.csv`, ensuring the goal and subtasks match the existing style and granularity.
 
     *   **Ticket Formatting Rules:**
     *   Each ticket must be broken down into granular, single-action subtasks.
@@ -47,7 +47,7 @@ This will create a persistent record of our work that we can refer back to.
 
 To inform our work, I will always refer to:
 *   **`README.md`**: For understanding the project's architecture and goals.
-*   **`pm/sprint_backlog.csv`**: As the single source of truth for all development tasks.
+*   **`project_resources/product/planning/sprints/general_backlog.csv`**: As the single source of truth for all development tasks.
 *   **The source code**: To verify implementation status.
 
 This should go without saying but always confirm if changing the .gitignore. It already happened before and it made things go crazy for a bit.
@@ -57,7 +57,7 @@ This should go without saying but always confirm if changing the .gitignore. It 
 
 To ensure a high-quality, maintainable codebase, we will adhere to the following practices:
 
-*   **Ticket-Driven Development:** All work, from new features to bug fixes, must begin with a ticket in `pm/sprint_backlog.csv`. This ensures every change is tracked and justified.
+*   **Ticket-Driven Development:** All work, from new features to bug fixes, must begin with a ticket in `project_resources/product/planning/sprints/general_backlog.csv`. This ensures every change is tracked and justified.
 *   **Atomic Commits:** Each commit should represent a single, logical change. Commits must reference their corresponding ticket ID (e.g., `fix(auth): T21 - Fix login redirect bug`).
 *   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
 *   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
@@ -75,7 +75,7 @@ I will approach context gathering in the following tiered manner:
 
 1.  **Tier 1 (Core Context):** Always begin with the absolute minimum:
     *   `README.md`: For high-level architecture and project goals.
-    *   `pm/sprint_backlog.csv`: To understand the specific ticket, goal, and subtasks.
+    *   `project_resources/product/planning/sprints/general_backlog.csv`: To understand the specific ticket, goal, and subtasks.
 
 2.  **Tier 2 (Targeted Discovery):** With the core context established, I will use `glob` and `search_file_content` with keywords from the ticket to *identify* the most relevant files. I will not read them yet. This prevents premature context loading.
 
