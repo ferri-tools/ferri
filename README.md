@@ -45,6 +45,43 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 
 ---
 
+## Quick Start: Your First Workflow
+
+Before diving into the commands, here are the three essential steps to run your first AI workflow, like the code review demo at the end of this guide.
+
+**1. Initialize Your Project**
+
+Navigate to your project's root directory and run `init`. This creates the `.ferri` directory to store all local context, secrets, and job history.
+
+```bash
+cd my-project
+ferri init
+```
+
+**2. Store Your API Key**
+
+Ferri keeps secrets encrypted locally. Use the `secrets set` command to securely store your Google API key. You will be prompted to enter the key interactively.
+
+```bash
+ferri secrets set GOOGLE_API_KEY
+# Follow the prompt to enter your key
+```
+
+**3. Register the Model**
+
+Tell Ferri about the model you want to use. This command creates a local alias (`gemini-pro`) and links it to the specific Google model and the API key you just stored.
+
+```bash
+ferri models add gemini-pro \
+  --provider google \
+  --api-key-secret GOOGLE_API_KEY \
+  --model-name gemini-1.5-pro-latest
+```
+
+You are now fully configured to use the `gemini-pro` model in any `ferri` command.
+
+---
+
 ## Command Reference
 
 | Command | Description |
@@ -243,18 +280,7 @@ This demo showcases a workflow where a fast, local model (Gemma) and a powerful,
 
 **1. Setup:**
 
-First, add your Google API key to Ferri's secrets and register the Gemini Pro model.
-
-```bash
-# Store your API key
-ferri secrets set GOOGLE_API_KEY "your-api-key-here"
-
-# Register the Gemini Pro model
-ferri models add gemini-pro \
-  --provider google \
-  --api-key-secret GOOGLE_API_KEY \
-  --model-name gemini-pro
-```
+Follow the **Quick Start** guide above to initialize your project and register the `gemini-pro` model.
 
 **2. Run the Flow:**
 
