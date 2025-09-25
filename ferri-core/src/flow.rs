@@ -5,7 +5,7 @@ mod tui;
 use crossbeam_channel::Sender;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Write};
 use std::path::{Path};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -71,46 +71,38 @@ pub fn run_pipeline(
         if let Some(input_source_name) = &step.input {
             let job_id = step_outputs.lock().unwrap().get(input_source_name).cloned();
             if let Some(id) = job_id {
-                // Use ferri yank equivalent to get output
-                input_data = Some(
-                    jobs::get_job_output(base_path, &id)?
-                        .as_bytes()
-                        .to_vec(),
-                );
+                input_data = Some(jobs::get_job_output(base_path, &id)?.as_bytes().to_vec());
             } else if Path::new(input_source_name).exists() {
                 input_data = Some(fs::read(input_source_name)?);
             }
         }
 
-        // --- Command Construction (T73) ---
-        let command_to_run = format!("ferri run -- {}", step.command);
+        // --- Command Construction and Job Submission (FIXED) ---
+        let full_command_to_run = format!("ferri run -- {}", step.command);
         let mut command = Command::new("sh");
-        command.arg("-c").arg(&command_to_run);
+        command.arg("-c").arg(&full_command_to_run);
 
-        // --- Job Submission ---
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
+        // If there's input data, we need to pipe it.
         if let Some(data) = input_data {
+            command.stdin(Stdio::piped());
+            let mut child = command.spawn()?;
             let mut stdin = child.stdin.take().unwrap();
             thread::spawn(move || {
                 stdin.write_all(&data).unwrap();
             });
         }
 
-        let stdout = BufReader::new(child.stdout.take().unwrap());
-        let job_id_line = stdout.lines().next().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "Failed to get job ID from ferri run")
-        })??;
+        let original_command_parts: Vec<String> =
+            shell_words::split(&full_command_to_run).unwrap_or_default();
 
-        let job_id: String = job_id_line
-            .split_whitespace()
-            .last()
-            .unwrap()
-            .to_string();
+        let job = jobs::submit_job(
+            base_path,
+            &mut command,
+            HashMap::new(),
+            &original_command_parts,
+        )?;
+
+        let job_id = job.id;
 
         step_outputs
             .lock()
@@ -145,7 +137,7 @@ pub fn run_pipeline(
                         return Err(io::Error::new(io::ErrorKind::Other, err_msg));
                     }
                     _ => {
-                        // Still running, maybe send an update
+                        // Still running, send an update with the latest output
                         let output = jobs::get_job_output(base_path, &job_id)?;
                         sender_clone
                             .send(StepUpdate {
