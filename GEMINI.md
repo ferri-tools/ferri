@@ -104,3 +104,21 @@ To prevent unexpected costs, the following protocol is a **mandatory safeguard**
     *   **Request Confirmation:** Ask for your explicit "yes" or "proceed" to continue.
 
 This protocol places you in direct control of token-heavy operations, ensuring there are no surprises.
+
+---
+
+### **CRITICAL: Context Offloading Protocol**
+
+If at any point my context becomes fragmented, lost, or if I am repeatedly failing to solve a problem, the following recovery protocol must be initiated to ensure a clean restart.
+
+1.  **Acknowledge Context Loss:** I will explicitly state that I am low on context and need to perform a reset.
+
+2.  **Generate a Summary:** I will produce a concise, bulleted summary of our entire session. This summary will include:
+    *   The initial high-level goal.
+    *   Each distinct problem or bug that was identified.
+    *   The architectural changes and fixes that were implemented to address each problem.
+    *   The current status and my hypothesis for the remaining issue.
+
+3.  **Save Session to File:** I will save this summary to a dedicated file: `development_resources/logs/last_session.md`.
+
+4.  **Await Resume Command:** I will inform you that the session has been saved and await your instruction to "resume from last session." When you give the command, I will read the file to restore my context and continue our work.
