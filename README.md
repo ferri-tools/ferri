@@ -1,5 +1,11 @@
 > ---
 >
+> Join our community!
+
+Have questions, ideas, or just want to chat with other users and developers? Join our Discord server!
+
+Join the Conversation at https://discord.gg/H8qXs9gx
+
 > ### **Notice: Pre-Release Alpha Software**
 >
 > This repository contains an early, pre-release version of Ferri and should be considered **alpha-quality software**.
@@ -264,10 +270,4 @@ ferri flow run project_resources/engineering/demos/code_review_flow.yml
 *   **Step 2 (Remote - Gemini Pro):** Uses the triage report to perform a deep analysis and writes an enhanced, secure version of the script to `enhanced_script.py`.
 *   **Step 3 (Local - Gemma):** Reads the final code and generates a git commit message in `commit_message.txt`.
 
-```
-Join our community!
-
-Have questions, ideas, or just want to chat with other users and developers? Join our Discord server!
-
-Join the Conversation at https://discord.gg/H8qXs9gx
 ```
