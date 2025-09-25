@@ -2,12 +2,11 @@
 
 mod tui;
 
-use crate::execute::{ExecutionArgs, PreparedCommand};
 use crossbeam_channel::Sender;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::{fs, io, thread};
@@ -38,30 +37,9 @@ pub struct Pipeline {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Step {
     pub name: String,
-    #[serde(flatten)]
-    pub kind: StepKind,
+    pub command: String,
     pub input: Option<String>,
     pub output: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum StepKind {
-    Model(ModelStep),
-    Process(ProcessStep),
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ModelStep {
-    pub model: String,
-    pub prompt: String,
-    #[serde(rename = "outputImage", default)]
-    pub output_image: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ProcessStep {
-    pub process: String,
 }
 
 pub fn parse_pipeline_file(file_path: &Path) -> io::Result<Pipeline> {
@@ -69,238 +47,117 @@ pub fn parse_pipeline_file(file_path: &Path) -> io::Result<Pipeline> {
     serde_yaml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
+use crate::jobs;
+
 pub fn run_pipeline(
     base_path: &Path,
     pipeline: &Pipeline,
     update_sender: Sender<StepUpdate>,
 ) -> io::Result<()> {
-    let step_outputs = Arc::new(Mutex::new(HashMap::<String, Vec<u8>>::new()));
-    
-    // --- New comprehensive logger ---
-    let log_path = base_path.join(".ferri").join("flow_run.log");
-    let mut log_file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(log_path)?;
-    writeln!(log_file, "--- Starting flow: {} ---", pipeline.name)?;
-    // ---
+    let step_outputs = Arc::new(Mutex::new(HashMap::<String, String>::new()));
 
     for step in &pipeline.steps {
         let sender_clone = update_sender.clone();
-        
-        sender_clone.send(StepUpdate {
-            name: step.name.clone(),
-            status: StepStatus::Running,
-            output: None,
-        }).unwrap();
+        sender_clone
+            .send(StepUpdate {
+                name: step.name.clone(),
+                status: StepStatus::Running,
+                output: None,
+            })
+            .unwrap();
 
-        writeln!(log_file, "\n--- Step '{}': Starting ---", step.name)?;
-
+        // --- Input Handling (T75) ---
         let mut input_data: Option<Vec<u8>> = None;
-        if let Some(input_source) = &step.input {
-            writeln!(log_file, "Reading input from '{}'.", input_source)?;
-            let mut combined_input = Vec::new();
-            let sources: Vec<&str> = input_source.split(',').map(|s| s.trim()).collect();
-            for source in sources {
-                let outputs = step_outputs.lock().unwrap();
-                if let Some(output) = outputs.get(source) {
-                    combined_input.extend_from_slice(output);
-                    combined_input.push(b'\n');
-                } else if Path::new(source).exists() {
-                    combined_input.extend_from_slice(&fs::read(source)?);
-                    combined_input.push(b'\n');
-                }
-            }
-            if !combined_input.is_empty() {
-                input_data = Some(combined_input);
+        if let Some(input_source_name) = &step.input {
+            let job_id = step_outputs.lock().unwrap().get(input_source_name).cloned();
+            if let Some(id) = job_id {
+                // Use ferri yank equivalent to get output
+                input_data = Some(
+                    jobs::get_job_output(base_path, &id)?
+                        .as_bytes()
+                        .to_vec(),
+                );
+            } else if Path::new(input_source_name).exists() {
+                input_data = Some(fs::read(input_source_name)?);
             }
         }
 
-        let (prepared_command, secrets) = match &step.kind {
-            StepKind::Model(model_step) => {
-                writeln!(log_file, "Preparing model command for provider '{}'.", model_step.model)?;
-                let final_prompt = if let Some(input) = &input_data {
-                    format!("{}\n\n{}", String::from_utf8_lossy(input), model_step.prompt)
-                } else {
-                    model_step.prompt.clone()
-                };
-                let exec_args = ExecutionArgs {
-                    model: Some(model_step.model.clone()),
-                    use_context: false,
-                    output_file: model_step.output_image.as_ref().map(PathBuf::from),
-                    command_with_args: vec![final_prompt],
-                };
-                crate::execute::prepare_command(base_path, &exec_args)?
-            }
-            StepKind::Process(process_step) => {
-                writeln!(log_file, "Preparing process command '{}'.", process_step.process)?;
-                let mut cmd = Command::new("sh");
-                cmd.arg("-c").arg(&process_step.process);
-                (PreparedCommand::Local(cmd), HashMap::new())
-            }
-        };
+        // --- Command Construction (T73) ---
+        let command_to_run = format!("ferri run -- {}", step.command);
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(&command_to_run);
 
-        let final_output = match prepared_command {
-            PreparedCommand::Local(mut command) => {
-                writeln!(log_file, "Executing local command.")?;
-                for (key, value) in secrets {
-                    command.env(key, value);
-                }
-                let mut child = command
-                    .stdin(Stdio::piped()) // Pipe stdin
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()?;
+        // --- Job Submission ---
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
 
-                // Write input data to the child's stdin in a separate thread
-                if let Some(input_data) = input_data {
-                    let mut stdin = child.stdin.take().unwrap();
-                    thread::spawn(move || {
-                        stdin.write_all(&input_data).unwrap();
-                    });
-                }
-
-                let stdout = BufReader::new(child.stdout.take().unwrap());
-                let stderr = BufReader::new(child.stderr.take().unwrap());
-                let mut accumulated_stdout = Vec::new();
-                let mut accumulated_stderr = Vec::new();
-
-                let sender_clone_err = sender_clone.clone();
-                let step_name_clone_err = step.name.clone();
-                let mut log_file_err = log_file.try_clone()?;
-                let stderr_thread = thread::spawn(move || {
-                    let mut lines = Vec::new();
-                    for line in stderr.lines() {
-                        let line = line.unwrap_or_default();
-                        writeln!(log_file_err, "STDERR: {}", line).ok();
-                        sender_clone_err.send(StepUpdate { name: step_name_clone_err.clone(), status: StepStatus::Running, output: Some(line.clone()) }).unwrap();
-                        lines.push(line);
-                    }
-                    lines.join("\n").into_bytes()
-                });
-
-                for line in stdout.lines() {
-                    let line = line?;
-                    writeln!(log_file, "STDOUT: {}", line)?;
-                    sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(line.clone()) }).unwrap();
-                    accumulated_stdout.extend_from_slice(line.as_bytes());
-                    accumulated_stdout.push(b'\n');
-                }
-                
-                accumulated_stderr = stderr_thread.join().unwrap();
-                let status = child.wait()?;
-                writeln!(log_file, "Local command finished with status: {}", status)?;
-                
-                // Only use stdout for the final output
-                std::process::Output {
-                    status,
-                    stdout: accumulated_stdout,
-                    stderr: accumulated_stderr,
-                }
-            }
-            PreparedCommand::Remote(request) => {
-                writeln!(log_file, "Sending remote API request.")?;
-                let response = request.send().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                let status = response.status();
-                writeln!(log_file, "Received API response with status: {}", status)?;
-
-                if !status.is_success() {
-                    let body = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    let stderr = if let Ok(json_err) = serde_json::from_slice::<serde_json::Value>(&body) {
-                        if let Some(msg) = json_err["error"]["message"].as_str() {
-                            format!("API Error: {}", msg)
-                        } else { String::from_utf8_lossy(&body).to_string() }
-                    } else { String::from_utf8_lossy(&body).to_string() };
-                    writeln!(log_file, "API error: {}", stderr)?;
-                    sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Failed(stderr.clone()), output: None }).unwrap();
-                    return Err(io::Error::new(io::ErrorKind::Other, stderr));
-                }
-
-                let body_bytes = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?.to_vec();
-                let mut extracted_text = String::new();
-                
-                // Try to parse the response to find and save an image if requested
-                if let StepKind::Model(model_step) = &step.kind {
-                    if let Some(output_path_str) = &model_step.output_image {
-                        if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
-                            let response_chunks = if let Some(array) = json.as_array() {
-                                array.to_vec()
-                            } else {
-                                vec![json]
-                            };
-                            for chunk in response_chunks {
-                                if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                                    for candidate in candidates {
-                                        if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                            for part in parts {
-                                                if let Some(inline_data) = part.get("inlineData") {
-                                                    if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
-                                                        let output_path = Path::new(output_path_str);
-                                                        crate::execute::save_base64_image(output_path, b64_data)?;
-                                                        writeln!(log_file, "Successfully saved image to {}", output_path.display())?;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // We can still try to parse and log the text part for debugging
-                if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
-                     let response_chunks = if let Some(array) = json.as_array() {
-                        array.to_vec()
-                    } else {
-                        vec![json]
-                    };
-                    for chunk in response_chunks {
-                        if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                            for candidate in candidates {
-                                if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                    for part in parts {
-                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                            writeln!(log_file, "Extracted text from remote response: {}", text)?;
-                                            sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(text.to_string()) }).unwrap();
-                                            extracted_text.push_str(text);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-
-                writeln!(log_file, "Finished processing remote stream.")?;
-                std::process::Output {
-                    status: Command::new("true").status()?,
-                    stdout: extracted_text.into_bytes(), // Pass the extracted text through
-                    stderr: vec![],
-                }
-            }
-        };
-
-        if !final_output.status.success() {
-            let err_msg = String::from_utf8_lossy(&final_output.stderr).to_string();
-            writeln!(log_file, "Step failed with message: {}", err_msg)?;
-            sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Failed(err_msg), output: None }).unwrap();
-            return Err(io::Error::new(io::ErrorKind::Other, format!("Step '{}' failed.", step.name)));
+        if let Some(data) = input_data {
+            let mut stdin = child.stdin.take().unwrap();
+            thread::spawn(move || {
+                stdin.write_all(&data).unwrap();
+            });
         }
 
-        if let Some(output_path) = &step.output {
-            writeln!(log_file, "Writing output to '{}'.", output_path)?;
-            fs::write(output_path, &final_output.stdout)?;
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let job_id_line = stdout.lines().next().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "Failed to get job ID from ferri run")
+        })??;
+
+        let job_id: String = job_id_line
+            .split_whitespace()
+            .last()
+            .unwrap()
+            .to_string();
+
+        step_outputs
+            .lock()
+            .unwrap()
+            .insert(step.name.clone(), job_id.clone());
+
+        // --- Synchronous Polling (T74) ---
+        loop {
+            thread::sleep(std::time::Duration::from_millis(200));
+            let jobs = jobs::list_jobs(base_path)?;
+            if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
+                match job.status.as_str() {
+                    "Completed" => {
+                        sender_clone
+                            .send(StepUpdate {
+                                name: step.name.clone(),
+                                status: StepStatus::Completed,
+                                output: None,
+                            })
+                            .unwrap();
+                        break;
+                    }
+                    "Failed" => {
+                        let err_msg = format!("Step '{}' failed.", step.name);
+                        sender_clone
+                            .send(StepUpdate {
+                                name: step.name.clone(),
+                                status: StepStatus::Failed(err_msg.clone()),
+                                output: None,
+                            })
+                            .unwrap();
+                        return Err(io::Error::new(io::ErrorKind::Other, err_msg));
+                    }
+                    _ => {
+                        // Still running, maybe send an update
+                        let output = jobs::get_job_output(base_path, &job_id)?;
+                        sender_clone
+                            .send(StepUpdate {
+                                name: step.name.clone(),
+                                status: StepStatus::Running,
+                                output: Some(output),
+                            })
+                            .unwrap();
+                    }
+                }
+            }
         }
-
-        let mut outputs = step_outputs.lock().unwrap();
-        outputs.insert(step.name.clone(), final_output.stdout);
-
-        writeln!(log_file, "--- Step '{}': Completed Successfully ---", step.name)?;
-        sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Completed, output: None }).unwrap();
     }
 
     Ok(())

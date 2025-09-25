@@ -12,8 +12,9 @@ use std::time::{Duration, Instant};
 
 pub enum AgentState {
     Initializing,
-    ExecutingStep(Vec<String>),
+    Executing(String),
     Failed(String),
+    Success(String),
 }
 
 struct App {
@@ -63,22 +64,61 @@ fn run_app<B: Backend>(
     prompt: &str,
 ) -> io::Result<()> {
     let mut last_tick = Instant::now();
-    let (tx, rx) = std::sync::mpsc::channel();
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
 
     let base_path = std::env::current_dir()?;
     let prompt_clone = prompt.to_string();
 
-    // Spawn a new Tokio runtime in a separate thread to run the async agent
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let result = ferri_core::agent::generate_and_run_flow(&base_path, &prompt_clone, |msg| {
-                tx.send(msg.to_string()).unwrap();
-            })
-            .await;
+            let job_id_result =
+                ferri_core::agent::generate_and_run_flow(&base_path, &prompt_clone, |msg| {
+                    tx.send(msg.to_string()).unwrap();
+                })
+                .await;
 
-            if let Err(e) = result {
-                tx.send(format!("AGENT FAILED: {}", e)).unwrap();
+            let job_id = match job_id_result {
+                Ok(id) => {
+                    tx.send(format!("AGENT JOB ID: {}", id)).unwrap();
+                    id
+                }
+                Err(e) => {
+                    tx.send(format!("AGENT FAILED: {}", e)).unwrap();
+                    return;
+                }
+            };
+
+            // Polling loop
+            loop {
+                std::thread::sleep(Duration::from_millis(500));
+                match ferri_core::jobs::list_jobs(&base_path) {
+                    Ok(jobs) => {
+                        if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
+                            let output =
+                                ferri_core::jobs::get_job_output(&base_path, &job_id).unwrap_or_default();
+                            tx.send(format!("OUTPUT:\n{}", output)).unwrap();
+
+                            match job.status.as_str() {
+                                "Completed" => {
+                                    tx.send("AGENT SUCCESS".to_string()).unwrap();
+                                    break;
+                                }
+                                "Failed" => {
+                                    tx.send(format!("AGENT FAILED: Job {} failed.", job_id))
+                                        .unwrap();
+                                    break;
+                                }
+                                _ => {} // Still running
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tx.send(format!("AGENT FAILED: Could not list jobs: {}", e))
+                            .unwrap();
+                        break;
+                    }
+                }
             }
         });
     });
@@ -86,15 +126,23 @@ fn run_app<B: Backend>(
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
-        // Check for new messages from the agent
         if let Ok(msg) = rx.try_recv() {
             if msg.starts_with("AGENT FAILED:") {
                 app.state = AgentState::Failed(msg);
-            } else {
-                if let AgentState::ExecutingStep(ref mut steps) = &mut app.state {
-                    steps.push(msg);
+                app.quit = true;
+            } else if msg.starts_with("AGENT SUCCESS") {
+                 if let AgentState::Executing(current_output) = &app.state {
+                    app.state = AgentState::Success(current_output.clone());
                 } else {
-                    app.state = AgentState::ExecutingStep(vec![msg]);
+                    app.state = AgentState::Success("Flow completed successfully.".to_string());
+                }
+            } else if msg.starts_with("OUTPUT:") {
+                let output = msg.strip_prefix("OUTPUT:\n").unwrap_or(&msg).to_string();
+                app.state = AgentState::Executing(output);
+            } else {
+                 // Initial messages from the agent before execution
+                if let AgentState::Initializing = &app.state {
+                    app.state = AgentState::Executing(msg);
                 }
             }
         }
@@ -143,14 +191,9 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     let (status_text, status_style) = match &app.state {
         AgentState::Initializing => ("Initializing...".to_string(), Style::default().fg(Color::Yellow)),
-        AgentState::ExecutingStep(steps) => {
-            if steps.is_empty() {
-                ("Initializing...".to_string(), Style::default().fg(Color::Yellow))
-            } else {
-                (steps.join("\n"), Style::default().fg(Color::Green))
-            }
-        }
+        AgentState::Executing(output) => (output.clone(), Style::default().fg(Color::Cyan)),
         AgentState::Failed(err) => (err.clone(), Style::default().fg(Color::Red)),
+        AgentState::Success(output) => (format!("{}\n\nFlow completed successfully. Press 'q' to quit.", output), Style::default().fg(Color::Green)),
     };
 
     let content_block = Block::default().title("Agent Status").borders(Borders::ALL);
@@ -160,7 +203,12 @@ fn ui(f: &mut Frame, app: &mut App) {
         .wrap(Wrap { trim: true });
     f.render_widget(content, chunks[1]);
 
-    let footer = Paragraph::new("Press 'q' to quit.")
+    let footer_text = match app.state {
+        AgentState::Success(_) | AgentState::Failed(_) => "Press 'q' to quit.",
+        _ => "Executing... Press 'q' to quit.",
+    };
+
+    let footer = Paragraph::new(footer_text)
         .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[2]);
