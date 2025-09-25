@@ -5,27 +5,23 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
-atty = "0.2.14"
 base64 = "0.22.1"
 chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.4", features = ["derive"] }
-crossbeam-channel = "0.5.15"
+crossbeam-channel = "0.5.13"
 crossterm = "0.27.0"
-glob = "0.3.1"
 magic-crypt = "3.1.13"
-nix = { version = "0.28.0", features = ["process", "signal"] }
+nix = { version = "0.28.0", features = ["signal"] }
 petgraph = "0.6.5"
 rand = "0.8.5"
-ratatui = { version = "0.26.3", features = ["all-widgets"] }
-reqwest = { version = "0.12.4", features = ["blocking", "stream", "json"] }
+ratatui = { version = "0.26.3", features = ["crossterm"] }
+reqwest = { version = "0.12.4", features = ["json", "stream", "blocking"] }
+rpassword = "7.3"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
-shell-words = "1.1.0"
 serde_yaml = "0.9.34"
+shell-words = "1.1.0"
 sysinfo = "0.30.13"
-thiserror = "1.0.61"
-tokio = { version = "1.38.0", features = ["full"] }
-topological-sort = "0.2.1"
 tempfile = "3.10.1"
+tokio = { version = "1.38.0", features = ["full"] }
 
 [dev-dependencies]
