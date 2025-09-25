@@ -6,7 +6,7 @@ This document provides a manual testing plan to verify the architectural refacto
 
 ## 2. Prerequisites
 
-1.  **Install the latest binary:** Ensure the most recent version of `ferri` has been compiled and installed from the `feature/t72-flow-refactor` branch.
+1.  **Install the latest binary:** Ensure the most recent version of `ferri` has been compiled and installed.
     ```bash
     cargo install --path ferri-cli --force
     ```
@@ -17,36 +17,36 @@ This document provides a manual testing plan to verify the architectural refacto
     # (Follow the prompts to enter your key)
     ```
 
-3.  **Create dummy files:** Some tests require pre-existing files. Create them as follows:
-    ```bash
-    mkdir -p pm
-    cat > pm/demo_script.py << EOF
-    # pm/demo_script.py
-    import os
-
-    def old_and_inefficient_function(data):
-        # This is a sample script with obvious room for improvement.
-        results = []
-        for i in data:
-            if i % 2 == 0: # Inefficient check
-                results.append(str(i))
-        return ",".join(results)
-
-    def another_function():
-        # This function is unused.
-        pass
-
-    if __name__ == "__main__":
-        my_data = range(20)
-        print(old_and_inefficient_function(my_data))
-    EOF
-    ```
-
 ## 3. Test Cases
 
 ### Test Case 1: `ferri flow run` - Core Functionality
 
 -   **Objective:** Verify that a multi-step flow using the new `command:` syntax executes correctly from start to finish.
+-   **Setup:**
+    1.  Create the necessary directory and a sample Python script for the test:
+        ```bash
+        mkdir -p pm
+        cat > pm/demo_script.py << EOF
+        # pm/demo_script.py
+        import os
+
+        def old_and_inefficient_function(data):
+            # This is a sample script with obvious room for improvement.
+            results = []
+            for i in data:
+                if i % 2 == 0: # Inefficient check
+                    results.append(str(i))
+            return ",".join(results)
+
+        def another_function():
+            # This function is unused.
+            pass
+
+        if __name__ == "__main__":
+            my_data = range(20)
+            print(old_and_inefficient_function(my_data))
+        EOF
+        ```
 -   **Steps:**
     1.  Navigate to the root of the `ferri` project directory.
     2.  Execute the corrected code review flow:
