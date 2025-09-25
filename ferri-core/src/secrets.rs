@@ -16,19 +16,25 @@ struct SecretsContainer {
     encrypted_data: String,
 }
 
-/// Sets a secret in the encrypted secrets file.
-pub fn set_secret(base_path: &Path, key: &str, value: &str) -> io::Result<()> {
+use rpassword::prompt_password;
+
+/// Sets a secret in the encrypted secrets file by interactively prompting the user.
+pub fn set_secret(base_path: &Path, key: &str) -> io::Result<()> {
     let secrets_path = base_path.join(".ferri").join("secrets.json");
     let crypt = new_magic_crypt!(ENCRYPTION_KEY, 256);
+
+    // Prompt for the secret value interactively
+    let value = prompt_password(format!("Enter value for '{}': ", key))?;
 
     let mut secrets = read_all_secrets_internal(base_path, &secrets_path, &crypt)?;
 
     // Insert or update the secret
-    secrets.insert(key.to_string(), value.to_string());
+    secrets.insert(key.to_string(), value);
 
     // Encrypt and write back
     write_all_secrets_internal(&secrets_path, &crypt, &secrets)?;
 
+    println!("Secret '{}' set successfully.", key);
     Ok(())
 }
 

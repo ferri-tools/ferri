@@ -126,12 +126,10 @@ enum CtxCommand {
 
 #[derive(Subcommand)]
 enum SecretsCommand {
-    /// Set a secret
+    /// Set a secret interactively
     Set {
         /// The name of the secret
         key: String,
-        /// The value of the secret
-        value: String,
     },
     /// Remove a secret
     Rm {
@@ -344,9 +342,9 @@ async fn main() {
             }
         }
         Commands::Secrets { action } => match action {
-            SecretsCommand::Set { key, value } => {
-                match ferri_core::secrets::set_secret(&current_path, key, value) {
-                    Ok(_) => println!("Secret '{}' set successfully.", key),
+            SecretsCommand::Set { key } => {
+                match ferri_core::secrets::set_secret(&current_path, key) {
+                    Ok(_) => {}, // Success message is now printed inside the function
                     Err(e) => eprintln!("Error: Failed to set secret - {}", e),
                 }
             }
