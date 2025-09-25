@@ -1,0 +1,8 @@
+feat: Add timestamp formatting and file handling options
+
+The script now supports custom timestamp formats and file handling options.
+
+- Added `-f/--format` argument to specify the timestamp format.
+- Added `-o/--overwrite` argument to overwrite the file instead of appending.
+- Improved error handling for file not found and permission errors.
+- Added newline character after each timestamp entry for better readability.

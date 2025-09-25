@@ -2,12 +2,14 @@
 
 mod tui;
 
+use crate::execute::{ExecutionArgs, SharedArgs};
+use crate::jobs;
+use crate::context;
+use clap::Parser;
 use crossbeam_channel::Sender;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::{Write};
-use std::path::{Path};
-use std::process::{Command, Stdio};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::{fs, io, thread};
 
@@ -47,14 +49,20 @@ pub fn parse_pipeline_file(file_path: &Path) -> io::Result<Pipeline> {
     serde_yaml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-use crate::jobs;
+// Helper struct to parse command arguments using clap
+#[derive(Parser, Debug)]
+struct StepCommandArgs {
+    #[clap(flatten)]
+    shared: SharedArgs,
+}
 
 pub fn run_pipeline(
     base_path: &Path,
     pipeline: &Pipeline,
     update_sender: Sender<StepUpdate>,
 ) -> io::Result<()> {
-    let step_outputs = Arc::new(Mutex::new(HashMap::<String, String>::new()));
+    // This map now tracks the explicit output file path for each step.
+    let step_output_files = Arc::new(Mutex::new(HashMap::<String, PathBuf>::new()));
 
     for step in &pipeline.steps {
         let sender_clone = update_sender.clone();
@@ -66,92 +74,85 @@ pub fn run_pipeline(
             })
             .unwrap();
 
-        // --- Input Handling (T75) ---
-        let mut input_data: Option<Vec<u8>> = None;
-        if let Some(input_source_name) = &step.input {
-            let job_id = step_outputs.lock().unwrap().get(input_source_name).cloned();
-            if let Some(id) = job_id {
-                input_data = Some(jobs::get_job_output(base_path, &id)?.as_bytes().to_vec());
-            } else if Path::new(input_source_name).exists() {
-                input_data = Some(fs::read(input_source_name)?);
+        // --- Context Management (The Correct Architecture) ---
+        context::clear_context(base_path)?;
+        let mut input_paths = Vec::new();
+        if let Some(input_sources) = &step.input {
+            let sources: Vec<&str> = input_sources.split(',').map(|s| s.trim()).collect();
+            for source in sources {
+                // Check if the input is the output of a previous step.
+                if let Some(path) = step_output_files.lock().unwrap().get(source) {
+                    input_paths.push(path.clone());
+                } else if Path::new(source).exists() { // Otherwise, check the filesystem.
+                    input_paths.push(PathBuf::from(source));
+                } else {
+                    return Err(io::Error::new(io::ErrorKind::NotFound, format!("Input '{}' not found for step '{}'", source, step.name)));
+                }
             }
         }
-
-        // --- Command Construction and Job Submission (FIXED) ---
-        let full_command_to_run = format!("ferri run -- {}", step.command);
-        let mut command = Command::new("sh");
-        command.arg("-c").arg(&full_command_to_run);
-
-        // If there's input data, we need to pipe it.
-        if let Some(data) = input_data {
-            command.stdin(Stdio::piped());
-            let mut child = command.spawn()?;
-            let mut stdin = child.stdin.take().unwrap();
-            thread::spawn(move || {
-                stdin.write_all(&data).unwrap();
-            });
+        
+        if !input_paths.is_empty() {
+            context::add_to_context(base_path, input_paths)?;
         }
 
-        let original_command_parts: Vec<String> =
-            shell_words::split(&full_command_to_run).unwrap_or_default();
+        // --- Command Preparation ---
+        let command_parts = shell_words::split(&step.command)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
+        
+        let parsed_args = StepCommandArgs::try_parse_from(command_parts)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
 
+        let exec_args = ExecutionArgs {
+            model: parsed_args.shared.model,
+            use_context: parsed_args.shared.ctx,
+            output_file: parsed_args.shared.output,
+            command_with_args: parsed_args.shared.command,
+        };
+
+        let (prepared_command, secrets) = crate::execute::prepare_command(base_path, &exec_args)?;
+
+        // Clone the output file path before it's moved into the job.
+        let output_file_for_registration = exec_args.output_file.clone();
+
+        // --- Job Submission ---
         let job = jobs::submit_job(
             base_path,
-            &mut command,
-            HashMap::new(),
-            &original_command_parts,
+            prepared_command,
+            secrets,
+            &exec_args.command_with_args,
+            None, // Stdin is not used for inter-step data transfer
+            exec_args.output_file,
         )?;
 
         let job_id = job.id;
 
-        step_outputs
-            .lock()
-            .unwrap()
-            .insert(step.name.clone(), job_id.clone());
-
-        // --- Synchronous Polling (T74) ---
+        // --- Synchronous Polling ---
         loop {
-            thread::sleep(std::time::Duration::from_millis(200));
+            thread::sleep(std::time::Duration::from_millis(500));
             let jobs = jobs::list_jobs(base_path)?;
             if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
                 match job.status.as_str() {
                     "Completed" => {
-                        sender_clone
-                            .send(StepUpdate {
-                                name: step.name.clone(),
-                                status: StepStatus::Completed,
-                                output: None,
-                            })
-                            .unwrap();
+                        // If this step produced an output file, record it for subsequent steps.
+                        if let Some(output_path) = output_file_for_registration {
+                            step_output_files.lock().unwrap().insert(step.name.clone(), output_path);
+                        }
+                        sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Completed, output: None }).unwrap();
                         break;
                     }
                     "Failed" => {
-                        let err_msg = format!("Step '{}' failed.", step.name);
-                        sender_clone
-                            .send(StepUpdate {
-                                name: step.name.clone(),
-                                status: StepStatus::Failed(err_msg.clone()),
-                                output: None,
-                            })
-                            .unwrap();
+                        let err_msg = format!("Step '{}' failed. See job '{}' for details.", step.name, job_id);
+                        sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Failed(err_msg.clone()), output: None }).unwrap();
                         return Err(io::Error::new(io::ErrorKind::Other, err_msg));
                     }
-                    _ => {
-                        // Still running, send an update with the latest output
+                    _ => { // Still running
                         let output = jobs::get_job_output(base_path, &job_id)?;
-                        sender_clone
-                            .send(StepUpdate {
-                                name: step.name.clone(),
-                                status: StepStatus::Running,
-                                output: Some(output),
-                            })
-                            .unwrap();
+                        sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(output) }).unwrap();
                     }
                 }
             }
         }
     }
-
     Ok(())
 }
 
@@ -159,6 +160,3 @@ pub fn run_pipeline(
 pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
     tui::run_tui(pipeline)
 }
-
-
-

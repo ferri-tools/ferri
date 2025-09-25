@@ -105,7 +105,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
     Ok(())
 }
 
-fn run_plain(pipeline: Pipeline) -> io::Result<()> {
+pub fn run_plain(pipeline: Pipeline) -> io::Result<()> {
     println!("Non-interactive mode detected. Streaming output:");
     let (tx, rx) = unbounded();
     let base_path = std::env::current_dir()?;

@@ -1,0 +1,70 @@
+```python
+import datetime
+
+def get_current_time_formatted():
+    """Returns the current time formatted as YYYY-MM-DD HH:MM:SS."""
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S")
+
+def write_timestamp_to_file(filename="timestamp.txt"):
+    """Writes the current timestamp to a file."""
+    timestamp = get_current_time_formatted()
+    try:
+        with open(filename, "w") as f:
+            f.write(timestamp)
+        print(f"Timestamp written to {filename}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    write_timestamp_to_file()
+```
+
+**Summary:**
+
+This Python script retrieves the current date and time, formats it as a string ("YYYY-MM-DD HH:MM:SS"), and writes it to a file named "timestamp.txt".  It uses the `datetime` module for time handling and includes basic error handling for file operations.  The `if __name__ == "__main__":` block ensures that the `write_timestamp_to_file` function is called only when the script is executed directly (not when imported as a module).
+
+**Potential Improvements:**
+
+1. **More specific exception handling:**  The `except Exception as e` block catches all exceptions.  It's better practice to catch specific exceptions like `FileNotFoundError`, `PermissionError`, or `IOError` to provide more informative error messages and potentially handle different errors in distinct ways.  This improves debugging and robustness.
+
+2. **Append instead of overwrite:** Currently, the script overwrites the timestamp file each time it's run.  For a log-like functionality, it might be more useful to append timestamps to the file using the "a" mode in `open(filename, "a")`.
+
+3. **Configurable filename and format:** The script could be made more flexible by allowing the user to specify the filename and timestamp format as arguments, either via command-line arguments or function parameters.  This would enable its use in different contexts without modifying the code directly.
+
+
+Example incorporating the suggested improvements:
+
+```python
+import datetime
+import argparse
+
+def get_current_time_formatted(format_string="%Y-%m-%d %H:%M:%S"):
+    """Returns the current time formatted according to the given format string."""
+    now = datetime.datetime.now()
+    return now.strftime(format_string)
+
+def write_timestamp_to_file(filename="timestamp.txt", format_string="%Y-%m-%d %H:%M:%S", append=True):
+    """Writes the current timestamp to a file, optionally appending."""
+    timestamp = get_current_time_formatted(format_string)
+    mode = "a" if append else "w"
+    try:
+        with open(filename, mode) as f:
+            f.write(timestamp + "\n")  # Add newline for readability
+        print(f"Timestamp written to {filename}")
+    except FileNotFoundError:
+        print(f"Error: File {filename} not found.")
+    except PermissionError:
+        print(f"Error: Permission denied when writing to {filename}.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Write timestamp to file.")
+    parser.add_argument("filename", nargs="?", default="timestamp.txt", help="Filename to write to")
+    parser.add_argument("-f", "--format", default="%Y-%m-%d %H:%M:%S", help="Timestamp format string")
+    parser.add_argument("-o", "--overwrite", action="store_false", help="Overwrite file instead of appending") 
+    args = parser.parse_args()
+    write_timestamp_to_file(args.filename, args.format, not args.overwrite) # append is the inverse of overwrite
+
+```
