@@ -11,9 +11,10 @@ This document provides a manual testing plan to verify the architectural refacto
     cargo install --path ferri-cli --force
     ```
 
-2.  **Set up environment:** A `GEMINI_API_KEY` must be exported in your environment for tests involving `ferri do` and the `gemini-pro` model.
+2.  **Set up environment:** Use the `ferri secrets` command to securely store your Gemini API key. The flow engine will automatically inject it into the environment.
     ```bash
-    export GEMINI_API_KEY="your-api-key"
+    ferri secrets set GEMINI_API_KEY
+    # (Follow the prompts to enter your key)
     ```
 
 3.  **Create dummy files:** Some tests require pre-existing files. Create them as follows:
