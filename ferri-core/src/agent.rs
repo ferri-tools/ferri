@@ -1,4 +1,4 @@
-use crate::flow::{parse_pipeline_file, run_pipeline_plain};
+use crate::flow::{parse_pipeline_file, run_pipeline, StepStatus};
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 use std::env;
@@ -29,7 +29,7 @@ the user's prompt will be a high-level goal. you must convert this into a series
 - the yaml structure must have a top-level `name` and a list of `steps`.
 - each item in the `steps` list is an object with a `name` (a human-readable title).
 - to define a command, use the `process` key. the value of this key must be another map that contains a `process` key with the shell command as its value.
-- **important**: when using a here-document (e.g., `cat << eof`), the closing delimiter (`eof`) must be on a new line by itself.
+- **important**: for multi-line commands, especially for writing files, use the yaml literal block scalar (`|`). this is the most robust method.
 - steps are executed sequentially. do not use a `dependencies` field.
 
 **example 1: simple file operations**
@@ -58,7 +58,11 @@ name: "create hello world python script"
 steps:
   - name: "write python script"
     process:
-      process: "cat > app.py << EOF\n#!/usr/-bin/env python3\nprint('hello')\nEOF"
+      process: |
+        cat > app.py << EOF
+        #!/usr/bin/env python3
+        print('hello')
+        EOF
 ```
 "#;
 
@@ -136,9 +140,38 @@ steps:
 
     let pipeline = parse_pipeline_file(temp_file.path())?;
 
+    let (tx, rx) = crossbeam_channel::unbounded();
+
     status_callback("Executing generated flow...");
 
-    run_pipeline_plain(base_path, &pipeline, |step_name| {
-        status_callback(&format!("Running step: {}", step_name));
-    }).await
+    // Run the synchronous pipeline in a blocking-safe thread
+    let base_path_buf = base_path.to_path_buf();
+    let pipeline_handle = tokio::task::spawn_blocking(move || {
+        run_pipeline(&base_path_buf, &pipeline, tx)
+    });
+
+    // Asynchronously listen for updates
+    while let Ok(update) = rx.recv() {
+        match update.status {
+            StepStatus::Running => {
+                if let Some(output) = update.output {
+                    status_callback(&output);
+                }
+            },
+            StepStatus::Completed => {
+                status_callback(&format!("Step '{}' completed.", update.name));
+            },
+            StepStatus::Failed(err) => {
+                return Err(anyhow!("Step '{}' failed: {}", update.name, err));
+            },
+            _ => {}
+        }
+    }
+
+    // Wait for the pipeline to finish and handle any final errors
+    match pipeline_handle.await {
+        Ok(Ok(_)) => Ok(()),
+        Ok(Err(e)) => Err(anyhow!("Flow execution failed: {}", e)),
+        Err(e) => Err(anyhow!("Flow execution task panicked: {}", e)),
+    }
 }

@@ -90,7 +90,6 @@ fn run_app<B: Backend>(
         if let Ok(msg) = rx.try_recv() {
             if msg.starts_with("AGENT FAILED:") {
                 app.state = AgentState::Failed(msg);
-                app.quit = true; // Quit on failure to show the error
             } else {
                 if let AgentState::ExecutingStep(ref mut steps) = &mut app.state {
                     steps.push(msg);
@@ -117,8 +116,6 @@ fn run_app<B: Backend>(
         }
 
         if app.quit {
-            // A small delay to let the user see the final message
-            std::thread::sleep(Duration::from_secs(2));
             return Ok(());
         }
     }
