@@ -64,7 +64,7 @@ cd ferri_uat_project
 
           - name: "enhance-code"
             input: "demo_script.py,triage_report.txt"
-            command: "with --ctx --model gemini-pro --output enhanced_script.py \"Based on the triage report, rewrite the original script to implement the suggested improvements.\""
+            command: "with --ctx --model gemini-pro --output enhanced_script.py \"Based on the triage report, rewrite the original script to implement the suggested improvements. Your response must contain only the raw, runnable code, without any markdown formatting or explanatory text.\""
 
           - name: "generate-commit-message"
             input: "enhanced_script.py"

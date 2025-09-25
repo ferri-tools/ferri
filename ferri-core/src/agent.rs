@@ -1,3 +1,4 @@
+use crate::execute::PreparedCommand;
 use crate::jobs;
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
@@ -140,7 +141,14 @@ steps:
     let mut command = Command::new("sh");
     command.arg("-c").arg(&command_str);
 
-    let job = jobs::submit_job(base_path, &mut command, HashMap::new(), &[])?;
+    let job = jobs::submit_job(
+        base_path,
+        PreparedCommand::Local(command),
+        HashMap::new(),
+        &[],
+        None,
+        None,
+    )?;
 
     temp_file.keep()?;
 

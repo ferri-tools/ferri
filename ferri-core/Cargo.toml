@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = "1.0.86"
 base64 = "0.22.1"
 chrono = { version = "0.4.38", features = ["serde"] }
+clap = { version = "4.5.4", features = ["derive"] }
 crossbeam-channel = "0.5.13"
 crossterm = "0.27.0"
 magic-crypt = "3.1.13"
@@ -23,5 +24,6 @@ shell-words = "1.1.0"
 sysinfo = "0.30.13"
 tempfile = "3.10.1"
 tokio = { version = "1.38.0", features = ["full"] }
+walkdir = "2.5.0"
 
 [dev-dependencies]

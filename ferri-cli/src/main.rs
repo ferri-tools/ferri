@@ -1,4 +1,5 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
+use ferri_core::execute::SharedArgs;
 use std::env;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -16,21 +17,7 @@ struct Cli {
     command: Commands,
 }
 
-#[derive(Args, Debug)]
-struct SharedArgs {
-    /// The model to use for the command
-    #[arg(long)]
-    model: Option<String>,
-    /// Inject context into the command
-    #[arg(long)]
-    ctx: bool,
-    /// The file path to save the output to
-    #[arg(long)]
-    output: Option<PathBuf>,
-    /// The command to execute
-    #[arg(required = true, trailing_var_arg = true)]
-    command: Vec<String>,
-}
+
 
 #[derive(Subcommand)]
 enum Commands {
@@ -424,49 +411,32 @@ async fn main() {
 
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
                 Ok((prepared_command, secrets)) => {
-                    match prepared_command {
-                        ferri_core::execute::PreparedCommand::Local(mut command) => {
-                            // Only wrap in a shell if no model is specified. Model commands are already fully prepared.
-                            if args.model.is_none() {
-                                let full_command_str = args.command.join(" ");
-                                // If the command looks like a shell command, wrap it in sh -c
-                                if args.command.len() > 1 || full_command_str.contains(|c: char| c.is_whitespace() || c == '|' || c == '&' || c == ';') {
-                                    let mut shell_command = std::process::Command::new("sh");
-                                    shell_command.arg("-c").arg(full_command_str);
-                                    command = shell_command;
-                                }
-                            }
+                    let mut original_command_parts = Vec::new();
+                    if let Some(model) = &args.model {
+                        original_command_parts.push(format!("--model {}", model));
+                    }
+                    if args.ctx {
+                        original_command_parts.push("--ctx".to_string());
+                    }
+                    original_command_parts.push("--".to_string());
+                    original_command_parts.extend(args.command.iter().cloned());
 
-                            let mut original_command_parts = Vec::new();
-                            if let Some(model) = &args.model {
-                                original_command_parts.push(format!("--model {}", model));
-                            }
-                            if args.ctx {
-                                original_command_parts.push("--ctx".to_string());
-                            }
-                            original_command_parts.push("--".to_string());
-                            original_command_parts.extend(args.command.iter().cloned());
-
-                            match ferri_core::jobs::submit_job(
-                                &current_path,
-                                &mut command,
-                                secrets,
-                                &original_command_parts,
-                            ) {
-                                Ok(job) => {
-                                    println!("Successfully submitted job '{}'.", job.id);
-                                    if let Some(pid) = job.pid {
-                                        println!("Process ID: {}", pid);
-                                    }
-                                }
-                                Err(e) => {
-                                    eprintln!("Error: Failed to submit job - {}", e);
-                                    std::process::exit(1);
-                                }
+                    match ferri_core::jobs::submit_job(
+                        &current_path,
+                        prepared_command,
+                        secrets,
+                        &original_command_parts,
+                        None, // `ferri run` gets input from its own stdin, handled by the OS
+                        exec_args.output_file,
+                    ) {
+                        Ok(job) => {
+                            println!("Successfully submitted job '{}'.", job.id);
+                            if let Some(pid) = job.pid {
+                                println!("Process ID: {}", pid);
                             }
                         }
-                        ferri_core::execute::PreparedCommand::Remote(_) => {
-                            eprintln!("Error: Remote model execution cannot be run as a background job yet.");
+                        Err(e) => {
+                            eprintln!("Error: Failed to submit job - {}", e);
                             std::process::exit(1);
                         }
                     }

@@ -1,6 +1,7 @@
 //! Core logic for executing commands with injected context.
 
 use crate::{context, models, secrets};
+use clap::Args;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -10,6 +11,22 @@ use std::process::Command;
 use std::fs;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
+
+#[derive(Args, Debug, Clone)]
+pub struct SharedArgs {
+    /// The model to use for the command
+    #[arg(long)]
+    pub model: Option<String>,
+    /// Inject context into the command
+    #[arg(long)]
+    pub ctx: bool,
+    /// The file path to save the output to
+    #[arg(long)]
+    pub output: Option<PathBuf>,
+    /// The command to execute
+    #[arg(required = true, trailing_var_arg = true)]
+    pub command: Vec<String>,
+}
 
 // --- Structs for deserializing Gemini API responses ---
 #[allow(dead_code)]
@@ -203,7 +220,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let base_path = dir.path();
         initialize_project(base_path).unwrap();
-        secrets::set_secret(base_path, "GOOGLE_API_KEY", "test-key").unwrap();
+        secrets::set_secret(base_path, "GOOGLE_API_KEY", Some("test-key".to_string())).unwrap();
         let model = models::Model {
             alias: "gemini".to_string(),
             provider: "google".to_string(),
@@ -216,6 +233,7 @@ mod tests {
         let args = ExecutionArgs {
             model: Some("gemini".to_string()),
             use_context: false,
+            output_file: None,
             command_with_args: vec!["hello".to_string()],
         };
 
@@ -226,7 +244,7 @@ mod tests {
             PreparedCommand::Remote(req) => {
                 let req = req.build().unwrap();
                 assert_eq!(req.method(), "POST");
-                assert!(req.url().as_str().contains("gemini-pro:generateContent?key=test-key"));
+                assert!(req.url().as_str().contains("gemini-pro:streamGenerateContent"));
                 let body_bytes = req.body().unwrap().as_bytes().unwrap();
                 let body_json: serde_json::Value = serde_json::from_slice(body_bytes).unwrap();
                 assert_eq!(body_json["contents"][0]["parts"][0]["text"], "hello");

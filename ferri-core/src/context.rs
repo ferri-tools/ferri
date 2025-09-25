@@ -1,161 +1,181 @@
 //! Core logic for managing the project's context.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug)]
+struct Context {
+    files: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ContentType {
     Text,
     Png,
     Jpeg,
     WebP,
+    Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ContextFile {
-    pub path: String,
+#[derive(Debug, Clone)]
+pub struct MultimodalFile {
+    pub path: PathBuf,
     pub content_type: ContentType,
 }
 
-/// Adds a set of file or directory paths to the context.
+#[derive(Debug, Clone)]
+pub struct MultimodalContext {
+    pub text_content: String,
+    pub image_files: Vec<MultimodalFile>,
+}
+
+/// Adds one or more files/directories to the context.
 pub fn add_to_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<()> {
     let context_path = base_path.join(".ferri").join("context.json");
-    let mut current_files = read_context_file(&context_path)?;
+    let mut context = read_context_file(&context_path)?;
 
-    for path_buf in paths {
-        let absolute_path = fs::canonicalize(&path_buf)?;
-        let relative_path = absolute_path.strip_prefix(base_path).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "File path is not within the project directory.",
-            )
-        })?;
-        let path_str = relative_path.to_string_lossy().to_string();
-
-        let content_type = match absolute_path.extension().and_then(|s| s.to_str()) {
-            Some("png") => ContentType::Png,
-            Some("jpg") | Some("jpeg") => ContentType::Jpeg,
-            Some("webp") => ContentType::WebP,
-            _ => ContentType::Text, // Default to text
-        };
-
-        let context_file = ContextFile {
-            path: path_str,
-            content_type,
-        };
-
-        current_files.insert(context_file);
+    for path in paths {
+        let canonical_path = path.canonicalize()?;
+        let path_str = canonical_path.to_string_lossy().to_string();
+        if !context.files.contains(&path_str) {
+            context.files.push(path_str);
+        }
     }
 
-    write_context_file(&context_path, &current_files)?;
-    Ok(())
+    write_context_file(&context_path, &context)
 }
 
-/// Lists the paths currently in the context.
+/// Lists the current context.
 pub fn list_context(base_path: &Path) -> io::Result<Vec<String>> {
     let context_path = base_path.join(".ferri").join("context.json");
-    let files = read_context_file(&context_path)?;
-    let paths: Vec<String> = files.into_iter().map(|f| f.path).collect();
-    Ok(paths)
+    let context = read_context_file(&context_path)?;
+    Ok(context.files)
 }
 
-/// Removes a set of file or directory paths from the context.
+/// Removes one or more files/directories from the context.
 pub fn remove_from_context(base_path: &Path, paths: Vec<PathBuf>) -> io::Result<()> {
     let context_path = base_path.join(".ferri").join("context.json");
-    let mut current_files = read_context_file(&context_path)?;
-    let mut removals = HashSet::new();
+    let mut context = read_context_file(&context_path)?;
 
-    for path_buf in paths {
-        let absolute_path = fs::canonicalize(&path_buf)?;
-        let relative_path = absolute_path.strip_prefix(base_path).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "File path is not within the project directory.",
-            )
-        })?;
-        removals.insert(relative_path.to_string_lossy().to_string());
+    for path in paths {
+        let canonical_path = path.canonicalize()?;
+        let path_str = canonical_path.to_string_lossy().to_string();
+        context.files.retain(|f| f != &path_str);
     }
 
-    current_files.retain(|f| !removals.contains(&f.path));
+    write_context_file(&context_path, &context)
+}
 
-    write_context_file(&context_path, &current_files)?;
+/// Clears the entire context.
+pub fn clear_context(base_path: &Path) -> io::Result<()> {
+    let context_path = base_path.join(".ferri").join("context.json");
+    let new_context = Context { files: Vec::new() };
+    write_context_file(&context_path, &new_context)
+}
+
+/// Reads all files in the context and concatenates their content.
+pub fn get_full_context(base_path: &Path) -> io::Result<String> {
+    let files = list_context(base_path)?;
+    let mut full_context = String::new();
+
+    for file_path in files {
+        let path = Path::new(&file_path);
+        if path.is_dir() {
+            for entry in fs::read_dir(path)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_file() {
+                    let content = fs::read_to_string(&path)?;
+                    full_context.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
+                    full_context.push_str(&content);
+                    full_context.push_str("\n\n");
+                }
+            }
+        } else if path.is_file() {
+            let content = fs::read_to_string(&path)?;
+            full_context.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
+            full_context.push_str(&content);
+            full_context.push_str("\n\n");
+        }
+    }
+
+    Ok(full_context)
+}
+
+/// Reads all files, separating text and images for multimodal models.
+pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<MultimodalContext> {
+    let files = list_context(base_path)?;
+    let mut text_content = String::new();
+    let mut image_files = Vec::new();
+
+    for file_path_str in files {
+        let path = PathBuf::from(file_path_str);
+        if path.is_dir() {
+            // Recursively walk directories
+            for entry in walkdir::WalkDir::new(path) {
+                let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                if entry.path().is_file() {
+                    process_file(entry.path(), &mut text_content, &mut image_files)?;
+                }
+            }
+        } else if path.is_file() {
+            process_file(&path, &mut text_content, &mut image_files)?;
+        }
+    }
+
+    Ok(MultimodalContext { text_content, image_files })
+}
+
+fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<MultimodalFile>) -> io::Result<()> {
+    let content_type = get_content_type(path);
+    match content_type {
+        ContentType::Text => {
+            let content = fs::read_to_string(path)?;
+            text_content.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
+            text_content.push_str(&content);
+            text_content.push_str("\n\n");
+        }
+        ContentType::Png | ContentType::Jpeg | ContentType::WebP => {
+            image_files.push(MultimodalFile {
+                path: path.to_path_buf(),
+                content_type,
+            });
+        }
+        ContentType::Unknown => {
+            // For now, we try to read it as text and ignore errors.
+            if let Ok(content) = fs::read_to_string(path) {
+                text_content.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
+                text_content.push_str(&content);
+                text_content.push_str("\n\n");
+            }
+        }
+    }
     Ok(())
+}
+
+fn get_content_type(path: &Path) -> ContentType {
+    match path.extension().and_then(|s| s.to_str()) {
+        Some("png") => ContentType::Png,
+        Some("jpg") | Some("jpeg") => ContentType::Jpeg,
+        Some("webp") => ContentType::WebP,
+        Some("txt") | Some("md") | Some("rs") | Some("py") | Some("js") | Some("ts") | Some("html") | Some("css") | Some("json") | Some("yaml") | Some("toml") => ContentType::Text,
+        _ => ContentType::Unknown,
+    }
 }
 
 // --- Internal Helper Functions ---
 
-fn read_context_file(path: &Path) -> io::Result<HashSet<ContextFile>> {
+fn read_context_file(path: &Path) -> io::Result<Context> {
     if !path.exists() {
-        return Ok(HashSet::new());
+        return Ok(Context { files: Vec::new() });
     }
     let content = fs::read_to_string(path)?;
-    if content.trim().is_empty() {
-        return Ok(HashSet::new());
-    }
     serde_json::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-fn write_context_file(path: &Path, files: &HashSet<ContextFile>) -> io::Result<()> {
-    let content = serde_json::to_string_pretty(files)?;
-    let mut file = fs::File::create(path)?;
-    file.write_all(content.as_bytes())
-}
-
-/// Reads all text files from the context and concatenates their content.
-/// NOTE: This function will need to be updated to handle multimodal context.
-pub fn get_full_context(base_path: &Path) -> io::Result<String> {
-    let context_path = base_path.join(".ferri").join("context.json");
-    let files = read_context_file(&context_path)?;
-    let mut full_context = String::new();
-
-    for context_file in files {
-        if matches!(context_file.content_type, ContentType::Text) {
-            let full_path = base_path.join(&context_file.path);
-            let content = fs::read_to_string(&full_path)?;
-            full_context.push_str(&format!(
-                "\n--- File: {} ---\n{}\n",
-                context_file.path, content
-            ));
-        }
-        // Image files are ignored by this function for now.
-    }
-
-    Ok(full_context)
-}
-
-#[derive(Debug, Default)]
-pub struct FullContext {
-    pub text_content: String,
-    pub image_files: Vec<ContextFile>,
-}
-
-/// Reads all files from the context, separating text and images.
-pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<FullContext> {
-    let context_path = base_path.join(".ferri").join("context.json");
-    let files = read_context_file(&context_path)?;
-    let mut full_context = FullContext::default();
-
-    for context_file in files {
-        let full_path = base_path.join(&context_file.path);
-        match context_file.content_type {
-            ContentType::Text => {
-                let content = fs::read_to_string(&full_path)?;
-                full_context.text_content.push_str(&format!(
-                    "\n--- File: {} ---\n{}\n",
-                    context_file.path, content
-                ));
-            }
-            ContentType::Png | ContentType::Jpeg | ContentType::WebP => {
-                // We need to pass the full path to the image files as well
-                let mut updated_context_file = context_file.clone();
-                updated_context_file.path = full_path.to_string_lossy().to_string();
-                full_context.image_files.push(updated_context_file);
-            }
-        }
-    }
-
-    Ok(full_context)
+fn write_context_file(path: &Path, context: &Context) -> io::Result<()> {
+    let content = serde_json::to_string_pretty(context)?;
+    fs::write(path, content)
 }
