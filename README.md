@@ -265,3 +265,9 @@ ferri flow run project_resources/engineering/demos/code_review_flow.yml
 *   **Step 3 (Local - Gemma):** Reads the final code and generates a git commit message in `commit_message.txt`.
 
 ```
+Join our community!
+
+Have questions, ideas, or just want to chat with other users and developers? Join our Discord server!
+
+Join the Conversation at https://discord.gg/H8qXs9gx
+```
