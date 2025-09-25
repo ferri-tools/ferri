@@ -31,7 +31,15 @@ cd ferri_uat_project
         # (Follow the prompts to enter your key)
         ```
 
-    3.  **Create a sample script to be reviewed:**
+    3.  **Register the Model:**
+        ```bash
+        ferri models add gemini-pro \
+          --provider google \
+          --api-key-secret GEMINI_API_KEY \
+          --model-name gemini-1.5-pro-latest
+        ```
+
+    4.  **Create a sample script to be reviewed:**
         ```bash
         cat > demo_script.py << EOF
         # demo_script.py
@@ -51,15 +59,16 @@ cd ferri_uat_project
         name: "Self-Contained Code Review"
         steps:
           - name: "triage-code"
-            command: "with --model gemini-pro --output triage_report.txt \"Summarize this Python script and identify 3 potential improvements.\" < demo_script.py"
+            input: "demo_script.py"
+            command: "with --model gemini-pro --output triage_report.txt \"Summarize this Python script and identify 3 potential improvements.\""
 
           - name: "enhance-code"
-            input: "triage_report.txt"
-            command: "with --model gemini-pro --output enhanced_script.py \"Based on the triage report, rewrite the original script to implement the suggested improvements.\" < demo_script.py"
+            input: "demo_script.py,triage_report.txt"
+            command: "with --ctx --model gemini-pro --output enhanced_script.py \"Based on the triage report, rewrite the original script to implement the suggested improvements.\""
 
           - name: "generate-commit-message"
             input: "enhanced_script.py"
-            command: "with --model gemini-pro --output commit_message.txt \"Write a conventional commit message for the changes in the enhanced script.\""
+            command: "with --ctx --model gemini-pro --output commit_message.txt \"Write a conventional commit message for the changes in the enhanced script.\""
         EOF
         ```
 
