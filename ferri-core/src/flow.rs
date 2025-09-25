@@ -164,16 +164,20 @@ pub fn run_pipeline(
                 let stdout = BufReader::new(child.stdout.take().unwrap());
                 let stderr = BufReader::new(child.stderr.take().unwrap());
                 let mut accumulated_stdout = Vec::new();
+                let mut accumulated_stderr = Vec::new();
 
                 let sender_clone_err = sender_clone.clone();
                 let step_name_clone_err = step.name.clone();
                 let mut log_file_err = log_file.try_clone()?;
                 let stderr_thread = thread::spawn(move || {
+                    let mut lines = Vec::new();
                     for line in stderr.lines() {
                         let line = line.unwrap_or_default();
                         writeln!(log_file_err, "STDERR: {}", line).ok();
-                        sender_clone_err.send(StepUpdate { name: step_name_clone_err.clone(), status: StepStatus::Running, output: Some(line) }).unwrap();
+                        sender_clone_err.send(StepUpdate { name: step_name_clone_err.clone(), status: StepStatus::Running, output: Some(line.clone()) }).unwrap();
+                        lines.push(line);
                     }
+                    lines.join("\n").into_bytes()
                 });
 
                 for line in stdout.lines() {
@@ -184,7 +188,7 @@ pub fn run_pipeline(
                     accumulated_stdout.push(b'\n');
                 }
                 
-                stderr_thread.join().unwrap();
+                accumulated_stderr = stderr_thread.join().unwrap();
                 let status = child.wait()?;
                 writeln!(log_file, "Local command finished with status: {}", status)?;
                 
@@ -192,7 +196,7 @@ pub fn run_pipeline(
                 std::process::Output {
                     status,
                     stdout: accumulated_stdout,
-                    stderr: vec![],
+                    stderr: accumulated_stderr,
                 }
             }
             PreparedCommand::Remote(request) => {
@@ -307,73 +311,5 @@ pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
     tui::run_tui(pipeline)
 }
 
-pub async fn run_pipeline_plain<F>(
-    base_path: &Path,
-    pipeline: &Pipeline,
-    mut status_callback: F,
-) -> anyhow::Result<()>
-where
-    F: FnMut(&str),
-{
-    status_callback(&format!("--- Starting flow: {} ---", pipeline.name));
-    for step in &pipeline.steps {
-        status_callback(&format!("\n--- Step '{}': Starting ---", step.name));
 
-        let (prepared_command, secrets) = match &step.kind {
-            StepKind::Model(model_step) => {
-                let exec_args = ExecutionArgs {
-                    model: Some(model_step.model.clone()),
-                    use_context: false,
-                    output_file: model_step.output_image.as_ref().map(PathBuf::from),
-                    command_with_args: vec![model_step.prompt.clone()],
-                };
-                crate::execute::prepare_command(base_path, &exec_args)?
-            }
-            StepKind::Process(process_step) => {
-                let mut cmd = std::process::Command::new("sh");
-                cmd.arg("-c").arg(&process_step.process);
-                (PreparedCommand::Local(cmd), HashMap::new())
-            }
-        };
-
-        match prepared_command {
-            PreparedCommand::Local(mut command) => {
-                command.envs(secrets);
-                let mut tokio_command = tokio::process::Command::from(command);
-                let output = tokio_command.output().await?;
-
-                if !output.stdout.is_empty() {
-                    status_callback(&String::from_utf8_lossy(&output.stdout));
-                }
-                if !output.stderr.is_empty() {
-                    status_callback(&String::from_utf8_lossy(&output.stderr));
-                }
-
-                if !output.status.success() {
-                    return Err(anyhow::anyhow!("Step '{}' failed.", step.name));
-                }
-            }
-            PreparedCommand::Remote(request) => {
-                let response = tokio::task::spawn_blocking(move || request.send()).await??;
-                let status = response.status();
-                if !status.is_success() {
-                    let error_body =
-                        response.text().unwrap_or_else(|_| "Could not read error body".to_string());
-                    return Err(anyhow::anyhow!(
-                        "API request failed with status: {}. Body: {}",
-                        status,
-                        error_body
-                    ));
-                }
-                let response_body: serde_json::Value = response.json()?;
-                let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"]
-                    .as_str()
-                    .unwrap_or("");
-                status_callback(generated_text);
-            }
-        }
-        status_callback(&format!("\n--- Step '{}': Completed ---", step.name));
-    }
-    Ok(())
-}
 

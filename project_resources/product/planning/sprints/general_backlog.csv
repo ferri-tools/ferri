@@ -382,3 +382,8 @@ line2'`).",Descoped
 ,T71,`ferri ctx` TUI Management,T71.3,"Add an ""Add"" (`a`) keybinding to open a text input for adding new paths.",Pending
 ,T71,`ferri ctx` TUI Management,T71.4,"Add a ""Remove"" (`d`) keybinding to remove the selected path from the context after a confirmation dialog.",Pending
 ,T71,`ferri ctx` TUI Management,T71.5,"Refactor `ferri ctx` subcommands (`add`, `rm`, `ls`) to launch the new TUI by default.",Pending
+,T72,Fix `ferri do` Regression,T72.1,"In `ferri-core/src/agent.rs`, replace the call to the outdated `run_pipeline_plain` with the main `run_pipeline` function.",Done
+,T72,Fix `ferri do` Regression,T72.2,"In `ferri-core/src/agent.rs`, adapt the agent's callback mechanism to be compatible with the `StepUpdate` channel used by `run_pipeline`.",Done
+,T72,Fix `ferri do` Regression,T72.3,"In `ferri-core/src/agent.rs`, convert `generate_and_run_flow` from an `async` function to a synchronous one that manages its own thread for the pipeline.",Done
+,T72,Fix `ferri do` Regression,T72.4,"In `ferri-core/src/flow.rs`, delete the now unused and deprecated `run_pipeline_plain` function to remove code duplication.",Done
+,T72,Fix `ferri do` Regression,T72.5,"In `ferri-cli/src/agent_tui.rs`, update the agent-spawning thread to call the new synchronous `generate_and_run_flow` function.",Done
