@@ -17,6 +17,7 @@ struct AppState {
     receiver: Receiver<StepUpdate>,
     active_step_index: usize,
     is_done: bool,
+    fatal_error: Option<String>,
 }
 
 use atty::Stream;
@@ -35,6 +36,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
         receiver: rx,
         active_step_index: 0,
         is_done: false,
+        fatal_error: None,
     };
 
     let base_path = std::env::current_dir()?;
@@ -48,7 +50,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
         }
     });
 
-    loop { // Main loop runs until user quits
+    'main_loop: loop {
         terminal.draw(|f| ui(f, &app_state))?;
 
         if event::poll(Duration::from_millis(100))? {
@@ -68,11 +70,14 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
 
         if !app_state.is_done {
             if let Ok(update) = app_state.receiver.try_recv() {
-                // Handle fatal errors sent from the pipeline runner
                 if update.name == "[FATAL]" {
                     if let StepStatus::Failed(err) = update.status {
+                        app_state.fatal_error = Some(err.clone());
                         app_state.steps.push(("[FATAL]".to_string(), StepStatus::Failed(err)));
                         app_state.is_done = true;
+                        // We need to draw one last time to show the error, then we can exit.
+                        terminal.draw(|f| ui(f, &app_state))?;
+                        break 'main_loop;
                     }
                 } else {
                     if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
@@ -85,14 +90,19 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
                 }
             }
             
-            // Check if all non-fatal steps are done
             if !app_state.is_done && !app_state.steps.iter().any(|(_, s)| matches!(s, StepStatus::Pending | StepStatus::Running)) {
                 app_state.is_done = true;
             }
         }
     }
 
-    restore_terminal(&mut terminal)
+    restore_terminal(&mut terminal)?;
+
+    if let Some(err) = app_state.fatal_error {
+        return Err(io::Error::new(io::ErrorKind::Other, err));
+    }
+
+    Ok(())
 }
 
 fn run_plain(pipeline: Pipeline) -> io::Result<()> {
