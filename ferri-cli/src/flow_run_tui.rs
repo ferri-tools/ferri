@@ -39,7 +39,13 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
 
     let base_path = std::env::current_dir()?;
     thread::spawn(move || {
-        let _ = ferri_core::flow::run_pipeline(&base_path, &pipeline, tx);
+        if let Err(e) = ferri_core::flow::run_pipeline(&base_path, &pipeline, tx.clone()) {
+            tx.send(StepUpdate {
+                name: "[FATAL]".to_string(),
+                status: StepStatus::Failed(e.to_string()),
+                output: None,
+            }).unwrap();
+        }
     });
 
     loop { // Main loop runs until user quits
@@ -62,16 +68,25 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
 
         if !app_state.is_done {
             if let Ok(update) = app_state.receiver.try_recv() {
-                if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
-                    step.1 = update.status.clone();
-                    app_state.active_step_index = idx;
-                }
-                if let Some(output) = update.output {
-                    app_state.outputs.entry(update.name).or_default().push(output);
+                // Handle fatal errors sent from the pipeline runner
+                if update.name == "[FATAL]" {
+                    if let StepStatus::Failed(err) = update.status {
+                        app_state.steps.push(("[FATAL]".to_string(), StepStatus::Failed(err)));
+                        app_state.is_done = true;
+                    }
+                } else {
+                    if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
+                        step.1 = update.status.clone();
+                        app_state.active_step_index = idx;
+                    }
+                    if let Some(output) = update.output {
+                        app_state.outputs.entry(update.name).or_default().push(output);
+                    }
                 }
             }
             
-            if !app_state.steps.iter().any(|(_, s)| matches!(s, StepStatus::Pending | StepStatus::Running)) {
+            // Check if all non-fatal steps are done
+            if !app_state.is_done && !app_state.steps.iter().any(|(_, s)| matches!(s, StepStatus::Pending | StepStatus::Running)) {
                 app_state.is_done = true;
             }
         }
