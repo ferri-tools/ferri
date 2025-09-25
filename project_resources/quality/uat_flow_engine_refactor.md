@@ -68,9 +68,10 @@ cd ferri_uat_project
         ferri flow run code_review_flow.yml
         ```
 
-    6.  **Monitor the jobs (in a separate terminal):** While the flow is running, open a new terminal window, navigate to the `ferri_uat_project` directory, and run:
+    6.  **Monitor the jobs (in a separate terminal):** While the flow is running, open a new terminal window, navigate to the `ferri_uat_project` directory, and run the following command to poll the job status:
         ```bash
-        watch ferri ps
+        while true; do clear; ferri ps; sleep 2; done
+        # Press Ctrl+C to exit this monitoring loop when the flow is complete.
         ```
 
     7.  **Verify the results:** After the flow completes, check for the output files:
