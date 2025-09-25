@@ -51,15 +51,15 @@ cd ferri_uat_project
         name: "Self-Contained Code Review"
         steps:
           - name: "triage-code"
-            command: "ferri with --model gemini-pro --output triage_report.txt \"Summarize this Python script and identify 3 potential improvements.\" < demo_script.py"
+            command: "with --model gemini-pro --output triage_report.txt \"Summarize this Python script and identify 3 potential improvements.\" < demo_script.py"
 
           - name: "enhance-code"
             input: "triage_report.txt"
-            command: "ferri with --model gemini-pro --output enhanced_script.py \"Based on the triage report, rewrite the original script to implement the suggested improvements.\" < demo_script.py"
+            command: "with --model gemini-pro --output enhanced_script.py \"Based on the triage report, rewrite the original script to implement the suggested improvements.\" < demo_script.py"
 
           - name: "generate-commit-message"
             input: "enhanced_script.py"
-            command: "ferri with --model gemini-pro --output commit_message.txt \"Write a conventional commit message for the changes in the enhanced script.\""
+            command: "with --model gemini-pro --output commit_message.txt \"Write a conventional commit message for the changes in the enhanced script.\""
         EOF
         ```
 
