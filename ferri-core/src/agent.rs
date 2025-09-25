@@ -1,16 +1,18 @@
-use crate::flow::{parse_pipeline_file, run_pipeline, StepStatus};
+use crate::jobs;
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
+use std::collections::HashMap;
 use std::env;
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
 use tempfile::NamedTempFile;
 
 pub async fn generate_and_run_flow<F>(
     base_path: &Path,
     prompt: &str,
     mut status_callback: F,
-) -> Result<()>
+) -> Result<String>
 where
     F: FnMut(&str),
 {
@@ -19,7 +21,6 @@ where
     let api_key =
         env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
 
-    // Added a rule to ensure here-documents are correctly terminated.
     let system_prompt = r#"you are an expert software developer and terminal assistant. your goal is to break down a user's high-level request into a precise, executable ferri flow yaml file.
 
 the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps in a ferri flow.
@@ -27,8 +28,7 @@ the user's prompt will be a high-level goal. you must convert this into a series
 **key rules:**
 - the output must be a valid yaml file.
 - the yaml structure must have a top-level `name` and a list of `steps`.
-- each item in the `steps` list is an object with a `name` (a human-readable title).
-- to define a command, use the `process` key. the value of this key must be another map that contains a `process` key with the shell command as its value.
+- each item in the `steps` list is an object with a `name` (a human-readable title) and a `command` (the shell command to execute).
 - **important**: for multi-line commands, especially for writing files, use the yaml literal block scalar (`|`). this is the most robust method.
 - steps are executed sequentially. do not use a `dependencies` field.
 
@@ -41,11 +41,9 @@ your response:
 name: "create my_app directory and index.js file"
 steps:
   - name: "create project directory"
-    process:
-      process: "mkdir my_app"
+    command: "mkdir my_app"
   - name: "create empty index file"
-    process:
-      process: "touch my_app/index.js"
+    command: "touch my_app/index.js"
 ```
 
 **example 2: writing a multi-line script file**
@@ -57,12 +55,11 @@ your response:
 name: "create hello world python script"
 steps:
   - name: "write python script"
-    process:
-      process: |
-        cat > app.py << EOF
-        #!/usr/bin/env python3
-        print('hello')
-        EOF
+    command: |
+      cat > app.py << EOF
+      #!/usr/bin/env python3
+      print('hello')
+      EOF
 ```
 "#;
 
@@ -116,16 +113,15 @@ steps:
         .as_str()
         .context("Could not extract generated text from Gemini API response")?;
 
-    // More robustly find and extract the YAML content from the response.
     let yaml_content = if let Some(start_index) = generated_text.find("```yaml") {
         let after_start = &generated_text[start_index + 7..];
         if let Some(end_index) = after_start.find("```") {
             &after_start[..end_index]
         } else {
-            after_start // Fallback if the closing fence is missing
+            after_start
         }
     } else {
-        generated_text // Fallback if no yaml block is found
+        generated_text
     };
 
     let yaml_content = yaml_content.trim();
@@ -138,40 +134,15 @@ steps:
     let mut temp_file = NamedTempFile::new().context("Failed to create temporary file")?;
     writeln!(temp_file, "{}", yaml_content).context("Failed to write to temporary file")?;
 
-    let pipeline = parse_pipeline_file(temp_file.path())?;
-
-    let (tx, rx) = crossbeam_channel::unbounded();
-
     status_callback("Executing generated flow...");
 
-    // Run the synchronous pipeline in a blocking-safe thread
-    let base_path_buf = base_path.to_path_buf();
-    let pipeline_handle = tokio::task::spawn_blocking(move || {
-        run_pipeline(&base_path_buf, &pipeline, tx)
-    });
+    let command_str = format!("ferri flow run {}", temp_file.path().to_string_lossy());
+    let mut command = Command::new("sh");
+    command.arg("-c").arg(&command_str);
 
-    // Asynchronously listen for updates
-    while let Ok(update) = rx.recv() {
-        match update.status {
-            StepStatus::Running => {
-                if let Some(output) = update.output {
-                    status_callback(&output);
-                }
-            },
-            StepStatus::Completed => {
-                status_callback(&format!("Step '{}' completed.", update.name));
-            },
-            StepStatus::Failed(err) => {
-                return Err(anyhow!("Step '{}' failed: {}", update.name, err));
-            },
-            _ => {}
-        }
-    }
+    let job = jobs::submit_job(base_path, &mut command, HashMap::new(), &[])?;
 
-    // Wait for the pipeline to finish and handle any final errors
-    match pipeline_handle.await {
-        Ok(Ok(_)) => Ok(()),
-        Ok(Err(e)) => Err(anyhow!("Flow execution failed: {}", e)),
-        Err(e) => Err(anyhow!("Flow execution task panicked: {}", e)),
-    }
+    temp_file.keep()?;
+
+    Ok(job.id)
 }

@@ -1,0 +1,14 @@
+name: "AI-Powered Code Review & Enhancement"
+steps:
+  - name: "triage-code"
+    command: "ferri with --model gemma --output triage_report.txt \"You are a code triager. Summarize the following Python script, identify any obvious flaws or style issues, and create a checklist for a senior developer to perform a deeper review. Focus on security and performance.\" < pm/demo_script.py"
+    output: "triage_report.txt"
+
+  - name: "expert-review-and-enhance"
+    command: "ferri with --model gemini-pro --output enhanced_script.py \"You are an expert Python developer. Using the original code and the triage report, perform a deep code review based on the checklist. Then, generate an enhanced, production-ready version of the script that fixes all identified issues.\" < pm/demo_script.py triage_report.txt"
+    output: "enhanced_script.py"
+
+  - name: "generate-commit-message"
+    command: "ferri with --model gemma --output commit_message.txt \"You are a git expert. Based on the enhanced code, write a concise and conventional commit message.\" < enhanced_script.py"
+    output: "commit_message.txt"
+

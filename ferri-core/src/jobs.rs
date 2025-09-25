@@ -67,7 +67,7 @@ pub fn submit_job(
     fs::create_dir_all(&job_dir)?;
 
     let stdout_path = job_dir.join("stdout.log");
-    let stderr_path = job_dir.join("stderr.log");
+    let _stderr_path = job_dir.join("stderr.log");
     let exit_code_path = job_dir.join("exit_code.log");
 
     // Manually construct the command string, quoting arguments
