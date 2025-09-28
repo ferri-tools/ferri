@@ -109,6 +109,8 @@ enum CtxCommand {
         #[arg(required = true, num_args = 1..)]
         paths: Vec<String>,
     },
+    /// Clear the entire context
+    Clear,
 }
 
 #[derive(Subcommand)]
@@ -190,7 +192,7 @@ async fn main() {
 
     // Proceed with the command logic.
     match &cli.command {
-        Commands::Init => { /* This case is handled above */ }
+        Commands::Init => { /* This case is handled above */ } 
         Commands::Ctx { action } => match action {
             CtxCommand::Add { paths } => {
                 let path_bufs = paths.iter().map(PathBuf::from).collect();
@@ -221,6 +223,12 @@ async fn main() {
                     Err(e) => eprintln!("Error: Failed to remove from context - {}", e),
                 }
             }
+            CtxCommand::Clear => {
+                match ferri_core::context::clear_context(&current_path) {
+                    Ok(_) => println!("Successfully cleared context."),
+                    Err(e) => eprintln!("Error: Failed to clear context - {}", e),
+                }
+            }
         },
         Commands::With { args } => {
             let exec_args = ferri_core::execute::ExecutionArgs {
@@ -228,22 +236,57 @@ async fn main() {
                 use_context: args.ctx,
                 output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
+                streaming: false,
             };
+
+            if args.ctx {
+                match ferri_core::context::list_context(&current_path) {
+                    Ok(files) if files.is_empty() => {
+                        eprintln!("Warning: --ctx flag was used, but the context is empty.");
+                        eprintln!("You can add files to the context with `ferri ctx add <paths...>`");
+                    }
+                    Err(e) => {
+                        eprintln!("Error: Failed to read context - {}", e);
+                        std::process::exit(1);
+                    }
+                    _ => {} // Context exists and is not empty, proceed.
+                }
+            }
 
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
                 Ok((prepared_command, secrets)) => {
                     match prepared_command {
-                        ferri_core::execute::PreparedCommand::Local(mut command) => {
-                            let status = command
-                                .envs(secrets)
+                        ferri_core::execute::PreparedCommand::Local(mut command, stdin_data) => {
+                            command.envs(secrets);
+                            if stdin_data.is_some() {
+                                command.stdin(std::process::Stdio::piped());
+                            }
+                            
+                            let spawn_result = command
                                 .stdout(std::process::Stdio::inherit())
                                 .stderr(std::process::Stdio::inherit())
-                                .spawn()
-                                .and_then(|mut child| child.wait());
+                                .spawn();
 
-                            if let Err(e) = status {
-                                eprintln!("Error: Command execution failed - {}", e);
-                                std::process::exit(1);
+                            match spawn_result {
+                                Ok(mut child) => {
+                                    if let Some(data) = stdin_data {
+                                        if let Some(mut stdin) = child.stdin.take() {
+                                            if let Err(e) = stdin.write_all(data.as_bytes()) {
+                                                eprintln!("Error: Failed to write to command stdin - {}", e);
+                                                std::process::exit(1);
+                                            }
+                                            drop(stdin); // Explicitly close stdin
+                                        }
+                                    }
+                                    if let Err(e) = child.wait() {
+                                        eprintln!("Error: Command execution failed - {}", e);
+                                        std::process::exit(1);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Error: Failed to spawn command - {}", e);
+                                    std::process::exit(1);
+                                }
                             }
                         }
                         ferri_core::execute::PreparedCommand::Remote(request) => {
@@ -407,6 +450,7 @@ async fn main() {
                 use_context: args.ctx,
                 output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
+                streaming: false, // Set to false to preserve existing L2 behavior
             };
 
             match ferri_core::execute::prepare_command(&current_path, &exec_args) {
@@ -598,23 +642,22 @@ async fn main() {
 }
 
 fn print_init_message() {
-    println!(r#"
-       ___     ___
-     .i .-'   `-. i.
-   .'   `/     \'  _`.
-   |,-../ o   o \.' `|
-(| |   /  _\ /_  \   | |)
- \\\  (_.'.'"`.`._)  ///
-  \\`._(..:   :..)_.'//
-   \`.__\ .:-:. /__.'/
-    `-i-->.___.<--i-'
-    .'.-'/.=^=.\`-.`.
-   /.'  //     \\  `.\
-  ||   ||       ||   ||
-  \)   ||       ||  (/
-       \)       (/
+    println!(r#" 
+       ___     ___ 
+     .i .-'   `-. i. 
+   .'   `/     \'  _`. 
+   |,-../ o   o \.' `| 
+(| |   /  _\ /_  \   | |) 
+ \\]  (_.'."`.`._)  /// 
+  \\]`._(..:   :..)_.'// 
+   \\]`.__\ .:-:. /__.'/ 
+    `-i-->.___.<--i-' 
+    .'.-'/.=^=.\`-.`. 
+   /.'  //     \\  `.\ 
+  ||   ||       ||   || 
+  \)   ||       ||  (/ 
+       \)       (/ 
     "#);
     println!("Ferri project initialized!");
     println!("Run `ferri --help` to see what you can do.");
 }
-

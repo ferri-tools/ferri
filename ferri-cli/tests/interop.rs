@@ -60,6 +60,7 @@ fn test_l1_command_interop() {
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
         .arg("with")
+        .arg("--ctx")
         .arg("--")
         .arg("sh")
         .arg("-c")

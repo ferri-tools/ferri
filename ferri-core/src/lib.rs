@@ -41,7 +41,7 @@ pub fn initialize_project(base_path: &Path) -> std::io::Result<()> {
 
     let context_path = ferri_dir.join("context.json");
     if !context_path.exists() {
-        fs::write(context_path, "[]")?;
+        fs::write(context_path, "{\n  \"files\": []\n}")?;
     }
 
     Ok(())
