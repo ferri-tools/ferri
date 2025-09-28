@@ -58,7 +58,7 @@ This part verifies the setup of secrets for remote models and the registration o
     ferri models add gemini-pro \
       --provider google \
       --api-key-secret GOOGLE_API_KEY \
-      --model-name gemini-1.5-pro-latest
+      --model-name gemini-2.5-pro
     ```
     - **Expected Result:** The command should succeed without error.
 

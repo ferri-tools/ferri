@@ -1,3 +1,4 @@
+use std::process::Command;
 use clap::{Parser, Subcommand};
 use ferri_core::execute::SharedArgs;
 use std::env;
@@ -257,7 +258,22 @@ async fn main() {
                 Ok((prepared_command, secrets)) => {
                     match prepared_command {
                         ferri_core::execute::PreparedCommand::Local(mut command, stdin_data) => {
-                            command.envs(secrets);
+                            let mut final_command_str = String::new();
+                            for (key, value) in &secrets {
+                                final_command_str.push_str(&format!("export {}='{}' ; ", key, value.replace("'", "'\\''")));
+                            }
+
+                            let original_cmd_parts: Vec<String> = std::iter::once(command.get_program().to_string_lossy().to_string())
+                                .chain(command.get_args().map(|s| s.to_string_lossy().to_string()))
+                                .collect();
+                            
+                            final_command_str.push_str(&original_cmd_parts.join(" "));
+
+                            let mut new_command = Command::new("sh");
+                            new_command.arg("-c").arg(final_command_str);
+                            
+                            command = new_command; // Replace the original command
+
                             if stdin_data.is_some() {
                                 command.stdin(std::process::Stdio::piped());
                             }
