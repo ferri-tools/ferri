@@ -63,7 +63,7 @@ fn spawn_and_monitor_job(
     job_id: String,
     prepared_command: PreparedCommand,
     secrets: HashMap<String, String>,
-    input_data: Option<Vec<u8>>,
+    _input_data: Option<Vec<u8>>,
     output_file: Option<PathBuf>,
 ) {
     thread::spawn(move || {
