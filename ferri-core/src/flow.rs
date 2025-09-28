@@ -107,6 +107,7 @@ pub fn run_pipeline(
             use_context: parsed_args.shared.ctx,
             output_file: parsed_args.shared.output,
             command_with_args: parsed_args.shared.command,
+            streaming: true,
         };
 
         let (prepared_command, secrets) = crate::execute::prepare_command(base_path, &exec_args)?;

@@ -143,7 +143,7 @@ steps:
 
     let job = jobs::submit_job(
         base_path,
-        PreparedCommand::Local(command),
+        PreparedCommand::Local(command, None),
         HashMap::new(),
         &[],
         None,

@@ -80,11 +80,12 @@ pub struct ExecutionArgs {
     pub use_context: bool,
     pub output_file: Option<PathBuf>,
     pub command_with_args: Vec<String>,
+    pub streaming: bool,
 }
 
 // A unified return type for command execution
 pub enum PreparedCommand {
-    Local(Command),
+    Local(Command, Option<String>),
     Remote(reqwest::blocking::RequestBuilder),
 }
 
@@ -120,23 +121,24 @@ pub fn prepare_command(
 
         match provider {
             ModelProvider::Ollama => {
-                let mut command = Command::new("ollama");
                 let final_prompt = if args.use_context {
                     let full_context = context::get_full_context(base_path)?;
                     format!(
-                        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
-                        full_context.trim(),
-                        prompt
+                        "{}\n\nUse the content of the files below as context to answer the question.\n\n{}",
+                        prompt,
+                        full_context.trim()
                     )
                 } else {
                     prompt
                 };
-                command.arg("run").arg(&model.model_name).arg(final_prompt);
-                Ok((PreparedCommand::Local(command), decrypted_secrets))
+                let mut command = Command::new("ollama");
+                command.arg("run").arg(&model.model_name);
+                Ok((PreparedCommand::Local(command, Some(final_prompt)), decrypted_secrets))
             }
             ModelProvider::Google => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
-                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent", model.model_name);
+                let endpoint = if args.streaming { "streamGenerateContent" } else { "generateContent" };
+                let url = format!("https://generativelanguage.googleapis.com/v1/models/{}:{}", model.model_name, endpoint);
 
                 let mut parts = Vec::new();
 
@@ -194,11 +196,18 @@ pub fn prepare_command(
             }
         }
     } else {
+        let mut final_command_with_args = final_command_with_args;
+        if args.use_context {
+            let context = context::get_full_context(base_path)?;
+            if let Some(last_arg) = final_command_with_args.last_mut() {
+                *last_arg = format!("{}\n{}", context, last_arg);
+            }
+        }
         let command_name = &final_command_with_args[0];
         let command_args = &final_command_with_args[1..];
         let mut command = Command::new(command_name);
         command.args(command_args);
-        Ok((PreparedCommand::Local(command), decrypted_secrets))
+        Ok((PreparedCommand::Local(command, None), decrypted_secrets))
     }
 }
 

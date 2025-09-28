@@ -72,8 +72,9 @@ fn spawn_and_monitor_job(
         let exit_code_path = job_dir.join("exit_code.log");
 
         let execution_result = match prepared_command {
-            PreparedCommand::Local(mut command) => {
-                execute_local_command(&mut command, secrets, input_data, &stdout_path)
+            PreparedCommand::Local(mut command, stdin_data) => {
+                let input_bytes = stdin_data.map(|s| s.into_bytes());
+                execute_local_command(&mut command, secrets, input_bytes, &stdout_path)
             }
             PreparedCommand::Remote(request) => {
                 execute_remote_command(request, &stdout_path)

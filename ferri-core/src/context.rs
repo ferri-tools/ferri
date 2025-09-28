@@ -77,31 +77,8 @@ pub fn clear_context(base_path: &Path) -> io::Result<()> {
 
 /// Reads all files in the context and concatenates their content.
 pub fn get_full_context(base_path: &Path) -> io::Result<String> {
-    let files = list_context(base_path)?;
-    let mut full_context = String::new();
-
-    for file_path in files {
-        let path = Path::new(&file_path);
-        if path.is_dir() {
-            for entry in fs::read_dir(path)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_file() {
-                    let content = fs::read_to_string(&path)?;
-                    full_context.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
-                    full_context.push_str(&content);
-                    full_context.push_str("\n\n");
-                }
-            }
-        } else if path.is_file() {
-            let content = fs::read_to_string(&path)?;
-            full_context.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
-            full_context.push_str(&content);
-            full_context.push_str("\n\n");
-        }
-    }
-
-    Ok(full_context)
+    let multimodal_context = get_full_multimodal_context(base_path)?;
+    Ok(multimodal_context.text_content)
 }
 
 /// Reads all files, separating text and images for multimodal models.
@@ -117,23 +94,25 @@ pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<MultimodalCon
             for entry in walkdir::WalkDir::new(path) {
                 let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                 if entry.path().is_file() {
-                    process_file(entry.path(), &mut text_content, &mut image_files)?;
+                    process_file(entry.path(), &mut text_content, &mut image_files, base_path)?;
                 }
             }
         } else if path.is_file() {
-            process_file(&path, &mut text_content, &mut image_files)?;
+            process_file(&path, &mut text_content, &mut image_files, base_path)?;
         }
     }
 
     Ok(MultimodalContext { text_content, image_files })
 }
 
-fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<MultimodalFile>) -> io::Result<()> {
+fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<MultimodalFile>, base_path: &Path) -> io::Result<()> {
     let content_type = get_content_type(path);
+    let display_path = path.strip_prefix(base_path).unwrap_or(path);
+
     match content_type {
         ContentType::Text => {
             let content = fs::read_to_string(path)?;
-            text_content.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
+            text_content.push_str(&format!("--- Content of file: {} ---\n", display_path.display()));
             text_content.push_str(&content);
             text_content.push_str("\n\n");
         }
@@ -146,7 +125,7 @@ fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<Mu
         ContentType::Unknown => {
             // For now, we try to read it as text and ignore errors.
             if let Ok(content) = fs::read_to_string(path) {
-                text_content.push_str(&format!("--- Content of file: {} ---\\n", path.display()));
+                text_content.push_str(&format!("--- Content of file: {} ---\n", display_path.display()));
                 text_content.push_str(&content);
                 text_content.push_str("\n\n");
             }
@@ -172,6 +151,9 @@ fn read_context_file(path: &Path) -> io::Result<Context> {
         return Ok(Context { files: Vec::new() });
     }
     let content = fs::read_to_string(path)?;
+    if content.trim().is_empty() {
+        return Ok(Context { files: Vec::new() });
+    }
     serde_json::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
