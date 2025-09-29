@@ -6,7 +6,6 @@ use futures::StreamExt;
 use std::env;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::process::Command;
 
 // These modules are part of the CLI binary, not library crates.
 mod agent_tui;
@@ -180,28 +179,16 @@ async fn main() {
             },
         },
         Commands::With { args } => {
-            // Decide whether to stream.
-            // 1. Explicit flags take precedence.
-            // 2. If no flags, fall back to provider-based default.
-            let should_stream = if args.stream {
-                true
-            } else if args.no_stream {
-                false
-            } else {
-                // Default behavior: stream only for google models.
-                if let Some(model_alias) = &args.model {
-                    match models::list_models(&current_path) {
-                        Ok(models) => models
-                            .iter()
-                            .any(|m| m.alias == *model_alias && m.provider.starts_with("google")),
-                        Err(_) => false,
-                    }
-                } else {
-                    false
-                }
-            };
+            // Non-streaming is the default. Only stream if the flag is explicitly passed.
+            let should_stream = args.stream;
 
             if should_stream {
+                // Check for a model when streaming
+                if args.model.is_none() {
+                    eprintln!("Error: The --stream flag requires a --model to be specified.");
+                    std::process::exit(1);
+                }
+                
                 let exec_args = execute::ExecutionArgs {
                     model: args.model.clone(),
                     use_context: args.ctx,
@@ -266,33 +253,40 @@ async fn main() {
                 match execute::prepare_command(&current_path, &exec_args) {
                     Ok((prepared_command, secrets)) => match prepared_command {
                         execute::PreparedCommand::Local(mut command, stdin_data) => {
-                            let mut final_command_str = String::new();
-                            for (key, value) in &secrets {
-                                final_command_str.push_str(&format!("export {}='{}' ; ", key, value.replace("'", "'\\''")));
-                            }
-                            let original_cmd_parts: Vec<String> = std::iter::once(command.get_program().to_string_lossy().to_string())
-                                .chain(command.get_args().map(|s| s.to_string_lossy().to_string()))
-                                .collect();
-                            final_command_str.push_str(&original_cmd_parts.join(" "));
-                            let mut new_command = Command::new("sh");
-                            new_command.arg("-c").arg(final_command_str);
-                            command = new_command;
+                            // Apply secrets directly as environment variables
+                            command.envs(secrets);
+
+                            // Configure stdio for capturing
                             if stdin_data.is_some() {
                                 command.stdin(std::process::Stdio::piped());
                             }
-                            match command.stdout(std::process::Stdio::inherit()).stderr(std::process::Stdio::inherit()).spawn() {
+                            command.stdout(std::process::Stdio::piped());
+                            command.stderr(std::process::Stdio::piped());
+
+                            match command.spawn() {
                                 Ok(mut child) => {
                                     if let Some(data) = stdin_data {
                                         if let Some(mut stdin) = child.stdin.take() {
-                                            if let Err(e) = stdin.write_all(data.as_bytes()) {
-                                                eprintln!("Error: Failed to write to command stdin - {}", e);
-                                                std::process::exit(1);
-                                            }
+                                            // Write stdin in a separate thread to avoid deadlocks
+                                            std::thread::spawn(move || {
+                                                stdin.write_all(data.as_bytes()).unwrap();
+                                            });
                                         }
                                     }
-                                    if let Err(e) = child.wait() {
-                                        eprintln!("Error: Command execution failed - {}", e);
-                                        std::process::exit(1);
+
+                                    // Now wait for the process to finish and capture its output
+                                    match child.wait_with_output() {
+                                        Ok(output) => {
+                                            io::stdout().write_all(&output.stdout).unwrap();
+                                            io::stderr().write_all(&output.stderr).unwrap();
+                                            if !output.status.success() {
+                                                std::process::exit(output.status.code().unwrap_or(1));
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Error: Command execution failed - {}", e);
+                                            std::process::exit(1);
+                                        }
                                     }
                                 }
                                 Err(e) => {

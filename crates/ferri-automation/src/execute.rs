@@ -24,11 +24,8 @@ pub struct SharedArgs {
     #[arg(long)]
     pub output: Option<PathBuf>,
     /// Force streaming output
-    #[arg(long, conflicts_with = "no_stream")]
+    #[arg(long)]
     pub stream: bool,
-    /// Disable streaming output
-    #[arg(long, conflicts_with = "stream")]
-    pub no_stream: bool,
     /// The command to execute
     #[arg(required = true, trailing_var_arg = true)]
     pub command: Vec<String>,
