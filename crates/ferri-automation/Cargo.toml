@@ -1,27 +1,21 @@
-[workspace]
-resolver = "2"
-members = [
-    "ferri-cli",
-    "crates/ferri-core",
-    "crates/ferri-automation",
-    "crates/ferri-agent",
-]
+[package]
+name = "ferri-automation"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
+[dependencies]
+ferri-core = { path = "../ferri-core" }
 anyhow = "1.0"
 base64 = "0.22"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 crossbeam-channel = "0.5"
 crossterm = "0.27"
-futures = "0.3"
-magic-crypt = "3.1"
 nix = { version = "0.28", features = ["signal"] }
 petgraph = "0.6"
 rand = "0.8"
-ratatui = "0.26"
+ratatui = { version = "0.26", features = ["crossterm"] }
 reqwest = { version = "0.12", features = ["json", "stream", "blocking", "native-tls"] }
-rpassword = "7.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
@@ -29,4 +23,3 @@ shell-words = "1.1"
 sysinfo = "0.30"
 tempfile = "3.10"
 tokio = { version = "1", features = ["full"] }
-walkdir = "2.5"

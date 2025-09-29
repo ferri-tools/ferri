@@ -1,5 +1,5 @@
-use crate::execute::PreparedCommand;
-use crate::jobs;
+use ferri_automation::execute::PreparedCommand;
+use ferri_automation::jobs;
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 use std::collections::HashMap;
@@ -22,7 +22,7 @@ where
     let api_key =
         env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
 
-    let system_prompt = r#"you are an expert software developer and terminal assistant. your goal is to break down a user's high-level request into a precise, executable ferri flow yaml file.
+    let system_prompt = r###"you are an expert software developer and terminal assistant. your goal is to break down a user's high-level request into a precise, executable ferri flow yaml file.
 
 the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps in a ferri flow.
 
@@ -62,7 +62,7 @@ steps:
       print('hello')
       EOF
 ```
-"#;
+"###;
 
     let client = reqwest::Client::new();
     let url = format!(

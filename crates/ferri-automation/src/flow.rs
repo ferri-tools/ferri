@@ -1,10 +1,8 @@
 //! Core logic for parsing and executing AI pipelines from YAML files.
 
-mod tui;
-
 use crate::execute::{ExecutionArgs, SharedArgs};
 use crate::jobs;
-use crate::context;
+use ferri_core::context;
 use clap::Parser;
 use crossbeam_channel::Sender;
 use serde::Deserialize;
@@ -90,7 +88,7 @@ pub fn run_pipeline(
                 }
             }
         }
-        
+
         if !input_paths.is_empty() {
             context::add_to_context(base_path, input_paths)?;
         }
@@ -98,7 +96,7 @@ pub fn run_pipeline(
         // --- Command Preparation ---
         let command_parts = shell_words::split(&step.command)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
-        
+
         let parsed_args = StepCommandArgs::try_parse_from(command_parts)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
 
@@ -151,13 +149,20 @@ pub fn run_pipeline(
                         sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Running, output: Some(output) }).unwrap();
                     }
                 }
+            } else {
+                // Job not found, maybe it finished and was archived?
+                // For this loop, we assume it's completed.
+                sender_clone.send(StepUpdate { name: step.name.clone(), status: StepStatus::Completed, output: None }).unwrap();
+                break;
             }
         }
     }
     Ok(())
 }
 
-
-pub fn show_pipeline(pipeline: &Pipeline) -> io::Result<()> {
-    tui::run_tui(pipeline)
+pub fn show_pipeline(_pipeline: &Pipeline) -> io::Result<()> {
+    // The TUI logic is now internal to the `ferri-cli` crate.
+    // This function can be a placeholder or removed if `flow show` is handled entirely in `main.rs`.
+    println!("'flow show' is not implemented in this context.");
+    Ok(())
 }

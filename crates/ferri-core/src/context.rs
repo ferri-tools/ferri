@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Context {
@@ -91,7 +92,7 @@ pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<MultimodalCon
         let path = PathBuf::from(file_path_str);
         if path.is_dir() {
             // Recursively walk directories
-            for entry in walkdir::WalkDir::new(path) {
+            for entry in WalkDir::new(path) {
                 let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                 if entry.path().is_file() {
                     process_file(entry.path(), &mut text_content, &mut image_files, base_path)?;
@@ -112,7 +113,8 @@ fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<Mu
     match content_type {
         ContentType::Text => {
             let content = fs::read_to_string(path)?;
-            text_content.push_str(&format!("--- Content of file: {} ---\n", display_path.display()));
+            text_content.push_str(&format!("--- Content of file: {} ---
+", display_path.display()));
             text_content.push_str(&content);
             text_content.push_str("\n\n");
         }
@@ -125,7 +127,8 @@ fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<Mu
         ContentType::Unknown => {
             // For now, we try to read it as text and ignore errors.
             if let Ok(content) = fs::read_to_string(path) {
-                text_content.push_str(&format!("--- Content of file: {} ---\n", display_path.display()));
+                text_content.push_str(&format!("--- Content of file: {} ---
+", display_path.display()));
                 text_content.push_str(&content);
                 text_content.push_str("\n\n");
             }
