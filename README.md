@@ -24,6 +24,10 @@
 [![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/ferri-tools/ferri/blob/main/LICENSE)
 [![Status](https://img.shields.io/badge/Status-Work%20in%20Progress-yellow.svg)](https://github.com/ferri-tools/ferri/projects)
 
+## Demo
+
+![Ferri Showtime Demo](docs/showtime.gif)
+
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
 
 Ferri creates secure, project-based environments with portable context, unifying your workflow across local (Ollama) and remote (API) models. The goal is to let you focus on your high-level goals, not on the minutiae of context management and command execution.
