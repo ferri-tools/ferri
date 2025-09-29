@@ -35,6 +35,55 @@ Ferri creates secure, project-based environments with portable context, unifying
 * **Secure:** Secrets like API keys are encrypted and automatically made available to commands, so you never have to expose them in your shell.
 * **Layered Architecture:** Start with simple commands and gradually adopt more powerful, automated, and agentic features as you need them.
 
+## Super Quick Start: Your First 60 Seconds with Ferri
+
+This guide will get you from an empty directory to running your first AI queries with both local and remote models. Just copy and paste this entire block into your terminal.
+
+```bash
+# --- 1. Setup Your Environment ---
+# Create a new directory for our test project and enter it.
+mkdir ferri-quickstart && cd ferri-quickstart
+
+# Create a simple file that we'll use as context for our AI.
+# (Imagine this file contains your project's source code)
+echo "Ferri is a local-first AI toolkit." > project_overview.txt
+
+
+# --- 2. Initialize Ferri ---
+# This creates the local .ferri directory to store secrets and context.
+ferri init
+
+
+# --- 3. Configure Models ---
+# Securely store your Google API key (you will be prompted to paste it).
+ferri secrets set GOOGLE_API_KEY
+
+# Register the new Gemini 2.5 Pro model with a simple alias.
+ferri models add gemini-pro \
+  --provider google \
+  --api-key-secret GOOGLE_API_KEY \
+  --model-name gemini-2.5-pro
+
+# Register a local Ollama model with a shorter alias.
+ferri models add gemma --provider ollama --model-name gemma:2b
+
+
+# --- 4. Add Context ---
+# Tell Ferri that our project overview file is important.
+ferri ctx add project_overview.txt
+
+
+# --- 5. Run Your Queries ---
+# Ask a question using your fast, local model alias.
+# Make sure Ollama is running with the gemma:2b model pulled.
+echo "--- Running with local model (Gemma) ---"
+ferri with --ctx --model gemma "Based on the context, what is Ferri?"
+
+# Ask the exact same question using your powerful, remote model alias.
+echo "\n--- Running with remote model (Gemini Pro) ---"
+ferri with --ctx --model gemini-pro "Based on the context, what is Ferri?"
+```
+
 ## The Ferri Architecture
 
 Ferri is built in layers, allowing you to choose the right level of power for your task.
@@ -52,7 +101,7 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 
 ---
 
-## Quick Start: Your First Workflow
+## Your First Workflow
 
 Before diving into the commands, here are the three essential steps to run your first AI workflow, like the code review demo at the end of this guide.
 
