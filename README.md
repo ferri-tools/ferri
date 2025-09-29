@@ -26,7 +26,9 @@
 
 ## Demo
 
-![Ferri Showtime Demo](docs/showtime.gif)
+<div align="center">
+  <img src="docs/showtime.gif" alt="Ferri Showtime Demo"/>
+</div>
 
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
 
