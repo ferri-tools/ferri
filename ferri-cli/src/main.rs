@@ -5,7 +5,7 @@ use ferri_core::{context, models, project, secrets};
 use futures::StreamExt;
 use std::env;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 // These modules are part of the CLI binary, not library crates.
@@ -180,18 +180,28 @@ async fn main() {
             },
         },
         Commands::With { args } => {
-            let is_google_model = if let Some(model_alias) = &args.model {
-                match models::list_models(&current_path) {
-                    Ok(models) => models
-                        .iter()
-                        .any(|m| m.alias == *model_alias && m.provider.starts_with("google")),
-                    Err(_) => false,
-                }
-            } else {
+            // Decide whether to stream.
+            // 1. Explicit flags take precedence.
+            // 2. If no flags, fall back to provider-based default.
+            let should_stream = if args.stream {
+                true
+            } else if args.no_stream {
                 false
+            } else {
+                // Default behavior: stream only for google models.
+                if let Some(model_alias) = &args.model {
+                    match models::list_models(&current_path) {
+                        Ok(models) => models
+                            .iter()
+                            .any(|m| m.alias == *model_alias && m.provider.starts_with("google")),
+                        Err(_) => false,
+                    }
+                } else {
+                    false
+                }
             };
 
-            if is_google_model {
+            if should_stream {
                 let exec_args = execute::ExecutionArgs {
                     model: args.model.clone(),
                     use_context: args.ctx,
