@@ -77,7 +77,7 @@ To ensure all work is tracked, isolated, and aligned with project management, th
 
 2.  **Branch from Issue:** All work must be done on a dedicated feature branch.
     *   After an issue is created, I will immediately create a new feature branch.
-    *   The branch name must follow the format: `feature/T<issue-number>-short-description` (e.g., `feature/T123-refactor-auth-module`).
+    *   The branch name must follow the format: `feature/short-description` or `fix/short-description` (e.g., `feature/refactor-auth-module`).
     *   I will use `git checkout -b <branch-name>` to create and switch to this branch.
 
 3.  **Work in Isolation:** All subsequent file modifications, commits, and tests will occur exclusively on this feature branch. The `main` branch will not be touched directly.
