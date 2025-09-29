@@ -76,11 +76,9 @@ ferri ctx add project_overview.txt
 # --- 5. Run Your Queries ---
 # Ask a question using your fast, local model alias.
 # Make sure Ollama is running with the gemma:2b model pulled.
-echo "--- Running with local model (Gemma) ---"
 ferri with --ctx --model gemma "Based on the context, what is Ferri?"
 
 # Ask the exact same question using your powerful, remote model alias.
-echo "\n--- Running with remote model (Gemini Pro) ---"
 ferri with --ctx --model gemini-pro "Based on the context, what is Ferri?"
 ```
 
@@ -98,6 +96,22 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 * ✅ **L1: Core Execution:** Stable and ready for use.
 * 🏗️ **L2: Workflow Automation:** Undergoing a major architectural refactor for enhanced security and scalability.
 * 🤔 **L3: Agentic Engine:** In design and prototyping phase.
+
+## Licensing
+
+The Ferri application is distributed under a source-available **Business Source License 1.1 (BSL 1.1)**.
+
+Under the hood, Ferri is built from several layered internal libraries, each with its own permissive open-source license. This allows you to use these foundational components in your own projects.
+
+| Component | Type | License | Badge |
+| :--- | :--- | :--- | :--- |
+| `ferri-cli` | **CLI Application** | **BSL 1.1** | [![License](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](./LICENSE) |
+| `ferri-agent` | Internal Library (L3) | **BSL 1.1** | [![License](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](./crates/ferri-agent/LICENSE) |
+| `ferri-core` | Internal Library (L1) | **MIT** | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./crates/ferri-core/LICENSE) |
+| `ferri-automation`| Internal Library (L2) | **Apache 2.0** | [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./crates/ferri-automation/LICENSE) |
+
+
+You can explore the source code for each of the internal libraries in the [`/crates`](./crates) directory.
 
 ---
 
