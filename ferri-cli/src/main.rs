@@ -2,7 +2,6 @@ use clap::{Parser, Subcommand};
 use ferri_automation::execute::{self, SharedArgs};
 use ferri_automation::{flow, jobs};
 use ferri_core::{context, models, project, secrets};
-use futures::StreamExt;
 use std::env;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -180,143 +179,107 @@ async fn main() {
             },
         },
         Commands::With { args } => {
-            let is_google_model = if let Some(model_alias) = &args.model {
-                match models::list_models(&current_path) {
-                    Ok(models) => models
-                        .iter()
-                        .any(|m| m.alias == *model_alias && m.provider.starts_with("google")),
-                    Err(_) => false,
-                }
-            } else {
-                false
+            // TODO: Streaming is temporarily disabled due to a bug. Re-enable when fixed.
+            // The previous implementation used a separate path for streaming Google models.
+            // This has been consolidated into a single, non-streaming path for all models.
+            let exec_args = execute::ExecutionArgs {
+                model: args.model.clone(),
+                use_context: args.ctx,
+                output_file: args.output.clone(),
+                command_with_args: args.command.clone(),
+                streaming: false,
             };
 
-            if is_google_model {
-                let exec_args = execute::ExecutionArgs {
-                    model: args.model.clone(),
-                    use_context: args.ctx,
-                    output_file: args.output.clone(),
-                    command_with_args: args.command.clone(),
-                    streaming: true,
-                };
+            if args.ctx {
+                if let Ok(files) = context::list_context(&current_path) {
+                    if files.is_empty() {
+                        eprintln!("Warning: --ctx flag was used, but the context is empty.");
+                        eprintln!("You can add files to the context with `ferri ctx add <paths...>`");
+                    }
+                }
+            }
 
-                match execute::execute_streaming_gemini_request(&current_path, &exec_args).await {
-                    Ok(request_builder) => {
-                        let response = request_builder.send().await.unwrap();
-                        let mut stream = response.bytes_stream();
+            match execute::prepare_command(&current_path, &exec_args) {
+                Ok((prepared_command, secrets)) => match prepared_command {
+                    execute::PreparedCommand::Local(mut command, stdin_data) => {
+                        let mut final_command_str = String::new();
+                        for (key, value) in &secrets {
+                            final_command_str.push_str(&format!("export {}='{}' ; ", key, value.replace("'", "'\\''")));
+                        }
+                        let original_cmd_parts: Vec<String> = std::iter::once(command.get_program().to_string_lossy().to_string())
+                            .chain(command.get_args().map(|s| s.to_string_lossy().to_string()))
+                            .collect();
+                        final_command_str.push_str(&original_cmd_parts.join(" "));
+                        let mut new_command = Command::new("sh");
+                        new_command.arg("-c").arg(final_command_str);
+                        command = new_command;
+                        if stdin_data.is_some() {
+                            command.stdin(std::process::Stdio::piped());
+                        }
+                        command.stdout(std::process::Stdio::piped());
+                        command.stderr(std::process::Stdio::inherit());
 
-                        while let Some(item) = stream.next().await {
-                            if let Ok(chunk) = item {
-                                let s = String::from_utf8_lossy(&chunk);
-                                let cleaned = s.trim().trim_start_matches(',').trim_start_matches('[').trim_end_matches(']');
-                                if cleaned.is_empty() {
-                                    continue;
-                                }
-                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(cleaned) {
-                                    if let Some(candidates) = json.get("candidates").and_then(|c| c.as_array()) {
-                                        for candidate in candidates {
-                                            if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                                for part in parts {
-                                                    if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                                        print!("{}", text);
-                                                        io::stdout().flush().unwrap();
-                                                    }
-                                                }
-                                            }
+                        match command.spawn() {
+                            Ok(mut child) => {
+                                if let Some(data) = stdin_data {
+                                    if let Some(mut stdin) = child.stdin.take() {
+                                        if let Err(e) = stdin.write_all(data.as_bytes()) {
+                                            eprintln!("Error: Failed to write to command stdin - {}", e);
+                                            std::process::exit(1);
                                         }
                                     }
                                 }
-                            }
-                        }
-                        println!();
-                    }
-                    Err(e) => {
-                        eprintln!("Error: Failed to prepare streaming request - {}", e);
-                        std::process::exit(1);
-                    }
-                }
-            } else {
-                let exec_args = execute::ExecutionArgs {
-                    model: args.model.clone(),
-                    use_context: args.ctx,
-                    output_file: args.output.clone(),
-                    command_with_args: args.command.clone(),
-                    streaming: false,
-                };
 
-                if args.ctx {
-                    if let Ok(files) = context::list_context(&current_path) {
-                        if files.is_empty() {
-                            eprintln!("Warning: --ctx flag was used, but the context is empty.");
-                            eprintln!("You can add files to the context with `ferri ctx add <paths...>`");
-                        }
-                    }
-                }
-
-                match execute::prepare_command(&current_path, &exec_args) {
-                    Ok((prepared_command, secrets)) => match prepared_command {
-                        execute::PreparedCommand::Local(mut command, stdin_data) => {
-                            let mut final_command_str = String::new();
-                            for (key, value) in &secrets {
-                                final_command_str.push_str(&format!("export {}='{}' ; ", key, value.replace("'", "'\\''")));
-                            }
-                            let original_cmd_parts: Vec<String> = std::iter::once(command.get_program().to_string_lossy().to_string())
-                                .chain(command.get_args().map(|s| s.to_string_lossy().to_string()))
-                                .collect();
-                            final_command_str.push_str(&original_cmd_parts.join(" "));
-                            let mut new_command = Command::new("sh");
-                            new_command.arg("-c").arg(final_command_str);
-                            command = new_command;
-                            if stdin_data.is_some() {
-                                command.stdin(std::process::Stdio::piped());
-                            }
-                            match command.stdout(std::process::Stdio::inherit()).stderr(std::process::Stdio::inherit()).spawn() {
-                                Ok(mut child) => {
-                                    if let Some(data) = stdin_data {
-                                        if let Some(mut stdin) = child.stdin.take() {
-                                            if let Err(e) = stdin.write_all(data.as_bytes()) {
-                                                eprintln!("Error: Failed to write to command stdin - {}", e);
-                                                std::process::exit(1);
+                                match child.wait_with_output() {
+                                    Ok(output) => {
+                                        if output.status.success() {
+                                            if let Ok(stdout_str) = String::from_utf8(output.stdout) {
+                                                print!("{}", stdout_str);
+                                            } else {
+                                                eprintln!("Error: Failed to decode command output as UTF-8.");
                                             }
+                                        } else {
+                                            eprintln!("Error: Command execution failed with status: {}", output.status);
+                                            std::process::exit(1);
                                         }
                                     }
-                                    if let Err(e) = child.wait() {
-                                        eprintln!("Error: Command execution failed - {}", e);
+                                    Err(e) => {
+                                        eprintln!("Error: Failed to wait for command output - {}", e);
                                         std::process::exit(1);
                                     }
                                 }
-                                Err(e) => {
-                                    eprintln!("Error: Failed to spawn command - {}", e);
-                                    std::process::exit(1);
-                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Error: Failed to spawn command - {}", e);
+                                std::process::exit(1);
                             }
                         }
-                        execute::PreparedCommand::Remote(request) => match request.send() {
-                            Ok(response) => {
-                                let status = response.status();
-                                let body = response.text().unwrap_or_default();
-                                if status.is_success() {
-                                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                                        let mut text_content = String::new();
-                                        let mut image_saved = false;
-                                        let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
-                                        for chunk in response_chunks {
-                                            if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                                                for candidate in candidates {
-                                                    if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                                        for part in parts {
-                                                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                                                text_content.push_str(text);
-                                                            }
-                                                            if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
-                                                                if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
-                                                                    match execute::save_base64_image(output_path, b64_data) {
-                                                                        Ok(_) => {
-                                                                            println!("Successfully saved image to {}", output_path.display());
-                                                                            image_saved = true;
-                                                                        }
-                                                                        Err(e) => eprintln!("Error: Failed to save image - {}", e),
+                    }
+                    execute::PreparedCommand::Remote(request) => match request.send() {
+                        Ok(response) => {
+                            let status = response.status();
+                            let body = response.text().unwrap_or_default();
+                            if status.is_success() {
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                    let mut text_content = String::new();
+                                    let mut image_saved = false;
+                                    let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
+                                    for chunk in response_chunks {
+                                        if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
+                                            for candidate in candidates {
+                                                if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                                    for part in parts {
+                                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                                            text_content.push_str(text);
+                                                        }
+                                                        if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
+                                                            if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
+                                                                match execute::save_base64_image(output_path, b64_data) {
+                                                                    Ok(_) => {
+                                                                        println!("Successfully saved image to {}", output_path.display());
+                                                                        image_saved = true;
                                                                     }
+                                                                    Err(e) => eprintln!("Error: Failed to save image - {}", e),
                                                                 }
                                                             }
                                                         }
@@ -324,42 +287,42 @@ async fn main() {
                                                 }
                                             }
                                         }
-                                        if !text_content.is_empty() {
-                                            print!("{}", text_content);
-                                        } else if !image_saved {
-                                            eprintln!("Error: Could not extract text or image data from API response.");
-                                            eprintln!("Full response: {}", body);
-                                            std::process::exit(1);
-                                        }
-                                    } else {
-                                        eprintln!("Error: Failed to parse API response as JSON.");
+                                    }
+                                    if !text_content.is_empty() {
+                                        print!("{}", text_content);
+                                    } else if !image_saved {
+                                        eprintln!("Error: Could not extract text or image data from API response.");
                                         eprintln!("Full response: {}", body);
                                         std::process::exit(1);
                                     }
                                 } else {
-                                    eprintln!("Error: API request failed with status: {}", status);
-                                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                                        if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
-                                            eprintln!("Details: {}", msg);
-                                        } else {
-                                            eprintln!("Full response: {}", body);
-                                        }
+                                    eprintln!("Error: Failed to parse API response as JSON.");
+                                    eprintln!("Full response: {}", body);
+                                    std::process::exit(1);
+                                }
+                            } else {
+                                eprintln!("Error: API request failed with status: {}", status);
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                    if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+                                        eprintln!("Details: {}", msg);
                                     } else {
                                         eprintln!("Full response: {}", body);
                                     }
-                                    std::process::exit(1);
+                                } else {
+                                    eprintln!("Full response: {}", body);
                                 }
-                            }
-                            Err(e) => {
-                                eprintln!("Error: Failed to send API request - {}", e);
                                 std::process::exit(1);
                             }
-                        },
+                        }
+                        Err(e) => {
+                            eprintln!("Error: Failed to send API request - {}", e);
+                            std::process::exit(1);
+                        }
                     },
-                    Err(e) => {
-                        eprintln!("Error: Failed to prepare command - {}", e);
-                        std::process::exit(1);
-                    }
+                },
+                Err(e) => {
+                    eprintln!("Error: Failed to prepare command - {}", e);
+                    std::process::exit(1);
                 }
             }
         }
