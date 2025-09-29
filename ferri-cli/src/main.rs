@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use ferri_automation::execute::{self, SharedArgs};
 use ferri_automation::{flow, jobs};
-use ferri_core::{context, models, secrets};
+use ferri_core::{context, models, project, secrets};
 use futures::StreamExt;
 use std::env;
 use std::io::{self, Write};
@@ -114,13 +114,6 @@ enum ModelsCommand {
     },
 }
 
-fn initialize_project(_p: &Path) -> io::Result<()> {
-    Ok(())
-}
-fn verify_project_initialized(_p: &Path) -> io::Result<()> {
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -128,7 +121,7 @@ async fn main() {
 
     if let Commands::Init = &cli.command {
         let current_path = current_path_result.expect("Failed to get current directory");
-        match initialize_project(&current_path) {
+        match project::initialize_project(&current_path) {
             Ok(_) => print_init_message(),
             Err(e) => {
                 eprintln!("Error: Failed to initialize project - {}", e);
@@ -146,7 +139,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = verify_project_initialized(&current_path) {
+    if let Err(e) = project::verify_project_initialized(&current_path) {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
