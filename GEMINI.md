@@ -57,13 +57,32 @@ This should go without saying but always confirm if changing the .gitignore. It 
 
 To ensure a high-quality, maintainable codebase, we will adhere to the following practices:
 
-*   **Ticket-Driven Development:** All work, from new features to bug fixes, must begin with a ticket in `project_resources/product/planning/sprints/general_backlog.csv`. This ensures every change is tracked and justified.
 *   **Atomic Commits:** Each commit should represent a single, logical change. Commits must reference their corresponding ticket ID (e.g., `fix(auth): T21 - Fix login redirect bug`).
 *   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
 *   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
 *   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
 *   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
 *   **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
+
+---
+
+### **CRITICAL: Issue and Branching Protocol**
+
+To ensure all work is tracked, isolated, and aligned with project management, the following protocol is **mandatory and non-negotiable**.
+
+1.  **Issue First:** No work of any kind shall begin without a corresponding GitHub issue.
+    *   Before any action, I will generate the appropriate `gh issue create` command.
+    *   I will present this command to you for execution.
+    *   I will not proceed until the issue is created.
+
+2.  **Branch from Issue:** All work must be done on a dedicated feature branch.
+    *   After an issue is created, I will immediately create a new feature branch.
+    *   The branch name must follow the format: `feature/T<issue-number>-short-description` (e.g., `feature/T123-refactor-auth-module`).
+    *   I will use `git checkout -b <branch-name>` to create and switch to this branch.
+
+3.  **Work in Isolation:** All subsequent file modifications, commits, and tests will occur exclusively on this feature branch. The `main` branch will not be touched directly.
+
+This protocol is the first step in any development task. Failure to adhere to it will result in an immediate halt and reset of the workflow.
 
 ---
 
