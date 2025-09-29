@@ -4,6 +4,11 @@
 >
 > This repository contains an early, pre-release version of Ferri and should be considered **alpha-quality software**.
 >
+> We are currently in the middle of a major architectural refactor to make the workflow engine more powerful and secure. We're too busy breaking things and rebuilding them into something better to guarantee stability right now.
+>
+> * **✅ Layer 1 (`init`, `with`, `ctx`, etc.):** Stable and ready for use.
+> * **⚠️ Layer 2 & 3 (`flow`, `do`):** Highly volatile. Here be dragons.
+>
 > * **Stability:** The software is not stable and is not suitable for production use.
 > * **Breaking Changes:** The API, command structure, and workflow schemas are under active development and are subject to change without notice in future updates.
 > * **Feedback:** This version is released for evaluation and feedback purposes. Please report any bugs or suggestions by opening an issue or contacting us at **[me@jorgeajimenez.com](mailto:me@jorgeajimenez.com)** or **[me@gretchenboria.com](mailto:me@gretchenboria.com)**.
