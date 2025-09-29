@@ -9,6 +9,8 @@ use ratatui::{
 };
 use std::io;
 use std::time::{Duration, Instant};
+use ferri_agent;
+use ferri_automation;
 
 pub enum AgentState {
     Initializing,
@@ -73,7 +75,7 @@ fn run_app<B: Backend>(
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let job_id_result =
-                ferri_core::agent::generate_and_run_flow(&base_path, &prompt_clone, |msg| {
+                ferri_agent::agent::generate_and_run_flow(&base_path, &prompt_clone, |msg| {
                     tx.send(msg.to_string()).unwrap();
                 })
                 .await;
@@ -92,11 +94,11 @@ fn run_app<B: Backend>(
             // Polling loop
             loop {
                 std::thread::sleep(Duration::from_millis(500));
-                match ferri_core::jobs::list_jobs(&base_path) {
+                match ferri_automation::jobs::list_jobs(&base_path) {
                     Ok(jobs) => {
                         if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
                             let output =
-                                ferri_core::jobs::get_job_output(&base_path, &job_id).unwrap_or_default();
+                                ferri_automation::jobs::get_job_output(&base_path, &job_id).unwrap_or_default();
                             tx.send(format!("OUTPUT:\n{}", output)).unwrap();
 
                             match job.status.as_str() {

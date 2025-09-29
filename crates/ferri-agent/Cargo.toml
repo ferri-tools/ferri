@@ -1,0 +1,12 @@
+[package]
+name = "ferri-agent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ferri-automation = { path = "../ferri-automation" }
+anyhow = "1.0"
+reqwest = { version = "0.12", features = ["json"] }
+serde_json = "1.0"
+tempfile = "3.10"
+tokio = { version = "1", features = ["full"] }

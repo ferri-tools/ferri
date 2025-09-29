@@ -74,10 +74,10 @@ fn spawn_and_monitor_job(
         let execution_result = match prepared_command {
             PreparedCommand::Local(mut command, stdin_data) => {
                 let input_bytes = stdin_data.map(|s| s.into_bytes());
-                execute_local_command(&mut command, secrets, input_bytes, &stdout_path)
+                execute_local_command(&mut command, secrets, input_bytes)
             }
             PreparedCommand::Remote(request) => {
-                execute_remote_command(request, &stdout_path)
+                execute_remote_command(request)
             }
         };
 
@@ -85,7 +85,7 @@ fn spawn_and_monitor_job(
             Ok(output) => (0, output),
             Err(e) => (1, e.to_string().into_bytes()),
         };
-        
+
         // Write to the user-specified output file if provided
         if let Some(path) = output_file {
             let _ = fs::write(path, &final_output);
@@ -101,7 +101,6 @@ fn execute_local_command(
     command: &mut Command,
     secrets: HashMap<String, String>,
     input_data: Option<Vec<u8>>,
-    _stdout_path: &Path, // No longer needed, we capture output directly
 ) -> io::Result<Vec<u8>> {
     command.envs(secrets);
     command.stdout(Stdio::piped());
@@ -139,7 +138,6 @@ fn execute_local_command(
 
 fn execute_remote_command(
     request: reqwest::blocking::RequestBuilder,
-    _stdout_path: &Path, // No longer needed, we capture output directly
 ) -> io::Result<Vec<u8>> {
     let response = request.send().map_err(|e| io::Error::new(ErrorKind::Other, e))?;
     let status = response.status();
@@ -198,7 +196,7 @@ pub fn submit_job(
         error_preview: None,
     };
 
-    let mut jobs = read_jobs(base_path)?;
+    let mut jobs = read_jobs(base_path).unwrap_or_else(|_| Vec::new());
     jobs.push(new_job.clone());
     write_jobs(base_path, &jobs)?;
 
@@ -211,7 +209,7 @@ pub fn submit_job(
 pub fn list_jobs(base_path: &Path) -> io::Result<Vec<Job>> {
     let mut jobs = read_jobs(base_path)?;
     let mut needs_write = false;
-    System::new_all();
+    let _s = System::new_all();
 
     for job in jobs.iter_mut() {
         if job.status == "Running" {

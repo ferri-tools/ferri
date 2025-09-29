@@ -2,7 +2,7 @@ use crate::tui::widgets::{
     cpu_widget::CpuWidget, memory_widget::MemoryWidget, network_widget::NetworkWidget,
     process_widget::ProcessWidget,
 };
-use ferri_core::jobs::Job;
+use ferri_automation::jobs::Job;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},

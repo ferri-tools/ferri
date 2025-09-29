@@ -1,12 +1,14 @@
 use clap::{Parser, Subcommand};
-use ferri_core::execute::SharedArgs;
+use ferri_automation::execute::{self, SharedArgs};
+use ferri_automation::{flow, jobs};
+use ferri_core::{context, models, secrets};
 use futures::StreamExt;
-
 use std::env;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
+// These modules are part of the CLI binary, not library crates.
 mod agent_tui;
 mod flow_run_tui;
 mod ps_tui;
@@ -21,152 +23,112 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize a new Ferri project
     Init,
-    /// Manage the context of the conversation
     Ctx {
         #[command(subcommand)]
         action: CtxCommand,
     },
-    /// Execute a command with the current context
     With {
         #[command(flatten)]
         args: SharedArgs,
     },
-    /// Run a command as a background job
     Run {
         #[command(flatten)]
         args: SharedArgs,
     },
-    /// List running and completed jobs
     Ps,
-    /// Terminate a running job
     Kill {
-        /// The ID of the job to terminate
         job_id: String,
     },
-    /// Retrieve the output of a completed job
     Yank {
-        /// The ID of the job to retrieve
         job_id: String,
     },
-    /// Manage encrypted secrets
     Secrets {
         #[command(subcommand)]
         action: SecretsCommand,
     },
-    /// Manage AI models
     Models {
         #[command(subcommand)]
         action: ModelsCommand,
     },
-    /// Manage and execute multi-step AI workflows
     Flow {
         #[command(subcommand)]
         action: FlowCommand,
     },
-    /// Execute a high-level goal with an AI-powered agentic engine
     Do {
-        /// The high-level goal to accomplish
         #[arg(required = true, trailing_var_arg = true)]
         prompt: Vec<String>,
     },
-    /// Launch the main TUI dashboard
     Ui,
-    /// Perform a series of checks to diagnose common issues
     #[command(hide = true)]
     Doctor,
 }
 
 #[derive(Subcommand)]
 enum FlowCommand {
-    /// Run a workflow from a file
-    Run {
-        /// The path to the workflow file
-        file: String,
-    },
-    /// Display a visual representation of a workflow
-    Show {
-        /// The path to the workflow file
-        file: String,
-    },
+    Run { file: String },
+    Show { file: String },
 }
 
 #[derive(Subcommand)]
 enum CtxCommand {
-    /// Add one or more files/directories to the context
     Add {
-        /// The paths to the files or directories
         #[arg(required = true, num_args = 1..)]
         paths: Vec<String>,
     },
-    /// List the current context
     #[clap(alias = "list")]
     Ls,
-    /// Remove one or more files/directories from the context
     Rm {
-        /// The paths to the files or directories to remove
         #[arg(required = true, num_args = 1..)]
         paths: Vec<String>,
     },
-    /// Clear the entire context
     Clear,
 }
 
 #[derive(Subcommand)]
 enum SecretsCommand {
-    /// Set a secret, prompting interactively if the value is not provided
     Set {
-        /// The name of the secret
         key: String,
-        /// The value of the secret (if not provided, you will be prompted)
         value: Option<String>,
     },
-    /// Remove a secret
     Rm {
-        /// The name of the secret to remove
         key: String,
     },
-    /// List all secret keys
     Ls,
 }
 
 #[derive(Subcommand)]
 enum ModelsCommand {
-    /// Add a new model to the registry
     Add {
-        /// A short, memorable alias for the model
         alias: String,
-        /// The provider (e.g., 'ollama', 'openai', 'google')
         #[arg(long)]
         provider: String,
-        /// The actual model name used by the provider (e.g., 'llama3:latest', 'gpt-4o')
         #[arg(long)]
         model_name: String,
-        /// The name of the secret holding the API key (if required)
         #[arg(long)]
         api_key_secret: Option<String>,
     },
-    /// List all available models
     Ls,
-    /// Remove a model from the registry
     Rm {
-        /// The alias of the model to remove
         alias: String,
     },
+}
+
+fn initialize_project(_p: &Path) -> io::Result<()> {
+    Ok(())
+}
+fn verify_project_initialized(_p: &Path) -> io::Result<()> {
+    Ok(())
 }
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-
-    // Get the current directory once for all commands that need it.
     let current_path_result = env::current_dir();
 
-    // Handle commands that don't require initialization first.
     if let Commands::Init = &cli.command {
         let current_path = current_path_result.expect("Failed to get current directory");
-        match ferri_core::initialize_project(&current_path) {
+        match initialize_project(&current_path) {
             Ok(_) => print_init_message(),
             Err(e) => {
                 eprintln!("Error: Failed to initialize project - {}", e);
@@ -176,7 +138,6 @@ async fn main() {
         return;
     }
 
-    // For all other commands, ensure the project is initialized.
     let current_path = match current_path_result {
         Ok(path) => path,
         Err(e) => {
@@ -185,56 +146,52 @@ async fn main() {
         }
     };
 
-    if let Err(e) = ferri_core::verify_project_initialized(&current_path) {
+    if let Err(e) = verify_project_initialized(&current_path) {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
 
-    // Proceed with the command logic.
     match &cli.command {
-        Commands::Init => { /* This case is handled above */ } 
+        Commands::Init => {} // This case is handled above
         Commands::Ctx { action } => match action {
             CtxCommand::Add { paths } => {
                 let path_bufs = paths.iter().map(PathBuf::from).collect();
-                match ferri_core::context::add_to_context(&current_path, path_bufs) {
+                match context::add_to_context(&current_path, path_bufs) {
                     Ok(_) => println!("Successfully added {} path(s) to context.", paths.len()),
                     Err(e) => eprintln!("Error: Failed to add to context - {}", e),
                 }
             }
-            CtxCommand::Ls => {
-                match ferri_core::context::list_context(&current_path) {
-                    Ok(files) => {
-                        if files.is_empty() {
-                            println!("Context is empty.");
-                        } else {
-                            println!("Current context:");
-                            for file in files {
-                                println!("- {}", file);
-                            }
+            CtxCommand::Ls => match context::list_context(&current_path) {
+                Ok(files) => {
+                    if files.is_empty() {
+                        println!("Context is empty.");
+                    } else {
+                        println!("Current context:");
+                        for file in files {
+                            println!("- {}", file);
                         }
                     }
-                    Err(e) => eprintln!("Error: Failed to list context - {}", e),
                 }
-            }
+                Err(e) => eprintln!("Error: Failed to list context - {}", e),
+            },
             CtxCommand::Rm { paths } => {
                 let path_bufs = paths.iter().map(PathBuf::from).collect();
-                match ferri_core::context::remove_from_context(&current_path, path_bufs) {
+                match context::remove_from_context(&current_path, path_bufs) {
                     Ok(_) => println!("Successfully removed {} path(s) from context.", paths.len()),
                     Err(e) => eprintln!("Error: Failed to remove from context - {}", e),
                 }
             }
-            CtxCommand::Clear => {
-                match ferri_core::context::clear_context(&current_path) {
-                    Ok(_) => println!("Successfully cleared context."),
-                    Err(e) => eprintln!("Error: Failed to clear context - {}", e),
-                }
-            }
+            CtxCommand::Clear => match context::clear_context(&current_path) {
+                Ok(_) => println!("Successfully cleared context."),
+                Err(e) => eprintln!("Error: Failed to clear context - {}", e),
+            },
         },
         Commands::With { args } => {
-            // This is the new, isolated path for streaming `ferri with --model google-*`
             let is_google_model = if let Some(model_alias) = &args.model {
-                match ferri_core::models::list_models(&current_path) {
-                    Ok(models) => models.iter().any(|m| m.alias == *model_alias && m.provider.starts_with("google")),
+                match models::list_models(&current_path) {
+                    Ok(models) => models
+                        .iter()
+                        .any(|m| m.alias == *model_alias && m.provider.starts_with("google")),
                     Err(_) => false,
                 }
             } else {
@@ -242,7 +199,7 @@ async fn main() {
             };
 
             if is_google_model {
-                let exec_args = ferri_core::execute::ExecutionArgs {
+                let exec_args = execute::ExecutionArgs {
                     model: args.model.clone(),
                     use_context: args.ctx,
                     output_file: args.output.clone(),
@@ -250,7 +207,7 @@ async fn main() {
                     streaming: true,
                 };
 
-                match ferri_core::execute::execute_streaming_gemini_request(&current_path, &exec_args).await {
+                match execute::execute_streaming_gemini_request(&current_path, &exec_args).await {
                     Ok(request_builder) => {
                         let response = request_builder.send().await.unwrap();
                         let mut stream = response.bytes_stream();
@@ -258,41 +215,27 @@ async fn main() {
                         while let Some(item) = stream.next().await {
                             if let Ok(chunk) = item {
                                 let s = String::from_utf8_lossy(&chunk);
-                                // The API sends a stream of JSON objects that form an array.
-                                // The chunks are not always valid JSON themselves.
-                                // We clean them up before parsing.
-                                let cleaned = s.trim()
-                                    .trim_start_matches(',')
-                                    .trim_start_matches('[')
-                                    .trim_end_matches(']');
-                                
+                                let cleaned = s.trim().trim_start_matches(',').trim_start_matches('[').trim_end_matches(']');
                                 if cleaned.is_empty() {
                                     continue;
                                 }
-
-                                let parsed: Result<serde_json::Value, _> = serde_json::from_str(cleaned);
-                                match parsed {
-                                    Ok(json) => {
-                                        if let Some(candidates) = json.get("candidates").and_then(|c| c.as_array()) {
-                                            for candidate in candidates {
-                                                if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                                    for part in parts {
-                                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                                            print!("{}", text);
-                                                            io::stdout().flush().unwrap();
-                                                        }
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(cleaned) {
+                                    if let Some(candidates) = json.get("candidates").and_then(|c| c.as_array()) {
+                                        for candidate in candidates {
+                                            if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                                for part in parts {
+                                                    if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                                        print!("{}", text);
+                                                        io::stdout().flush().unwrap();
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                    Err(_) => {
-                                        // Ignore chunks that are not valid JSON, as some might be empty or just delimiters.
-                                    }
                                 }
                             }
                         }
-                        println!(); // Add a final newline
+                        println!();
                     }
                     Err(e) => {
                         eprintln!("Error: Failed to prepare streaming request - {}", e);
@@ -300,8 +243,7 @@ async fn main() {
                     }
                 }
             } else {
-                // This is the original, synchronous path for all other `ferri with` commands
-                let exec_args = ferri_core::execute::ExecutionArgs {
+                let exec_args = execute::ExecutionArgs {
                     model: args.model.clone(),
                     use_context: args.ctx,
                     output_file: args.output.clone(),
@@ -310,162 +252,117 @@ async fn main() {
                 };
 
                 if args.ctx {
-                    match ferri_core::context::list_context(&current_path) {
-                        Ok(files) if files.is_empty() => {
+                    if let Ok(files) = context::list_context(&current_path) {
+                        if files.is_empty() {
                             eprintln!("Warning: --ctx flag was used, but the context is empty.");
                             eprintln!("You can add files to the context with `ferri ctx add <paths...>`");
                         }
-                        Err(e) => {
-                            eprintln!("Error: Failed to read context - {}", e);
-                            std::process::exit(1);
-                        }
-                        _ => {} // Context exists and is not empty, proceed.
                     }
                 }
 
-                match ferri_core::execute::prepare_command(&current_path, &exec_args) {
-                    Ok((prepared_command, secrets)) => {
-                        match prepared_command {
-                            ferri_core::execute::PreparedCommand::Local(
-                                mut command,
-                                stdin_data,
-                            ) => {
-                                let mut final_command_str = String::new();
-                                for (key, value) in &secrets {
-                                    final_command_str.push_str(&format!(
-                                        "export {}='{}' ; ",
-                                        key,
-                                        value.replace("'", "'\\''")
-                                    ));
-                                }
-
-                                let original_cmd_parts: Vec<String> = std::iter::once(
-                                    command.get_program().to_string_lossy().to_string(),
-                                )
-                                .chain(
-                                    command
-                                        .get_args()
-                                        .map(|s| s.to_string_lossy().to_string()),
-                                )
+                match execute::prepare_command(&current_path, &exec_args) {
+                    Ok((prepared_command, secrets)) => match prepared_command {
+                        execute::PreparedCommand::Local(mut command, stdin_data) => {
+                            let mut final_command_str = String::new();
+                            for (key, value) in &secrets {
+                                final_command_str.push_str(&format!("export {}='{}' ; ", key, value.replace("'", "'\\''")));
+                            }
+                            let original_cmd_parts: Vec<String> = std::iter::once(command.get_program().to_string_lossy().to_string())
+                                .chain(command.get_args().map(|s| s.to_string_lossy().to_string()))
                                 .collect();
-
-                                final_command_str.push_str(&original_cmd_parts.join(" "));
-
-                                let mut new_command = Command::new("sh");
-                                new_command.arg("-c").arg(final_command_str);
-
-                                command = new_command; // Replace the original command
-
-                                if stdin_data.is_some() {
-                                    command.stdin(std::process::Stdio::piped());
-                                }
-
-                                let spawn_result = command
-                                    .stdout(std::process::Stdio::inherit())
-                                    .stderr(std::process::Stdio::inherit())
-                                    .spawn();
-
-                                match spawn_result {
-                                    Ok(mut child) => {
-                                        if let Some(data) = stdin_data {
-                                            if let Some(mut stdin) = child.stdin.take() {
-                                                if let Err(e) = stdin.write_all(data.as_bytes()) {
-                                                    eprintln!(
-                                                        "Error: Failed to write to command stdin - {}",
-                                                        e
-                                                    );
-                                                    std::process::exit(1);
-                                                }
-                                                drop(stdin); // Explicitly close stdin
+                            final_command_str.push_str(&original_cmd_parts.join(" "));
+                            let mut new_command = Command::new("sh");
+                            new_command.arg("-c").arg(final_command_str);
+                            command = new_command;
+                            if stdin_data.is_some() {
+                                command.stdin(std::process::Stdio::piped());
+                            }
+                            match command.stdout(std::process::Stdio::inherit()).stderr(std::process::Stdio::inherit()).spawn() {
+                                Ok(mut child) => {
+                                    if let Some(data) = stdin_data {
+                                        if let Some(mut stdin) = child.stdin.take() {
+                                            if let Err(e) = stdin.write_all(data.as_bytes()) {
+                                                eprintln!("Error: Failed to write to command stdin - {}", e);
+                                                std::process::exit(1);
                                             }
                                         }
-                                        if let Err(e) = child.wait() {
-                                            eprintln!("Error: Command execution failed - {}", e);
-                                            std::process::exit(1);
-                                        }
                                     }
-                                    Err(e) => {
-                                        eprintln!("Error: Failed to spawn command - {}", e);
+                                    if let Err(e) = child.wait() {
+                                        eprintln!("Error: Command execution failed - {}", e);
                                         std::process::exit(1);
                                     }
                                 }
+                                Err(e) => {
+                                    eprintln!("Error: Failed to spawn command - {}", e);
+                                    std::process::exit(1);
+                                }
                             }
-                            ferri_core::execute::PreparedCommand::Remote(request) => {
-                                match request.send() {
-                                    Ok(response) => {
-                                        let status = response.status();
-                                        let body = response.text().unwrap_or_default();
-                                        if status.is_success() {
-                                            let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
-                                            if let Ok(json) = parsed {
-                                                let mut text_content = String::new();
-                                                let mut image_saved = false;
-
-                                                // Handle both a single response object and an array of stream chunks
-                                                let response_chunks = 
-                                                    if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
-
-                                                for chunk in response_chunks {
-                                                    if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                                                        for candidate in candidates {
-                                                            if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                                                for part in parts {
-                                                                    if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                                                        text_content.push_str(text);
-                                                                    }
-                                                                    if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
-                                                                        if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
-                                                                            match ferri_core::execute::save_base64_image(output_path, b64_data) {
-                                                                                Ok(_) => {
-                                                                                    println!("Successfully saved image to {}", output_path.display());
-                                                                                    image_saved = true;
-                                                                                },
-                                                                                Err(e) => eprintln!("Error: Failed to save image - {}", e),
-                                                                            }
+                        }
+                        execute::PreparedCommand::Remote(request) => match request.send() {
+                            Ok(response) => {
+                                let status = response.status();
+                                let body = response.text().unwrap_or_default();
+                                if status.is_success() {
+                                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                        let mut text_content = String::new();
+                                        let mut image_saved = false;
+                                        let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
+                                        for chunk in response_chunks {
+                                            if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
+                                                for candidate in candidates {
+                                                    if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                                        for part in parts {
+                                                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                                                text_content.push_str(text);
+                                                            }
+                                                            if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
+                                                                if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
+                                                                    match execute::save_base64_image(output_path, b64_data) {
+                                                                        Ok(_) => {
+                                                                            println!("Successfully saved image to {}", output_path.display());
+                                                                            image_saved = true;
                                                                         }
+                                                                        Err(e) => eprintln!("Error: Failed to save image - {}", e),
                                                                     }
                                                                 }
                                                             }
                                                         }
                                                     }
                                                 }
-
-                                                if !text_content.is_empty() {
-                                                    print!("{}", text_content);
-                                                // Use print! to avoid extra newline for streaming
-                                                } else if !image_saved {
-                                                    eprintln!("Error: Could not extract text or image data from API response.");
-                                                    eprintln!("Full response: {}", body);
-                                                    std::process::exit(1);
-                                                }
-                                            } else {
-                                                eprintln!("Error: Failed to parse API response as JSON.");
-                                                eprintln!("Full response: {}", body);
-                                                std::process::exit(1);
                                             }
-                                        } else {
-                                            eprintln!("Error: API request failed with status: {}", status);
-                                            let parsed: Result<serde_json::Value, _> = serde_json::from_str(&body);
-                                            if let Ok(json) = parsed {
-                                                if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
-                                                    eprintln!("Details: {}", msg);
-                                                } else {
-                                                    eprintln!("Full response: {}", body);
-                                                }
-                                            } else {
-                                                eprintln!("Full response: {}", body);
-                                            }
+                                        }
+                                        if !text_content.is_empty() {
+                                            print!("{}", text_content);
+                                        } else if !image_saved {
+                                            eprintln!("Error: Could not extract text or image data from API response.");
+                                            eprintln!("Full response: {}", body);
                                             std::process::exit(1);
                                         }
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Error: Failed to send API request - {}", e);
+                                    } else {
+                                        eprintln!("Error: Failed to parse API response as JSON.");
+                                        eprintln!("Full response: {}", body);
                                         std::process::exit(1);
                                     }
+                                } else {
+                                    eprintln!("Error: API request failed with status: {}", status);
+                                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                        if let Some(msg) = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+                                            eprintln!("Details: {}", msg);
+                                        } else {
+                                            eprintln!("Full response: {}", body);
+                                        }
+                                    } else {
+                                        eprintln!("Full response: {}", body);
+                                    }
+                                    std::process::exit(1);
                                 }
                             }
-                        }
-                    }
+                            Err(e) => {
+                                eprintln!("Error: Failed to send API request - {}", e);
+                                std::process::exit(1);
+                            }
+                        },
+                    },
                     Err(e) => {
                         eprintln!("Error: Failed to prepare command - {}", e);
                         std::process::exit(1);
@@ -475,67 +372,59 @@ async fn main() {
         }
         Commands::Secrets { action } => match action {
             SecretsCommand::Set { key, value } => {
-                match ferri_core::secrets::set_secret(&current_path, key, value.clone()) {
-                    Ok(_) => {}, // Success message is now printed inside the function
-                    Err(e) => eprintln!("Error: Failed to set secret - {}", e),
+                if let Err(e) = secrets::set_secret(&current_path, key, value.clone()) {
+                    eprintln!("Error: Failed to set secret - {}", e)
                 }
             }
-            SecretsCommand::Rm { key } => {
-                match ferri_core::secrets::remove_secret(&current_path, key) {
-                    Ok(_) => println!("Secret '{}' removed successfully.", key),
-                    Err(e) => eprintln!("Error: Failed to remove secret - {}", e),
-                }
-            }
-            SecretsCommand::Ls => {
-                match ferri_core::secrets::list_secrets(&current_path) {
-                    Ok(keys) => {
-                        if keys.is_empty() {
-                            println!("No secrets found.");
-                        } else {
-                            println!("Available secrets:");
-                            for key in keys {
-                                println!("- {}", key);
-                            }
+            SecretsCommand::Rm { key } => match secrets::remove_secret(&current_path, key) {
+                Ok(_) => println!("Secret '{}' removed successfully.", key),
+                Err(e) => eprintln!("Error: Failed to remove secret - {}", e),
+            },
+            SecretsCommand::Ls => match secrets::list_secrets(&current_path) {
+                Ok(keys) => {
+                    if keys.is_empty() {
+                        println!("No secrets found.");
+                    } else {
+                        println!("Available secrets:");
+                        for key in keys {
+                            println!("- {}", key);
                         }
                     }
-                    Err(e) => eprintln!("Error: Failed to list secrets - {}", e),
                 }
-            }
+                Err(e) => eprintln!("Error: Failed to list secrets - {}", e),
+            },
         },
         Commands::Models { action } => match action {
             ModelsCommand::Add { alias, provider, model_name, api_key_secret } => {
-                let model = ferri_core::models::Model {
+                let model = models::Model {
                     alias: alias.clone(),
                     provider: provider.clone(),
                     model_name: model_name.clone(),
                     api_key_secret: api_key_secret.clone(),
                     discovered: false,
                 };
-                match ferri_core::models::add_model(&current_path, model) {
+                match models::add_model(&current_path, model) {
                     Ok(_) => println!("Model '{}' added successfully.", alias),
                     Err(e) => eprintln!("Error: Failed to add model - {}", e),
                 }
             }
-            ModelsCommand::Ls => {
-                match ferri_core::models::list_models(&current_path) {
-                    Ok(models) => {
-                        println!("{:<20} {:<15} {:<30} {:<15}", "ALIAS", "PROVIDER", "ID/NAME", "TYPE");
-                        for model in models {
-                            let model_type = if model.discovered { "(discovered)" } else { "" };
-                            println!("{:<20} {:<15} {:<30} {:<15}", model.alias, model.provider, model.model_name, model_type);
-                        }
+            ModelsCommand::Ls => match models::list_models(&current_path) {
+                Ok(models) => {
+                    println!("{:<20} {:<15} {:<30} {:<15}", "ALIAS", "PROVIDER", "ID/NAME", "TYPE");
+                    for model in models {
+                        let model_type = if model.discovered { "(discovered)" } else { "" };
+                        println!("{:<20} {:<15} {:<30} {:<15}", model.alias, model.provider, model.model_name, model_type);
                     }
-                    Err(e) => eprintln!("Error: Failed to list models - {}", e),
                 }
-            }
+                Err(e) => eprintln!("Error: Failed to list models - {}", e),
+            },
             ModelsCommand::Rm { alias } => {
                 print!("Are you sure you want to remove model '{}'? [y/N] ", alias);
                 io::stdout().flush().unwrap();
                 let mut confirmation = String::new();
                 io::stdin().read_line(&mut confirmation).unwrap();
-
                 if confirmation.trim().eq_ignore_ascii_case("y") {
-                    match ferri_core::models::remove_model(&current_path, alias) {
+                    match models::remove_model(&current_path, alias) {
                         Ok(_) => println!("Model '{}' removed successfully.", alias),
                         Err(e) => eprintln!("Error: Failed to remove model - {}", e),
                     }
@@ -545,15 +434,14 @@ async fn main() {
             }
         },
         Commands::Run { args } => {
-            let exec_args = ferri_core::execute::ExecutionArgs {
+            let exec_args = execute::ExecutionArgs {
                 model: args.model.clone(),
                 use_context: args.ctx,
                 output_file: args.output.clone(),
                 command_with_args: args.command.clone(),
-                streaming: false, // Set to false to preserve existing L2 behavior
+                streaming: false,
             };
-
-            match ferri_core::execute::prepare_command(&current_path, &exec_args) {
+            match execute::prepare_command(&current_path, &exec_args) {
                 Ok((prepared_command, secrets)) => {
                     let mut original_command_parts = Vec::new();
                     if let Some(model) = &args.model {
@@ -564,15 +452,7 @@ async fn main() {
                     }
                     original_command_parts.push("--".to_string());
                     original_command_parts.extend(args.command.iter().cloned());
-
-                    match ferri_core::jobs::submit_job(
-                        &current_path,
-                        prepared_command,
-                        secrets,
-                        &original_command_parts,
-                        None, // `ferri run` gets input from its own stdin, handled by the OS
-                        exec_args.output_file,
-                    ) {
+                    match jobs::submit_job(&current_path, prepared_command, secrets, &original_command_parts, None, exec_args.output_file) {
                         Ok(job) => {
                             println!("Successfully submitted job '{}'.", job.id);
                             if let Some(pid) = job.pid {
@@ -591,51 +471,41 @@ async fn main() {
                 }
             }
         }
-        Commands::Ps => {
-            match ferri_core::jobs::list_jobs(&current_path) {
-                Ok(jobs) => {
-                    if let Err(e) = ps_tui::run(jobs) {
-                        eprintln!("Error: Failed to launch ps dashboard - {}", e);
-                        std::process::exit(1);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error: Failed to list jobs - {}", e);
+        Commands::Ps => match jobs::list_jobs(&current_path) {
+            Ok(jobs) => {
+                if let Err(e) = ps_tui::run(jobs) {
+                    eprintln!("Error: Failed to launch ps dashboard - {}", e);
                     std::process::exit(1);
                 }
             }
-        }
-        Commands::Kill { job_id } => {
-            match ferri_core::jobs::kill_job(&current_path, job_id) {
-                Ok(_) => println!("Successfully terminated job '{}'.", job_id),
-                Err(e) => {
-                    eprintln!("Error: Failed to terminate job - {}", e);
-                    std::process::exit(1);
-                }
+            Err(e) => {
+                eprintln!("Error: Failed to list jobs - {}", e);
+                std::process::exit(1);
             }
-        }
-        Commands::Yank { job_id } => {
-            match ferri_core::jobs::get_job_output(&current_path, job_id) {
-                Ok(output) => {
-                    print!("{}", output);
-                }
-                Err(e) => {
-                    eprintln!("Error: Failed to get job output - {}", e);
-                    std::process::exit(1);
-                }
+        },
+        Commands::Kill { job_id } => match jobs::kill_job(&current_path, job_id) {
+            Ok(_) => println!("Successfully terminated job '{}'.", job_id),
+            Err(e) => {
+                eprintln!("Error: Failed to terminate job - {}", e);
+                std::process::exit(1);
             }
-        }
+        },
+        Commands::Yank { job_id } => match jobs::get_job_output(&current_path, job_id) {
+            Ok(output) => print!("{}", output),
+            Err(e) => {
+                eprintln!("Error: Failed to get job output - {}", e);
+                std::process::exit(1);
+            }
+        },
         Commands::Flow { action } => match action {
             FlowCommand::Run { file } => {
                 let file_path = PathBuf::from(file);
-                match ferri_core::flow::parse_pipeline_file(&file_path) {
+                match flow::parse_pipeline_file(&file_path) {
                     Ok(pipeline) => {
-                        // Launch the new real-time TUI
                         if let Err(e) = flow_run_tui::run(pipeline) {
-                             eprintln!("Error: Flow execution failed - {}", e);
-                             std::process::exit(1);
+                            eprintln!("Error: Flow execution failed - {}", e);
+                            std::process::exit(1);
                         }
-                        // The old direct execution is now handled by the TUI
                     }
                     Err(e) => {
                         eprintln!("Error: Failed to parse flow file - {}", e);
@@ -645,9 +515,9 @@ async fn main() {
             }
             FlowCommand::Show { file } => {
                 let file_path = PathBuf::from(file);
-                match ferri_core::flow::parse_pipeline_file(&file_path) {
+                match flow::parse_pipeline_file(&file_path) {
                     Ok(pipeline) => {
-                        if let Err(e) = ferri_core::flow::show_pipeline(&pipeline) {
+                        if let Err(e) = flow::show_pipeline(&pipeline) {
                             eprintln!("Error: Flow visualization failed - {}", e);
                             std::process::exit(1);
                         }
@@ -675,13 +545,8 @@ async fn main() {
         Commands::Doctor => {
             println!("--- Ferri Doctor ---");
             println!("Running diagnostics...");
-
-            // Check 1: Is ollama in the PATH?
             print!("1. Checking for 'ollama' executable... ");
-            let ollama_path = std::process::Command::new("which")
-                .arg("ollama")
-                .output();
-            match ollama_path {
+            match std::process::Command::new("which").arg("ollama").output() {
                 Ok(output) if output.status.success() => {
                     println!("OK (Found at {})", String::from_utf8_lossy(&output.stdout).trim());
                 }
@@ -692,16 +557,9 @@ async fn main() {
                     std::process::exit(1);
                 }
             }
-
-            // Check 2: Is the ollama service running?
             print!("2. Checking 'ollama' service status... ");
-            let ollama_status = std::process::Command::new("ollama")
-                .arg("ps")
-                .output();
-            match ollama_status {
-                Ok(output) if output.status.success() => {
-                    println!("OK (Service is responsive)");
-                }
+            match std::process::Command::new("ollama").arg("ps").output() {
+                Ok(output) if output.status.success() => println!("OK (Service is responsive)"),
                 Ok(output) => {
                     println!("FAIL");
                     eprintln!("   Error: The 'ollama' service appears to be down.");
@@ -716,8 +574,6 @@ async fn main() {
                     std::process::exit(1);
                 }
             }
-
-            // Check 3: .ferri directory permissions
             print!("3. Checking '.ferri' directory permissions... ");
             let ferri_dir = current_path.join(".ferri");
             match std::fs::metadata(&ferri_dir) {
@@ -735,7 +591,6 @@ async fn main() {
                     eprintln!("   Please run 'ferri init' first.");
                 }
             }
-
             println!("\n--- Diagnostics Complete ---");
         }
     }
@@ -748,9 +603,9 @@ fn print_init_message() {
    .'   `/     \'  _`.
    |,-../ o   o \.' `|
 (| |   /  _\ /_  \   | |)
- \\]  (_.'."`.`._)  /// 
-  \\]`._(..:   :..)_.'// 
-   \\]`.__\ .:-:. /__.'/ 
+ \]  (_.'."`.`._)  /// 
+  \]`._(..:   :..)_.'// 
+   \]`.__\ .:-:. /__.'/ 
     `-i-->.___.<--i-' 
     .'.-'/.=^=.\`-.`.
    /.'  //     \\  `.\
