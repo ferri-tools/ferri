@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     execute,
 };
-use ferri_core::flow::{Pipeline, StepUpdate, StepStatus};
+use ferri_automation::flow::{Pipeline, StepUpdate, StepStatus};
 use ratatui::{prelude::*, widgets::*};
 use std::{io, time::Duration, collections::HashMap};
 use crossbeam_channel::{Receiver, unbounded};
@@ -41,7 +41,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
 
     let base_path = std::env::current_dir()?;
     thread::spawn(move || {
-        if let Err(e) = ferri_core::flow::run_pipeline(&base_path, &pipeline, tx.clone()) {
+        if let Err(e) = ferri_automation::flow::run_pipeline(&base_path, &pipeline, tx.clone()) {
             tx.send(StepUpdate {
                 name: "[FATAL]".to_string(),
                 status: StepStatus::Failed(e.to_string()),
@@ -111,7 +111,7 @@ pub fn run_plain(pipeline: Pipeline) -> io::Result<()> {
     let base_path = std::env::current_dir()?;
 
     thread::spawn(move || {
-        let _ = ferri_core::flow::run_pipeline(&base_path, &pipeline, tx);
+        let _ = ferri_automation::flow::run_pipeline(&base_path, &pipeline, tx);
     });
 
     for update in rx {

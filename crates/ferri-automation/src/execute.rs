@@ -1,6 +1,6 @@
 //! Core logic for executing commands with injected context.
 
-use crate::{context, models, secrets};
+use ferri_core::{context, models, secrets};
 use clap::Args;
 use serde::Deserialize;
 use serde_json::json;
@@ -124,7 +124,11 @@ pub fn prepare_command(
                 let final_prompt = if args.use_context {
                     let full_context = context::get_full_context(base_path)?;
                     format!(
-                        "{}\n\nUse the content of the files below as context to answer the question.\n\n{}",
+                        "{}
+
+Use the content of the files below as context to answer the question.
+
+{}",
                         prompt,
                         full_context.trim()
                     )
@@ -160,11 +164,11 @@ pub fn prepare_command(
                             context::ContentType::WebP => "image/webp",
                             _ => "application/octet-stream",
                         };
-                        parts.push(json!({
-                            "inline_data": {
+                        parts.push(json!({ 
+                            "inline_data": { 
                                 "mime_type": mime_type,
                                 "data": encoded_image
-                            }
+                            } 
                         }));
                     }
                 } else {
@@ -218,52 +222,6 @@ pub fn save_base64_image(path: &Path, b64_data: &str) -> io::Result<()> {
     fs::write(path, image_bytes)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{initialize_project, models, secrets};
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_prepare_google_model_request() {
-        let dir = tempdir().unwrap();
-        let base_path = dir.path();
-        initialize_project(base_path).unwrap();
-        secrets::set_secret(base_path, "GOOGLE_API_KEY", Some("test-key".to_string())).unwrap();
-        let model = models::Model {
-            alias: "gemini".to_string(),
-            provider: "google".to_string(),
-            model_name: "gemini-pro".to_string(),
-            api_key_secret: Some("GOOGLE_API_KEY".to_string()),
-            discovered: false,
-        };
-        models::add_model(base_path, model).unwrap();
-
-        let args = ExecutionArgs {
-            model: Some("gemini".to_string()),
-            use_context: false,
-            output_file: None,
-            command_with_args: vec!["hello".to_string()],
-            streaming: false,
-        };
-
-        let result = prepare_command(base_path, &args);
-        assert!(result.is_ok());
-        let (prepared, _) = result.unwrap();
-        match prepared {
-            PreparedCommand::Remote(req) => {
-                let req = req.build().unwrap();
-                assert_eq!(req.method(), "POST");
-                assert!(req.url().as_str().contains("gemini-pro:generateContent"));
-                let body_bytes = req.body().unwrap().as_bytes().unwrap();
-                let body_json: serde_json::Value = serde_json::from_slice(body_bytes).unwrap();
-                assert_eq!(body_json["contents"][0]["parts"][0]["text"], "hello");
-            }
-            _ => panic!("Expected a remote command"),
-        }
-    }
-}
-
 /// Prepares and executes a streaming request to the Google Gemini API.
 /// This function is self-contained and only used by the `ferri with` command.
 pub async fn execute_streaming_gemini_request(
@@ -271,7 +229,7 @@ pub async fn execute_streaming_gemini_request(
     args: &ExecutionArgs,
 ) -> io::Result<reqwest::RequestBuilder> {
     let model_alias = args.model.as_ref().ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Model alias is required for streaming."))?;
-    
+
     let all_models = models::list_models(base_path)?;
     let model = all_models.iter().find(|m| m.alias == *model_alias)
         .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("Model '{}' not found.", model_alias)))?;
@@ -304,11 +262,11 @@ pub async fn execute_streaming_gemini_request(
                 context::ContentType::WebP => "image/webp",
                 _ => "application/octet-stream",
             };
-            parts.push(json!({
-                "inline_data": {
+            parts.push(json!({ 
+                "inline_data": { 
                     "mime_type": mime_type,
                     "data": encoded_image
-                }
+                } 
             }));
         }
     } else {

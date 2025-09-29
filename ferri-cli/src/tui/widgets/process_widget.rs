@@ -1,4 +1,4 @@
-use ferri_core::jobs::Job;
+use ferri_automation::jobs::Job;
 use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, StatefulWidget, Table, TableState},
