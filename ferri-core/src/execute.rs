@@ -244,6 +244,7 @@ mod tests {
             use_context: false,
             output_file: None,
             command_with_args: vec!["hello".to_string()],
+            streaming: false,
         };
 
         let result = prepare_command(base_path, &args);
@@ -253,7 +254,7 @@ mod tests {
             PreparedCommand::Remote(req) => {
                 let req = req.build().unwrap();
                 assert_eq!(req.method(), "POST");
-                assert!(req.url().as_str().contains("gemini-pro:streamGenerateContent"));
+                assert!(req.url().as_str().contains("gemini-pro:generateContent"));
                 let body_bytes = req.body().unwrap().as_bytes().unwrap();
                 let body_json: serde_json::Value = serde_json::from_slice(body_bytes).unwrap();
                 assert_eq!(body_json["contents"][0]["parts"][0]["text"], "hello");
@@ -261,4 +262,66 @@ mod tests {
             _ => panic!("Expected a remote command"),
         }
     }
+}
+
+/// Prepares and executes a streaming request to the Google Gemini API.
+/// This function is self-contained and only used by the `ferri with` command.
+pub async fn execute_streaming_gemini_request(
+    base_path: &Path,
+    args: &ExecutionArgs,
+) -> io::Result<reqwest::RequestBuilder> {
+    let model_alias = args.model.as_ref().ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Model alias is required for streaming."))?;
+    
+    let all_models = models::list_models(base_path)?;
+    let model = all_models.iter().find(|m| m.alias == *model_alias)
+        .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("Model '{}' not found.", model_alias)))?;
+
+    let api_key = if let Some(secret_name) = &model.api_key_secret {
+        secrets::read_secret(base_path, secret_name)?
+    } else {
+        return Err(Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."));
+    };
+
+    let prompt = args.command_with_args.join(" ");
+    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent", model.model_name);
+
+    let mut parts = Vec::new();
+    if args.use_context {
+        let full_context = context::get_full_multimodal_context(base_path)?;
+        let context_prompt = format!(
+            "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
+            full_context.text_content.trim(),
+            prompt
+        );
+        parts.push(json!({ "text": context_prompt }));
+
+        for image_file in full_context.image_files {
+            let image_data = fs::read(&image_file.path)?;
+            let encoded_image = STANDARD.encode(image_data);
+            let mime_type = match image_file.content_type {
+                context::ContentType::Png => "image/png",
+                context::ContentType::Jpeg => "image/jpeg",
+                context::ContentType::WebP => "image/webp",
+                _ => "application/octet-stream",
+            };
+            parts.push(json!({
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": encoded_image
+                }
+            }));
+        }
+    } else {
+        parts.push(json!({ "text": prompt }));
+    }
+
+    let body = json!({ "contents": [{ "parts": parts }] });
+
+    let client = reqwest::Client::new();
+    let request = client.post(&url)
+        .header("x-goog-api-key", api_key)
+        .header("Content-Type", "application/json")
+        .json(&body);
+
+    Ok(request)
 }
