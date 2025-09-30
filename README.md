@@ -29,7 +29,9 @@
 Make sure you have Rust installed, then:
 
 ```bash
-cargo install --git https://github.com/ferri-tools/ferri.git ferri-cli
+git clone https://github.com/ferri-tools/ferri.git
+cd ferri
+cargo install --path ferri-cli
 ```
 
 This will install `ferri` to `~/.cargo/bin/`. Make sure this directory is in your PATH:
