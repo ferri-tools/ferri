@@ -26,11 +26,20 @@
 
 ## Installation
 
+Make sure you have Rust installed, then:
+
 ```bash
 cargo install --git https://github.com/ferri-tools/ferri.git ferri-cli
 ```
 
-After installation, verify it's working:
+This will install `ferri` to `~/.cargo/bin/`. Make sure this directory is in your PATH:
+
+```bash
+# Add to your ~/.zshrc or ~/.bashrc if not already there
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+Verify installation:
 ```bash
 ferri --version
 ```
