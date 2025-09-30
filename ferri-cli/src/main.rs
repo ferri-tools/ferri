@@ -1,8 +1,12 @@
 use clap::{Parser, Subcommand};
+use colored::*;
 use ferri_automation::execute::{self, SharedArgs};
 use ferri_automation::{flow, jobs};
 use ferri_core::{context, models, project, secrets};
+use rand::Rng;
+use serde_json::json;
 use std::env;
+use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -553,22 +557,85 @@ async fn main() {
 }
 
 fn print_init_message() {
-    println!(r#" 
-       ___     ___ 
-     .i .-'   `-. i. 
-   .'   `/     \'  _`.
-   |,-../ o   o \.' `|
-(| |   /  _\ /_  \   | |)
- \]  (_.'."`.`._)  /// 
-  \]`._(..:   :..)_.'// 
-   \]`.__\ .:-:. /__.'/ 
-    `-i-->.___.<--i-' 
-    .'.-'/.=^=.\`-.`.
-   /.'  //     \\  `.\
-  ||   ||       ||   ||
-  |)   ||       ||  (/ 
-       |)       (/ 
-    "#);
+    // A thread-local random number generator
+    let mut rng = rand::thread_rng();
+
+    // Define our "rusty, shiny" color palette using function pointers.
+    // This is an array of functions that take a &str and return a ColoredString.
+    let palette: &[fn(&str) -> ColoredString] = &[
+        |s| s.red(),
+        |s| s.bright_red(),
+        |s| s.yellow(),
+        |s| s.bright_yellow().bold(),  // Shiny!
+        |s| s.white().bold(),          // Shiny!
+        |s| s.cyan(),                  // For a bit of patina/verdigris
+        |s| s.truecolor(184, 115, 51), // A nice bronze/rust color
+    ];
+
+    let replacement_alphabet = ['+', '*', '='];
+
+    let art = r#"
+    ███████ ███████ ██████  ██████  ██
+    ██      ██      ██   ██ ██   ██ ██
+    █████   █████   ██████  ██████  ██
+    ██      ██      ██   ██ ██   ██ ██
+    ██      ███████ ██   ██ ██   ██ ██
+                                                     **
+                                                     **
+                                                     **
+                                                 ++++**++++
+                                                ***********+
+                                   *************************************+
+                                  ***                                 =***
+                                 ***           =+=       -=+-          =**=
+                                +**          ***=*=      **+***         -***
+                               ***********  ***=-  *=  **   +**=  **********=
+                              =********** =+ ***=**********+**+ *  +*********=
+                             +*********+   ==***************+*+==   **********+
+                            +*********=  **+**++****=*+=***++++* ++  **********+
+                           +**********    **+*+= **+ +* **+ =** *=    +*********
+                         *==**+=    -        * +** ****** ** =*        =    =+** *+
+                    =****** **************************************************** ******=
+                 +********* ***************************************************+ *********
+                  -******** +************=***+***+**********+**+**=************==********
+                   ********+=*************+++==+==+==+==+==+++++=+************+ ********+
+                    ********-**************************************************+********
+                    =********+************+                      +************+********
+                     =******++***********                          *********** *******
+
+                      *##***************                            *****************=
+              =********************************              +******************************+
+    "#;
+
+    let mut recipe: Vec<serde_json::Value> = Vec::new();
+    for c in art.chars() {
+        match c {
+            ' ' | '\n' | '\r' => {
+                // ...just print it as is.
+                print!("{c}");
+            }
+            _ => {
+                let alphabet_random_index = rng.gen_range(0..replacement_alphabet.len());
+                let alphabet_replacement_character = replacement_alphabet[alphabet_random_index];
+                let random_index = rng.gen_range(0..palette.len());
+                let color_fn = palette[random_index];
+                print!("{}", color_fn(&alphabet_replacement_character.to_string()));
+                recipe.push(json!({
+                    "original": c,
+                    "replacement": alphabet_replacement_character,
+                    "color": random_index
+                }));
+            }
+        }
+    }
+
+    let recipe_json =
+        serde_json::to_string_pretty(&recipe).expect("Failed to serialize ferri tattoo");
+    let signature_path = PathBuf::from(".ferri").join("signatures.json");
+    fs::write(signature_path, recipe_json).expect("Failed to serialize tattoo file");
+
+    // Ensure the cursor moves to the next line after the art is done.
+    println!();
     println!("Ferri project initialized!");
-    println!("Run `ferri --help` to see what you can do.");
+    println!("Run `{}` to see what you can do.", "ferri --help".cyan());
 }
