@@ -24,6 +24,17 @@
 [![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/ferri-tools/ferri/blob/main/LICENSE)
 [![Status](https://img.shields.io/badge/Status-Work%20in%20Progress-yellow.svg)](https://github.com/ferri-tools/ferri/projects)
 
+## Installation
+
+```bash
+cargo install --git https://github.com/ferri-tools/ferri.git ferri-cli
+```
+
+After installation, verify it's working:
+```bash
+ferri --version
+```
+
 ## Demo
 
 <div align="center">
