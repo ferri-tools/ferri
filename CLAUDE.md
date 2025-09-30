@@ -1,4 +1,4 @@
-# Gemini Workflow
+# Claude Workflow
 
 This document outlines the primary workflow for interacting with the Ferri project. I will use this as my guide for our sessions.
 
@@ -6,7 +6,7 @@ This document outlines the primary workflow for interacting with the Ferri proje
 
 At the start of each session, I will:
 
-1. Greet you with a fact about rust or python to help me learn
+1. Greet you with a fact about Rust or Python to help me learn
 2.  **Ask you what you'd like to do.**
 
 ---
@@ -96,9 +96,9 @@ I will approach context gathering in the following tiered manner:
     *   `README.md`: For high-level architecture and project goals.
     *   `project_resources/product/planning/sprints/general_backlog.csv`: To understand the specific ticket, goal, and subtasks.
 
-2.  **Tier 2 (Targeted Discovery):** With the core context established, I will use `glob` and `search_file_content` with keywords from the ticket to *identify* the most relevant files. I will not read them yet. This prevents premature context loading.
+2.  **Tier 2 (Targeted Discovery):** With the core context established, I will use `glob` and `grep` with keywords from the ticket to *identify* the most relevant files. I will not read them yet. This prevents premature context loading.
 
-3.  **Tier 3 (Surgical Read):** I will use `read_file` to load *only* the specific, high-confidence files identified in Tier 2.
+3.  **Tier 3 (Surgical Read):** I will use `read` to load *only* the specific, high-confidence files identified in Tier 2.
 
 4.  **Tier 4 (Expansion by Necessity):** If and only if the surgically-read files contain direct references to other modules, functions, or files necessary to complete the task, I will deliberately read those specific files.
 
