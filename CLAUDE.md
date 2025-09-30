@@ -57,7 +57,7 @@ This should go without saying but always confirm if changing the .gitignore. It 
 
 To ensure a high-quality, maintainable codebase, we will adhere to the following practices:
 
-*   **Atomic Commits:** Each commit should represent a single, logical change. Commits should reference their corresponding issue number (e.g., `fix(auth): #21 - Fix login redirect bug`).
+*   **Atomic Commits:** Each commit should represent a single, logical change. Commits should reference their corresponding issue number (e.g., `fix(auth): #21 - Fix login redirect bug`). **IMPORTANT:** Do not add attribution footers like "Generated with Claude Code" or "Co-Authored-By: Claude" to commits.
 *   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
 *   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
 *   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
