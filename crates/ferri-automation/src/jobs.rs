@@ -57,54 +57,86 @@ fn write_jobs(base_path: &Path, jobs: &[Job]) -> io::Result<()> {
     fs::write(jobs_file, content)
 }
 
-/// Spawns and monitors a job in a background thread.
-fn spawn_and_monitor_job(
+/// Monitors a spawned child process in a background thread.
+fn monitor_job(
     base_path: PathBuf,
     job_id: String,
-    prepared_command: PreparedCommand,
-    secrets: HashMap<String, String>,
-    _input_data: Option<Vec<u8>>,
+    mut child: std::process::Child,
     output_file: Option<PathBuf>,
 ) {
     thread::spawn(move || {
-        let job_dir = base_path.join(".ferri/jobs").join(&job_id);
-        let stdout_path = job_dir.join("stdout.log");
-        let exit_code_path = job_dir.join("exit_code.log");
+        eprintln!("DEBUG: Monitor thread started for job {}", job_id);
+        let result = (|| -> io::Result<()> {
+            let job_dir = base_path.join(".ferri/jobs").join(&job_id);
+            let stdout_path = job_dir.join("stdout.log");
+            let stderr_path = job_dir.join("stderr.log");
+            let exit_code_path = job_dir.join("exit_code.log");
 
-        let execution_result = match prepared_command {
-            PreparedCommand::Local(mut command, stdin_data) => {
-                let input_bytes = stdin_data.map(|s| s.into_bytes());
-                execute_local_command(&mut command, secrets, input_bytes)
+            eprintln!("DEBUG: Waiting for child process to complete");
+            let status = child.wait()?;  // Just wait, don't try to read pipes
+            eprintln!("DEBUG: Child completed with status: {:?}", status);
+
+            let exit_code = status.code().unwrap_or(1);
+
+            // Read the output from the files that were written during execution
+            let stdout_content = fs::read(&stdout_path).unwrap_or_default();
+            let stderr_content = fs::read(&stderr_path).unwrap_or_default();
+
+            // Copy to user-specified output file if provided
+            if let Some(path) = output_file {
+                let _ = fs::write(path, &stdout_content);
             }
-            PreparedCommand::Remote(request) => {
-                execute_remote_command(request)
+
+            eprintln!("DEBUG: Writing exit_code.log to {:?}", exit_code_path);
+            fs::write(&exit_code_path, exit_code.to_string())?;
+            eprintln!("DEBUG: Exit code written successfully");
+
+            // Update job status in jobs.json
+            let mut jobs = read_jobs(&base_path)?;
+            if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
+                job.status = if exit_code == 0 {
+                    "Completed".to_string()
+                } else {
+                    "Failed".to_string()
+                };
+
+                // Add error preview for failed jobs
+                if exit_code != 0 {
+                    let error_content = String::from_utf8_lossy(&stderr_content).to_string();
+                    let preview: String = error_content.chars().take(200).collect();
+                    job.error_preview = Some(format!("Exit Code: {}. {}", exit_code, preview));
+                }
+
+                write_jobs(&base_path, &jobs)?;
             }
-        };
+            Ok(())
+        })();
 
-        let (exit_code, final_output) = match execution_result {
-            Ok(output) => (0, output),
-            Err(e) => (1, e.to_string().into_bytes()),
-        };
-
-        // Write to the user-specified output file if provided
-        if let Some(path) = output_file {
-            let _ = fs::write(path, &final_output);
+        // If there's an error, log it to a debug file
+        if let Err(e) = result {
+            eprintln!("DEBUG: Monitor thread error: {}", e);
+            let error_log = base_path.join(".ferri/jobs").join(&job_id).join("thread_error.log");
+            let _ = fs::write(error_log, format!("Monitor thread error: {}", e));
         }
-
-        // Write to the internal job log
-        let _ = fs::write(&stdout_path, final_output);
-        let _ = fs::write(exit_code_path, exit_code.to_string());
     });
 }
 
-fn execute_local_command(
+/// Spawns a local command with stdout/stderr redirected to files
+fn spawn_local_command(
     command: &mut Command,
     secrets: HashMap<String, String>,
     input_data: Option<Vec<u8>>,
-) -> io::Result<Vec<u8>> {
+    stdout_path: &Path,
+    stderr_path: &Path,
+) -> io::Result<std::process::Child> {
+    eprintln!("DEBUG: spawn_local_command called");
     command.envs(secrets);
-    command.stdout(Stdio::piped());
-    command.stderr(Stdio::piped());
+
+    // Redirect stdout/stderr directly to files (no pipes = no threading issues)
+    let stdout_file = fs::File::create(stdout_path)?;
+    let stderr_file = fs::File::create(stderr_path)?;
+    command.stdout(Stdio::from(stdout_file));
+    command.stderr(Stdio::from(stderr_file));
 
     if input_data.is_some() {
         command.stdin(Stdio::piped());
@@ -112,6 +144,8 @@ fn execute_local_command(
         command.stdin(Stdio::null());
     }
 
+    // Only use pre_exec on Linux - it can hang on macOS when called from threads
+    #[cfg(target_os = "linux")]
     unsafe {
         command.pre_exec(|| {
             nix::unistd::setpgid(nix::unistd::Pid::from_raw(0), nix::unistd::Pid::from_raw(0))?;
@@ -119,8 +153,11 @@ fn execute_local_command(
         });
     }
 
+    eprintln!("DEBUG: About to spawn command");
     let mut child = command.spawn()?;
+    eprintln!("DEBUG: Command spawned, pid: {}", child.id());
 
+    // Write stdin if provided
     if let Some(data) = input_data {
         if let Some(mut stdin) = child.stdin.take() {
             thread::spawn(move || {
@@ -129,11 +166,7 @@ fn execute_local_command(
         }
     }
 
-    let output = child.wait_with_output()?;
-    if !output.status.success() {
-        return Err(io::Error::new(ErrorKind::Other, String::from_utf8_lossy(&output.stderr).to_string()));
-    }
-    Ok(output.stdout)
+    Ok(child)
 }
 
 fn execute_remote_command(
@@ -186,11 +219,33 @@ pub fn submit_job(
     let job_dir = base_path.join(".ferri/jobs").join(&job_id);
     fs::create_dir_all(&job_dir)?;
 
+    let stdout_path = job_dir.join("stdout.log");
+    let stderr_path = job_dir.join("stderr.log");
+
+    eprintln!("DEBUG: submit_job - spawning command on main thread");
+
+    // Spawn the command on the MAIN thread (critical for macOS compatibility)
+    let child = match prepared_command {
+        PreparedCommand::Local(mut command, stdin_data) => {
+            let input_bytes = stdin_data.map(|s| s.into_bytes());
+            spawn_local_command(&mut command, secrets, input_bytes, &stdout_path, &stderr_path)?
+        }
+        PreparedCommand::Remote(_request) => {
+            return Err(io::Error::new(
+                ErrorKind::Other,
+                "Remote commands not yet supported in background jobs"
+            ));
+        }
+    };
+
+    let pid = child.id();
+    eprintln!("DEBUG: Process spawned with PID: {}", pid);
+
     let new_job = Job {
         id: job_id.clone(),
         command: original_command.join(" "),
         status: "Running".to_string(),
-        pid: None,
+        pid: Some(pid),
         pgid: None,
         start_time: Utc::now(),
         error_preview: None,
@@ -200,7 +255,8 @@ pub fn submit_job(
     jobs.push(new_job.clone());
     write_jobs(base_path, &jobs)?;
 
-    spawn_and_monitor_job(base_path.to_path_buf(), job_id, prepared_command, secrets, input_data, output_file);
+    // Now move the waiting/monitoring to a background thread
+    monitor_job(base_path.to_path_buf(), job_id, child, output_file);
 
     Ok(new_job)
 }
