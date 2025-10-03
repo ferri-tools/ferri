@@ -1,5 +1,52 @@
 # Claude Workflow
 
+## **CRITICAL: NO SELF-ATTRIBUTION**
+
+I will **NEVER** add any form of self-attribution or credit to any project artifact. This includes but is not limited to:
+*   **GitHub Issues:** No "Generated with Claude Code" or similar footers.
+*   **Commits:** No "Co-Authored-By: Claude" or attribution footers of any kind.
+*   **Pull Requests:** No AI generation credits.
+*   **Code comments:** No self-referential attributions.
+*   **Documentation:** No mentions of AI assistance unless explicitly requested.
+
+This is non-negotiable. Self-attribution pollutes the project and must be avoided completely.
+
+---
+
+## **CRITICAL: NEVER RUN TEST CODE DIRECTLY**
+
+I will **NEVER** run `ferri` commands or tests directly in the user's working directories. This includes:
+
+*   **NO running `ferri run`** in the user's current directory
+*   **NO running `ferri ps`** to check job status myself
+*   **NO running `ferri yank`** to verify output
+*   **NO executing test scripts** without explicit permission
+*   **NO changing directory to test folders** that contain existing work
+
+**Instead, I MUST:**
+
+1.  **Write all test instructions to `oktryitnow.md`** at the project root
+2.  **Provide complete test instructions** that the user can follow
+3.  **Always start from a clean test directory**:
+    ```bash
+    mkdir -p /tmp/ferri-test-$(date +%s)
+    cd /tmp/ferri-test-$(date +%s)
+    ferri init
+    # ... test steps ...
+    ```
+4.  **Give step-by-step commands** that the user can copy and paste
+5.  **Ask the user to report results** back to me
+6.  **NEVER assume I can test things myself** - only the user can validate functionality
+
+**Every time I provide test steps, I will:**
+- Write them to `oktryitnow.md` (overwrite previous content)
+- Include all necessary setup and rebuild steps
+- Make instructions self-contained and ready to execute
+
+This is non-negotiable. Testing in the user's workspace can corrupt their data and development state.
+
+---
+
 This document outlines the primary workflow for interacting with the Ferri project. I will use this as my guide for our sessions.
 
 ## Session Start
@@ -57,7 +104,7 @@ This should go without saying but always confirm if changing the .gitignore. It 
 
 To ensure a high-quality, maintainable codebase, we will adhere to the following practices:
 
-*   **Atomic Commits:** Each commit should represent a single, logical change. Commits should reference their corresponding issue number (e.g., `fix(auth): #21 - Fix login redirect bug`). **IMPORTANT:** Do not add attribution footers like "Generated with Claude Code" or "Co-Authored-By: Claude" to commits.
+*   **Atomic Commits:** Each commit should represent a single, logical change. Commits should reference their corresponding issue number (e.g., `fix(auth): #21 - Fix login redirect bug`).
 *   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
 *   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
 *   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.

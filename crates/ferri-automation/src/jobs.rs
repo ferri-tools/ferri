@@ -7,11 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, ErrorKind, Write};
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
-use sysinfo::{System};
 use crate::execute::PreparedCommand;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -57,68 +55,64 @@ fn write_jobs(base_path: &Path, jobs: &[Job]) -> io::Result<()> {
     fs::write(jobs_file, content)
 }
 
-/// Monitors a spawned child process in a background thread.
-fn monitor_job(
-    base_path: PathBuf,
-    job_id: String,
-    mut child: std::process::Child,
-    output_file: Option<PathBuf>,
-) {
-    thread::spawn(move || {
-        eprintln!("DEBUG: Monitor thread started for job {}", job_id);
-        let result = (|| -> io::Result<()> {
-            let job_dir = base_path.join(".ferri/jobs").join(&job_id);
-            let stdout_path = job_dir.join("stdout.log");
-            let stderr_path = job_dir.join("stderr.log");
-            let exit_code_path = job_dir.join("exit_code.log");
+/// Updates job status by checking if process still exists and reading exit code file.
+/// This is called lazily by list_jobs() and get_job_output() rather than in a background thread.
+fn update_job_status(base_path: &Path, job: &mut Job) -> io::Result<()> {
+    if job.status != "Running" {
+        // Job already completed/failed, no need to check
+        return Ok(());
+    }
 
-            eprintln!("DEBUG: Waiting for child process to complete");
-            let status = child.wait()?;  // Just wait, don't try to read pipes
-            eprintln!("DEBUG: Child completed with status: {:?}", status);
+    let job_dir = base_path.join(".ferri/jobs").join(&job.id);
+    let stdout_path = job_dir.join("stdout.log");
+    let stderr_path = job_dir.join("stderr.log");
 
-            let exit_code = status.code().unwrap_or(1);
+    // Check if process is still running using kill(pid, 0)
+    let still_running = if let Some(pid) = job.pid {
+        let result = unsafe { libc::kill(pid as i32, 0) };
+        result == 0 // 0 = process exists, -1 = process gone
+    } else {
+        false
+    };
 
-            // Read the output from the files that were written during execution
-            let stdout_content = fs::read(&stdout_path).unwrap_or_default();
-            let stderr_content = fs::read(&stderr_path).unwrap_or_default();
+    if still_running {
+        // Process still running, keep status as Running
+        return Ok(());
+    }
 
-            // Copy to user-specified output file if provided
-            if let Some(path) = output_file {
-                let _ = fs::write(path, &stdout_content);
-            }
+    // Process is dead, check if we have output files
+    let stdout_exists = stdout_path.exists();
+    let stderr_exists = stderr_path.exists();
 
-            eprintln!("DEBUG: Writing exit_code.log to {:?}", exit_code_path);
-            fs::write(&exit_code_path, exit_code.to_string())?;
-            eprintln!("DEBUG: Exit code written successfully");
+    if !stdout_exists && !stderr_exists {
+        // Process dead but no output yet (race condition), keep as Running
+        return Ok(());
+    }
 
-            // Update job status in jobs.json
-            let mut jobs = read_jobs(&base_path)?;
-            if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
-                job.status = if exit_code == 0 {
-                    "Completed".to_string()
-                } else {
-                    "Failed".to_string()
-                };
+    // Determine exit code from file contents
+    let stdout_content = fs::read(&stdout_path).unwrap_or_default();
+    let stderr_content = fs::read(&stderr_path).unwrap_or_default();
 
-                // Add error preview for failed jobs
-                if exit_code != 0 {
-                    let error_content = String::from_utf8_lossy(&stderr_content).to_string();
-                    let preview: String = error_content.chars().take(200).collect();
-                    job.error_preview = Some(format!("Exit Code: {}. {}", exit_code, preview));
-                }
+    let exit_code = if !stderr_content.is_empty() && stdout_content.is_empty() {
+        1
+    } else {
+        0
+    };
 
-                write_jobs(&base_path, &jobs)?;
-            }
-            Ok(())
-        })();
+    job.status = if exit_code == 0 {
+        "Completed".to_string()
+    } else {
+        "Failed".to_string()
+    };
 
-        // If there's an error, log it to a debug file
-        if let Err(e) = result {
-            eprintln!("DEBUG: Monitor thread error: {}", e);
-            let error_log = base_path.join(".ferri/jobs").join(&job_id).join("thread_error.log");
-            let _ = fs::write(error_log, format!("Monitor thread error: {}", e));
-        }
-    });
+    // Add error preview for failed jobs
+    if exit_code != 0 && job.error_preview.is_none() {
+        let error_content = String::from_utf8_lossy(&stderr_content).to_string();
+        let preview: String = error_content.chars().take(200).collect();
+        job.error_preview = Some(format!("Exit Code: {}. {}", exit_code, preview));
+    }
+
+    Ok(())
 }
 
 /// Spawns a local command with stdout/stderr redirected to files
@@ -212,8 +206,8 @@ pub fn submit_job(
     prepared_command: PreparedCommand,
     secrets: HashMap<String, String>,
     original_command: &[String],
-    input_data: Option<Vec<u8>>,
-    output_file: Option<PathBuf>,
+    _input_data: Option<Vec<u8>>,
+    _output_file: Option<PathBuf>,
 ) -> io::Result<Job> {
     let job_id = generate_job_id();
     let job_dir = base_path.join(".ferri/jobs").join(&job_id);
@@ -241,6 +235,9 @@ pub fn submit_job(
     let pid = child.id();
     eprintln!("DEBUG: Process spawned with PID: {}", pid);
 
+    // Drop the Child handle - process runs independently
+    drop(child);
+
     let new_job = Job {
         id: job_id.clone(),
         command: original_command.join(" "),
@@ -255,8 +252,8 @@ pub fn submit_job(
     jobs.push(new_job.clone());
     write_jobs(base_path, &jobs)?;
 
-    // Now move the waiting/monitoring to a background thread
-    monitor_job(base_path.to_path_buf(), job_id, child, output_file);
+    // Note: Status will be updated lazily when list_jobs() or get_job_output() is called
+    // No background monitoring thread needed (avoids macOS threading issues)
 
     Ok(new_job)
 }
@@ -265,29 +262,20 @@ pub fn submit_job(
 pub fn list_jobs(base_path: &Path) -> io::Result<Vec<Job>> {
     let mut jobs = read_jobs(base_path)?;
     let mut needs_write = false;
-    let _s = System::new_all();
 
+    // Update status for all running jobs
     for job in jobs.iter_mut() {
         if job.status == "Running" {
-            let exit_code_path = base_path.join(".ferri/jobs").join(&job.id).join("exit_code.log");
-            if exit_code_path.exists() {
-                let exit_code_content = fs::read_to_string(exit_code_path).unwrap_or_default();
-                let exit_code = exit_code_content.trim().parse::<i32>().unwrap_or(1);
+            let old_status = job.status.clone();
+            let _ = update_job_status(base_path, job);
 
-                if exit_code == 0 {
-                    job.status = "Completed".to_string();
-                } else {
-                    job.status = "Failed".to_string();
-                    let stdout_path = base_path.join(".ferri/jobs").join(&job.id).join("stdout.log");
-                    let error_content = fs::read_to_string(stdout_path).unwrap_or_default();
-                    let preview: String = error_content.chars().take(200).collect();
-                    job.error_preview = Some(format!("Exit Code: {}. {}", exit_code, preview));
-                }
+            if job.status != old_status {
                 needs_write = true;
             }
         }
     }
 
+    // Persist status changes to disk
     if needs_write {
         write_jobs(base_path, &jobs)?;
     }
@@ -296,10 +284,18 @@ pub fn list_jobs(base_path: &Path) -> io::Result<Vec<Job>> {
 }
 
 pub fn get_job_output(base_path: &Path, job_id: &str) -> io::Result<String> {
-    let jobs = read_jobs(base_path)?;
-    let _job = jobs.iter().find(|j| j.id == job_id).ok_or_else(|| {
+    // Update job status before returning output
+    let mut jobs = read_jobs(base_path)?;
+    let job = jobs.iter_mut().find(|j| j.id == job_id).ok_or_else(|| {
         io::Error::new(ErrorKind::NotFound, format!("Job '{}' not found.", job_id))
     })?;
+
+    // Update status if still running
+    if job.status == "Running" {
+        let _ = update_job_status(base_path, job);
+        // Write updated status back to disk
+        let _ = write_jobs(base_path, &jobs);
+    }
 
     let job_dir = base_path.join(".ferri/jobs").join(job_id);
     let stdout_path = job_dir.join("stdout.log");

@@ -566,6 +566,7 @@ dependencies = [
  "crossbeam-channel",
  "crossterm",
  "ferri-core",
+ "libc",
  "nix",
  "petgraph",
  "rand",
