@@ -253,7 +253,7 @@ fn default_backoff_factor() -> u32 {
 pub fn parse_flow_file(file_path: &Path) -> io::Result<FlowDocument> {
     let content = fs::read_to_string(file_path)?;
     let flow: FlowDocument = serde_yaml::from_str(&content)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("YAML parse error: {}", e)))?;
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
     // Validate the document
     validate_flow(&flow)?;

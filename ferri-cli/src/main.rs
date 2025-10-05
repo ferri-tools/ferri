@@ -473,7 +473,7 @@ async fn main() {
                         eprintln!("Note: New flow format execution not yet integrated with TUI");
                         eprintln!("      Flow validation passed. Full execution coming soon.");
                     }
-                    Err(_) => {
+                    Err(new_format_error) => {
                         // Fall back to legacy format
                         match flow::parse_pipeline_file(&file_path) {
                             Ok(pipeline) => {
@@ -482,8 +482,9 @@ async fn main() {
                                     std::process::exit(1);
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("Error: Failed to parse flow file (tried both new and legacy formats) - {}", e);
+                            Err(_legacy_error) => {
+                                // Both parsers failed - show the new format error since that's preferred
+                                eprintln!("Error: {}", new_format_error);
                                 std::process::exit(1);
                             }
                         }
@@ -510,7 +511,7 @@ async fn main() {
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(new_format_error) => {
                         // Fall back to legacy format
                         match flow::parse_pipeline_file(&file_path) {
                             Ok(pipeline) => {
@@ -519,8 +520,9 @@ async fn main() {
                                     std::process::exit(1);
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("Error: Failed to parse flow file - {}", e);
+                            Err(_legacy_error) => {
+                                // Both parsers failed - show the new format error since that's preferred
+                                eprintln!("Error: {}", new_format_error);
                                 std::process::exit(1);
                             }
                         }
