@@ -13,19 +13,13 @@ At the start of each session, I will:
 
 ## What would you like to do?
 
-**1. Check project status:** I will analyze `project_resources/product/planning/sprints/general_backlog.csv` and cross-reference it with the actual implementation in the codebase to give you a summary of completed, in-progress, and pending tasks.
+**1. Check project status:** I will use `gh issue list` to analyze GitHub issues and cross-reference them with the actual implementation in the codebase to give you a summary of completed, in-progress, and pending tasks.
 
-**2. Work on a ticket:** Tell me which ticket you want to work on (e.g., "Let's work on issue #8"). I will then focus on implementing the subtasks for that ticket.
+**2. Work on a ticket:** Tell me which ticket you want to work on (e.g., "Let's work on issue #8"). I will then focus on implementing the issue.
 
-**3. Create a new ticket:** I will help you add a new row to `project_resources/product/planning/sprints/general_backlog.csv`, ensuring the goal and subtasks match the existing style and granularity.
+**3. Create a new ticket:** I will help you create a new GitHub issue with appropriate labels, milestones, and a clear description of the work required.
 
-    *   **Ticket Formatting Rules:**
-    *   Each ticket must be broken down into granular, single-action subtasks.
-    *   Each subtask must have its own row in the CSV.
-    *   The `IssueID` and `Goal` fields must be repeated for every subtask row to ensure traceability.
-
-
-**4. Mark a ticket as done:** Tell me the subtask ID you've completed (e.g., "#5 is done"), and I will update its status in the CSV.
+**4. Mark a ticket as done:** Tell me the issue number you've completed (e.g., "#5 is done"), and I will close the GitHub issue.
 
 **5. Something else:** If you have a different task in mind, just let me know.
 
@@ -47,7 +41,7 @@ This will create a persistent record of our work that we can refer back to.
 
 To inform our work, I will always refer to:
 *   **`README.md`**: For understanding the project's architecture and goals.
-*   **`project_resources/product/planning/sprints/general_backlog.csv`**: As the single source of truth for all development tasks.
+*   **GitHub Issues** (via `gh issue list` and `gh issue view`): As the single source of truth for all development tasks.
 *   **The source code**: To verify implementation status.
 
 This should go without saying but always confirm if changing the .gitignore. It already happened before and it made things go crazy for a bit.
@@ -94,7 +88,7 @@ I will approach context gathering in the following tiered manner:
 
 1.  **Tier 1 (Core Context):** Always begin with the absolute minimum:
     *   `README.md`: For high-level architecture and project goals.
-    *   `project_resources/product/planning/sprints/general_backlog.csv`: To understand the specific ticket, goal, and subtasks.
+    *   GitHub Issues (via `gh issue view <number>`): To understand the specific ticket, goal, and tasks.
 
 2.  **Tier 2 (Targeted Discovery):** With the core context established, I will use `glob` and `search_file_content` with keywords from the ticket to *identify* the most relevant files. I will not read them yet. This prevents premature context loading.
 
