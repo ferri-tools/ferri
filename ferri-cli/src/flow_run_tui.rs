@@ -43,7 +43,8 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
     thread::spawn(move || {
         if let Err(e) = ferri_automation::flow::run_pipeline(&base_path, &pipeline, tx.clone()) {
             tx.send(StepUpdate {
-                name: "[FATAL]".to_string(),
+                job_id: "legacy".to_string(),
+                step_name: "[FATAL]".to_string(),
                 status: StepStatus::Failed(e.to_string()),
                 output: None,
             }).unwrap();
@@ -70,7 +71,7 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
 
         if !app_state.is_done {
             if let Ok(update) = app_state.receiver.try_recv() {
-                if update.name == "[FATAL]" {
+                if update.step_name == "[FATAL]" {
                     if let StepStatus::Failed(err) = update.status {
                         app_state.fatal_error = Some(err.clone());
                         app_state.steps.push(("[FATAL]".to_string(), StepStatus::Failed(err)));
@@ -80,12 +81,12 @@ pub fn run(pipeline: Pipeline) -> io::Result<()> {
                         break 'main_loop;
                     }
                 } else {
-                    if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.name) {
+                    if let Some((idx, step)) = app_state.steps.iter_mut().enumerate().find(|(_, (name, _))| name == &update.step_name) {
                         step.1 = update.status.clone();
                         app_state.active_step_index = idx;
                     }
                     if let Some(output) = update.output {
-                        app_state.outputs.entry(update.name).or_default().push(output);
+                        app_state.outputs.entry(update.step_name).or_default().push(output);
                     }
                 }
             }
@@ -117,13 +118,13 @@ pub fn run_plain(pipeline: Pipeline) -> io::Result<()> {
     for update in rx {
         match update.status {
             StepStatus::Running => {
-                println!("[RUNNING] {}", update.name);
+                println!("[RUNNING] {}", update.step_name);
             }
             StepStatus::Completed => {
-                println!("[COMPLETED] {}", update.name);
+                println!("[COMPLETED] {}", update.step_name);
             }
             StepStatus::Failed(e) => {
-                println!("[FAILED] {}: {}", update.name, e);
+                println!("[FAILED] {}: {}", update.step_name, e);
             }
             _ => {}
         }
