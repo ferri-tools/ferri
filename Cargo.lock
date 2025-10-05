@@ -571,6 +571,7 @@ dependencies = [
  "petgraph",
  "rand",
  "ratatui",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

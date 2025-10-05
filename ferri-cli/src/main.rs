@@ -8,7 +8,7 @@ use serde_json::json;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 // These modules are part of the CLI binary, not library crates.
@@ -460,31 +460,72 @@ async fn main() {
         Commands::Flow { action } => match action {
             FlowCommand::Run { file } => {
                 let file_path = PathBuf::from(file);
-                match flow::parse_pipeline_file(&file_path) {
-                    Ok(pipeline) => {
-                        if let Err(e) = flow_run_tui::run(pipeline) {
-                            eprintln!("Error: Flow execution failed - {}", e);
-                            std::process::exit(1);
-                        }
+
+                // Try parsing as new format first
+                match flow::parse_flow_file(&file_path) {
+                    Ok(flow_doc) => {
+                        // New format - use orchestrator
+                        println!("✓ Parsed flow: {} ({})", flow_doc.metadata.name, flow_doc.api_version);
+                        println!("  Jobs: {}", flow_doc.spec.jobs.len());
+
+                        // For now, just print what would be executed
+                        // TODO: Integrate with TUI or implement simple execution
+                        eprintln!("Note: New flow format execution not yet integrated with TUI");
+                        eprintln!("      Flow validation passed. Full execution coming soon.");
                     }
-                    Err(e) => {
-                        eprintln!("Error: Failed to parse flow file - {}", e);
-                        std::process::exit(1);
+                    Err(new_format_error) => {
+                        // Fall back to legacy format
+                        match flow::parse_pipeline_file(&file_path) {
+                            Ok(pipeline) => {
+                                if let Err(e) = flow_run_tui::run(pipeline) {
+                                    eprintln!("Error: Flow execution failed - {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                            Err(_legacy_error) => {
+                                // Both parsers failed - show the new format error since that's preferred
+                                eprintln!("Error: {}", new_format_error);
+                                std::process::exit(1);
+                            }
+                        }
                     }
                 }
             }
             FlowCommand::Show { file } => {
                 let file_path = PathBuf::from(file);
-                match flow::parse_pipeline_file(&file_path) {
-                    Ok(pipeline) => {
-                        if let Err(e) = flow::show_pipeline(&pipeline) {
-                            eprintln!("Error: Flow visualization failed - {}", e);
-                            std::process::exit(1);
+
+                // Try parsing as new format first
+                match flow::parse_flow_file(&file_path) {
+                    Ok(flow_doc) => {
+                        // Display new format flow info
+                        println!("Flow: {}", flow_doc.metadata.name);
+                        println!("API Version: {}", flow_doc.api_version);
+                        println!("Kind: {}", flow_doc.kind);
+                        println!("\nJobs:");
+                        for (job_id, job) in &flow_doc.spec.jobs {
+                            let name = job.name.as_ref().unwrap_or(job_id);
+                            println!("  {} ({})", job_id, name);
+                            println!("    Steps: {}", job.steps.len());
+                            if let Some(needs) = &job.needs {
+                                println!("    Depends on: {}", needs.join(", "));
+                            }
                         }
                     }
-                    Err(e) => {
-                        eprintln!("Error: Failed to parse flow file - {}", e);
-                        std::process::exit(1);
+                    Err(new_format_error) => {
+                        // Fall back to legacy format
+                        match flow::parse_pipeline_file(&file_path) {
+                            Ok(pipeline) => {
+                                if let Err(e) = flow::show_pipeline(&pipeline) {
+                                    eprintln!("Error: Flow visualization failed - {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                            Err(_legacy_error) => {
+                                // Both parsers failed - show the new format error since that's preferred
+                                eprintln!("Error: {}", new_format_error);
+                                std::process::exit(1);
+                            }
+                        }
                     }
                 }
             }
