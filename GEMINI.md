@@ -59,6 +59,11 @@ To ensure a high-quality, maintainable codebase, we will adhere to the following
 *   **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
 
 ---
+## Multi-Agent Collaboration
+
+When working in a multi-agent environment, all development practices are superseded by the formal protocol defined in `AGENTS.md`. All agents, including this one, **must** adhere to that protocol to ensure synchronized, conflict-free work.
+
+---
 
 ### **CRITICAL: Issue and Branching Protocol**
 
