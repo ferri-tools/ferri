@@ -1,3 +1,8 @@
+### **CRITICAL: Agent CHAT Protocol**
+
+Before executing any user prompt, I **MUST** read the corresponding issue's chat file as defined in `CHAT.md`. After completing all actions for a prompt, I **MUST** append my activity log to that same file. This is non-negotiable for multi-agent coordination.
+
+---
 # Claude Workflow
 
 ## **CRITICAL: NO SELF-ATTRIBUTION**

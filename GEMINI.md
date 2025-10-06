@@ -1,3 +1,8 @@
+### **CRITICAL: Agent CHAT Protocol**
+
+Before executing any user prompt, I **MUST** read the corresponding issue's chat file as defined in `CHAT.md`. After completing all actions for a prompt, I **MUST** append my activity log to that same file. This is non-negotiable for multi-agent coordination.
+
+---
 # Gemini Workflow
 
 This document outlines the primary workflow for interacting with the Ferri project. I will use this as my guide for our sessions.
