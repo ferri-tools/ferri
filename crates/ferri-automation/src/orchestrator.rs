@@ -6,10 +6,8 @@
 //! - Context management and expression evaluation
 //! - Real-time status updates
 
-use crate::execute::PreparedCommand;
 use crate::expressions::{self, EvaluationContext};
 use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpdate, StepStatus};
-use crate::jobs;
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::io;
@@ -17,7 +15,6 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 /// Orchestrator state for flow execution
 pub struct FlowOrchestrator {
@@ -341,12 +338,10 @@ impl FlowOrchestrator {
         update_sender: &Sender<Update>,
         ctx: &mut EvaluationContext,
     ) -> io::Result<()> {
-        // For now, execute as a simple shell command
-        // TODO: Integrate with proper job system, handle env vars, workspaces, etc.
-
-        // Build command
+        // Build command for direct execution
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(command);
+        cmd.current_dir(base_path);
 
         // Add environment variables
         if let Some(env_vars) = env {
@@ -355,85 +350,73 @@ impl FlowOrchestrator {
             }
         }
 
-        let prepared_cmd = PreparedCommand::Local(cmd, None);
-        let original_command = vec![command.to_string()];
+        // Execute command and capture output
+        let output_result = cmd.output();
 
-        let job = jobs::submit_job(
-            base_path,
-            prepared_cmd,
-            HashMap::new(),
-            &original_command,
-            None,
-            None,
-        )?;
-
-        let background_job_id = job.id;
-
-        // Poll until completion
-        loop {
-            thread::sleep(Duration::from_millis(500));
-            let jobs_list = jobs::list_jobs(base_path)?;
-
-            if let Some(bg_job) = jobs_list.iter().find(|j| j.id == background_job_id) {
-                match bg_job.status.as_str() {
-                    "Completed" => {
-                        // Get output
-                        let output = jobs::get_job_output(base_path, &background_job_id)?;
-
-                        // TODO: Parse ferri-runtime set-output commands from output
-                        // For now, just store the full output
-                        if let Some(step_id) = ctx.step_outputs.keys().next() {
-                            ctx.add_step_output(
-                                step_id.to_string(),
-                                "stdout".to_string(),
-                                output.clone(),
-                            );
-                        }
-
-                        update_sender.send(Update::Step(StepUpdate {
-                            job_id: job_id.to_string(),
-                            step_name: step_name.to_string(),
-                            status: StepStatus::Completed,
-                            output: Some(output),
-                        })).unwrap();
-
-                        break;
-                    }
-                    "Failed" => {
-                        let err_msg = format!("Step '{}' failed", step_name);
-                        update_sender.send(Update::Step(StepUpdate {
-                            job_id: job_id.to_string(),
-                            step_name: step_name.to_string(),
-                            status: StepStatus::Failed(err_msg.clone()),
-                            output: None,
-                        })).unwrap();
-
-                        return Err(io::Error::new(io::ErrorKind::Other, err_msg));
-                    }
-                    _ => {
-                        // Still running
-                        let output = jobs::get_job_output(base_path, &background_job_id)?;
-                        update_sender.send(Update::Step(StepUpdate {
-                            job_id: job_id.to_string(),
-                            step_name: step_name.to_string(),
-                            status: StepStatus::Running,
-                            output: Some(output),
-                        })).unwrap();
-                    }
+        match output_result {
+            Ok(output) => {
+                // Combine stdout and stderr
+                let mut combined_output = String::new();
+                if !output.stdout.is_empty() {
+                    combined_output.push_str(&String::from_utf8_lossy(&output.stdout));
                 }
-            } else {
-                // Job not found - assume completed
+                if !output.stderr.is_empty() {
+                    if !combined_output.is_empty() {
+                        combined_output.push('\n');
+                    }
+                    combined_output.push_str(&String::from_utf8_lossy(&output.stderr));
+                }
+
+                if output.status.success() {
+                    // Store step output in context
+                    // TODO: Parse ferri-runtime set-output commands from output (#29)
+                    ctx.add_step_output(
+                        step_name.to_string(),
+                        "stdout".to_string(),
+                        combined_output.clone(),
+                    );
+
+                    // Send completion update
+                    update_sender.send(Update::Step(StepUpdate {
+                        job_id: job_id.to_string(),
+                        step_name: step_name.to_string(),
+                        status: StepStatus::Completed,
+                        output: Some(combined_output),
+                    })).unwrap();
+
+                    Ok(())
+                } else {
+                    // Command failed
+                    let exit_code = output.status.code().unwrap_or(-1);
+                    let err_msg = format!(
+                        "Step '{}' failed with exit code {}\n{}",
+                        step_name, exit_code, combined_output
+                    );
+
+                    update_sender.send(Update::Step(StepUpdate {
+                        job_id: job_id.to_string(),
+                        step_name: step_name.to_string(),
+                        status: StepStatus::Failed(err_msg.clone()),
+                        output: Some(combined_output),
+                    })).unwrap();
+
+                    Err(io::Error::new(io::ErrorKind::Other, err_msg))
+                }
+            }
+            Err(e) => {
+                // Failed to execute command
+                let err_msg = format!("Failed to execute step '{}': {}", step_name, e);
+
                 update_sender.send(Update::Step(StepUpdate {
                     job_id: job_id.to_string(),
                     step_name: step_name.to_string(),
-                    status: StepStatus::Completed,
+                    status: StepStatus::Failed(err_msg.clone()),
                     output: None,
                 })).unwrap();
-                break;
+
+                Err(io::Error::new(io::ErrorKind::Other, err_msg))
             }
         }
-
-        Ok(())
     }
 }
 
