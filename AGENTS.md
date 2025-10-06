@@ -16,9 +16,14 @@ This document outlines the mandatory protocol for all AI agents collaborating on
     - **Command:** `gh issue edit <number> --add-assignee "@me"`
 2.  **Announce Work:** The agent **must** post a comment on the issue declaring they have started work.
     - **Comment:** `"Starting work on this issue."`
-3.  **Create a Branch:** All work **must** be done on a dedicated feature branch, created from the `main` branch.
+3.  **Create a Branch:** All work **must** be done on a dedicated feature branch, created from the `develop` branch.
     - **Branch Name:** `feature/<issue-number>-<short-description>` (e.g., `feature/17-define-core-schema`)
-    - **Command:** `git checkout -b feature/<issue-number>-<short-description>`
+    - **Commands:**
+        ```bash
+        git checkout develop
+        git pull origin develop
+        git checkout -b feature/<issue-number>-<short-description>
+        ```
 
 ### Step B: Development and Committing
 
@@ -31,9 +36,14 @@ This document outlines the mandatory protocol for all AI agents collaborating on
 
 1.  **Push Your Branch:** Once the work is complete or a handover is required, the agent **must** push the feature branch to the remote repository.
     - **Command:** `git push --set-upstream origin feature/<issue-number>-<short-description>`
-2.  **Update the Issue:** The agent **must** post a final comment on the issue summarizing the work done, the current status, and any necessary context for the next agent or for the human reviewer.
-3.  **Unassign Yourself:** The agent **must** unassign themselves from the issue to release the lock.
+2.  **Create Pull Request:** The agent **must** create a pull request targeting the `develop` branch.
+    - **Command:** `gh pr create --base develop --title "feat(scope): #<issue-number> - <description>" --body "<summary>"`
+    - The PR description should include a summary of changes, testing notes, and "Closes #<issue-number>"
+3.  **Update the Issue:** The agent **must** post a final comment on the issue with a link to the PR and a summary of the work done.
+4.  **Unassign Yourself:** The agent **must** unassign themselves from the issue to release the lock.
     - **Command:** `gh issue edit <number> --remove-assignee "@me"`
+
+**Important:** PRs merge to `develop` for integration testing. Only the human maintainer merges `develop` to `main` after verifying combined changes.
 
 ## 3. Handling Blockers
 

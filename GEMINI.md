@@ -79,12 +79,18 @@ To ensure all work is tracked, isolated, and aligned with project management, th
     *   I will present this command to you for execution.
     *   I will not proceed until the issue is created.
 
-2.  **Branch from Issue:** All work must be done on a dedicated feature branch.
-    *   After an issue is created, I will immediately create a new feature branch.
-    *   The branch name must follow the format: `feature/<short-description>` (e.g., `feature/refactor-auth-module`).
+2.  **Branch from Develop:** All work must be done on a dedicated feature branch created from `develop`.
+    *   After an issue is created, I will ensure I'm on the `develop` branch with `git checkout develop`.
+    *   I will create a new feature branch from `develop`.
+    *   The branch name must follow the format: `feature/<issue-number>-<short-description>` (e.g., `feature/24-job-state-tracking`).
     *   I will use `git checkout -b <branch-name>` to create and switch to this branch.
 
-3.  **Work in Isolation:** All subsequent file modifications, commits, and tests will occur exclusively on this feature branch. The `main` branch will not be touched directly.
+3.  **Pull Requests to Develop:** All PRs must target the `develop` branch, not `main`.
+    *   When creating a PR, I will use `gh pr create --base develop`.
+    *   The `develop` branch serves as the integration branch for testing combined changes.
+    *   Only after testing on `develop` will changes be merged to `main`.
+
+4.  **Work in Isolation:** All subsequent file modifications, commits, and tests will occur exclusively on this feature branch. Neither `main` nor `develop` will be touched directly.
 
 This protocol is the first step in any development task. Failure to adhere to it will result in an immediate halt and reset of the workflow.
 
