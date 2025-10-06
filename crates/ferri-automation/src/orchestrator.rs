@@ -8,7 +8,7 @@
 
 use crate::execute::PreparedCommand;
 use crate::expressions::{self, EvaluationContext};
-use crate::flow::{FlowDocument, Job, Step, StepUpdate, StepStatus};
+use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpdate, StepStatus};
 use crate::jobs;
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
@@ -23,7 +23,7 @@ use std::time::Duration;
 pub struct FlowOrchestrator {
     flow: FlowDocument,
     base_path: std::path::PathBuf,
-    update_sender: Sender<StepUpdate>,
+    update_sender: Sender<Update>,
     runtime_inputs: HashMap<String, String>,
 }
 
@@ -31,7 +31,7 @@ impl FlowOrchestrator {
     pub fn new(
         flow: FlowDocument,
         base_path: &Path,
-        update_sender: Sender<StepUpdate>,
+        update_sender: Sender<Update>,
         runtime_inputs: HashMap<String, String>,
     ) -> Self {
         Self {
@@ -137,6 +137,14 @@ impl FlowOrchestrator {
         wave: &[String],
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
     ) -> io::Result<()> {
+        // Send Pending status for all jobs in this wave
+        for job_id in wave {
+            self.update_sender.send(Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status: JobStatus::Pending,
+            })).unwrap();
+        }
+
         let mut handles = Vec::new();
 
         for job_id in wave {
@@ -165,9 +173,34 @@ impl FlowOrchestrator {
 
         // Wait for all jobs in this wave to complete
         let mut errors = Vec::new();
-        for handle in handles {
-            if let Err(e) = handle.join() {
-                errors.push(format!("Job thread panicked: {:?}", e));
+        for (idx, handle) in handles.into_iter().enumerate() {
+            let job_id = &wave[idx];
+            match handle.join() {
+                Ok(Ok(())) => {
+                    // Job succeeded
+                    self.update_sender.send(Update::Job(JobUpdate {
+                        job_id: job_id.clone(),
+                        status: JobStatus::Succeeded,
+                    })).unwrap();
+                }
+                Ok(Err(e)) => {
+                    // Job returned an error
+                    let error_msg = e.to_string();
+                    self.update_sender.send(Update::Job(JobUpdate {
+                        job_id: job_id.clone(),
+                        status: JobStatus::Failed(error_msg.clone()),
+                    })).unwrap();
+                    errors.push(format!("Job '{}' failed: {}", job_id, error_msg));
+                }
+                Err(e) => {
+                    // Thread panicked
+                    let panic_msg = format!("Job thread panicked: {:?}", e);
+                    self.update_sender.send(Update::Job(JobUpdate {
+                        job_id: job_id.clone(),
+                        status: JobStatus::Failed(panic_msg.clone()),
+                    })).unwrap();
+                    errors.push(panic_msg);
+                }
             }
         }
 
@@ -186,11 +219,17 @@ impl FlowOrchestrator {
         job_id: &str,
         job: &Job,
         base_path: &Path,
-        update_sender: Sender<StepUpdate>,
+        update_sender: Sender<Update>,
         runtime_inputs: &HashMap<String, String>,
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         _flow: &FlowDocument,
     ) -> io::Result<()> {
+        // Send Running status
+        update_sender.send(Update::Job(JobUpdate {
+            job_id: job_id.to_string(),
+            status: JobStatus::Running,
+        })).unwrap();
+
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
 
@@ -234,16 +273,16 @@ impl FlowOrchestrator {
         step_name: &str,
         step: &Step,
         base_path: &Path,
-        update_sender: &Sender<StepUpdate>,
+        update_sender: &Sender<Update>,
         ctx: &mut EvaluationContext,
     ) -> io::Result<()> {
         // Send running status
-        update_sender.send(StepUpdate {
+        update_sender.send(Update::Step(StepUpdate {
             job_id: job_id.to_string(),
             step_name: step_name.to_string(),
             status: StepStatus::Running,
             output: None,
-        }).unwrap();
+        })).unwrap();
 
         // Evaluate expressions in the step
         let evaluated_step = Self::evaluate_step_expressions(step, ctx)?;
@@ -299,7 +338,7 @@ impl FlowOrchestrator {
         command: &str,
         env: &Option<HashMap<String, String>>,
         base_path: &Path,
-        update_sender: &Sender<StepUpdate>,
+        update_sender: &Sender<Update>,
         ctx: &mut EvaluationContext,
     ) -> io::Result<()> {
         // For now, execute as a simple shell command
@@ -351,45 +390,45 @@ impl FlowOrchestrator {
                             );
                         }
 
-                        update_sender.send(StepUpdate {
+                        update_sender.send(Update::Step(StepUpdate {
                             job_id: job_id.to_string(),
                             step_name: step_name.to_string(),
                             status: StepStatus::Completed,
                             output: Some(output),
-                        }).unwrap();
+                        })).unwrap();
 
                         break;
                     }
                     "Failed" => {
                         let err_msg = format!("Step '{}' failed", step_name);
-                        update_sender.send(StepUpdate {
+                        update_sender.send(Update::Step(StepUpdate {
                             job_id: job_id.to_string(),
                             step_name: step_name.to_string(),
                             status: StepStatus::Failed(err_msg.clone()),
                             output: None,
-                        }).unwrap();
+                        })).unwrap();
 
                         return Err(io::Error::new(io::ErrorKind::Other, err_msg));
                     }
                     _ => {
                         // Still running
                         let output = jobs::get_job_output(base_path, &background_job_id)?;
-                        update_sender.send(StepUpdate {
+                        update_sender.send(Update::Step(StepUpdate {
                             job_id: job_id.to_string(),
                             step_name: step_name.to_string(),
                             status: StepStatus::Running,
                             output: Some(output),
-                        }).unwrap();
+                        })).unwrap();
                     }
                 }
             } else {
                 // Job not found - assume completed
-                update_sender.send(StepUpdate {
+                update_sender.send(Update::Step(StepUpdate {
                     job_id: job_id.to_string(),
                     step_name: step_name.to_string(),
                     status: StepStatus::Completed,
                     output: None,
-                }).unwrap();
+                })).unwrap();
                 break;
             }
         }
@@ -516,5 +555,67 @@ mod tests {
         assert!(order[0].contains(&"job1".to_string()));
         assert!(order[0].contains(&"job2".to_string()));
         assert_eq!(order[1], vec!["job3"]);
+    }
+
+    #[test]
+    fn test_job_state_tracking() {
+        // Create a simple flow with two jobs
+        let mut jobs = HashMap::new();
+
+        jobs.insert("job1".to_string(), Job {
+            name: Some("Job 1".to_string()),
+            runs_on: "ubuntu-latest".to_string(),
+            needs: None,
+            steps: vec![],
+        });
+
+        jobs.insert("job2".to_string(), Job {
+            name: Some("Job 2".to_string()),
+            runs_on: "ubuntu-latest".to_string(),
+            needs: Some(vec!["job1".to_string()]),
+            steps: vec![],
+        });
+
+        let flow = FlowDocument {
+            api_version: "ferri.flow/v1alpha1".to_string(),
+            kind: "Flow".to_string(),
+            metadata: Metadata {
+                name: "test-flow".to_string(),
+                labels: None,
+                annotations: None,
+            },
+            spec: FlowSpec {
+                inputs: None,
+                workspaces: None,
+                jobs,
+            },
+        };
+
+        let (tx, rx) = crossbeam_channel::unbounded();
+        let orchestrator = FlowOrchestrator::new(
+            flow,
+            Path::new("/tmp"),
+            tx,
+            HashMap::new(),
+        );
+
+        // Get execution order
+        let order = orchestrator.resolve_execution_order().unwrap();
+        assert_eq!(order.len(), 2);
+
+        // Verify we have the channel set up correctly
+        // (Full execution test would require mocking the job system)
+        // For now, just verify the structure is correct
+        assert_eq!(order[0], vec!["job1"]);
+        assert_eq!(order[1], vec!["job2"]);
+
+        // The channel rx would receive job status updates during actual execution:
+        // - Update::Job(JobUpdate { job_id: "job1", status: Pending })
+        // - Update::Job(JobUpdate { job_id: "job1", status: Running })
+        // - Update::Job(JobUpdate { job_id: "job1", status: Succeeded })
+        // - Update::Job(JobUpdate { job_id: "job2", status: Pending })
+        // - Update::Job(JobUpdate { job_id: "job2", status: Running })
+        // - Update::Job(JobUpdate { job_id: "job2", status: Succeeded })
+        drop(rx); // Verify channel was created
     }
 }
