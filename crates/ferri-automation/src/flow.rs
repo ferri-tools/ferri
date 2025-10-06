@@ -34,6 +34,26 @@ pub struct StepUpdate {
     pub status: StepStatus,
     pub output: Option<String>,
 }
+
+#[derive(Clone, Debug)]
+pub enum JobStatus {
+    Pending,
+    Running,
+    Succeeded,
+    Failed(String),
+}
+
+#[derive(Clone, Debug)]
+pub struct JobUpdate {
+    pub job_id: String,
+    pub status: JobStatus,
+}
+
+#[derive(Clone, Debug)]
+pub enum Update {
+    Job(JobUpdate),
+    Step(StepUpdate),
+}
 // ---
 
 // --- Top-Level Schema ---
