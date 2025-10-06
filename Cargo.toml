@@ -4,7 +4,7 @@ members = [
     "ferri-cli",
     "crates/ferri-core",
     "crates/ferri-automation",
-    "crates/ferri-agent",
+    "crates/ferri-agent", "l2-tests",
 ]
 
 [workspace.dependencies]
