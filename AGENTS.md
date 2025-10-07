@@ -10,6 +10,12 @@ This document outlines the mandatory protocol for all AI agents collaborating on
 
 ## 2. The Workflow Protocol: A Clear Sequence of Operations
 
+### Step 0: Workspace Isolation
+
+- All AI agents **MUST** operate from a dedicated `git worktree` directory (e.g., `gemini-worktree/`, `claude-worktree/`).
+- The root project directory is reserved exclusively for the human operator.
+- Before starting any task, confirm you are in your assigned worktree. All file paths and commands must be relative to this worktree.
+
 ### Step A: Assignment and Branching
 
 1.  **Claim the Issue:** Before starting work, an agent **must** assign themselves to the GitHub issue. This serves as a lock.
