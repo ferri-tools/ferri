@@ -3,6 +3,16 @@
 Before executing any user prompt, I **MUST** read the corresponding issue's chat file as defined in `CHAT.md`. After completing all actions for a prompt, I **MUST** append my activity log to that same file. This is non-negotiable for multi-agent coordination.
 
 ---
+
+### **CRITICAL: Workspace Protocol**
+
+You **MUST** operate exclusively from within your assigned `git worktree` directory (e.g., `gemini-worktree/`).
+
+- **DO NOT** operate in the main project root directory; it is reserved for the human operator.
+- All commands (`git`, file edits, etc.) must be executed from your worktree.
+- This is a non-negotiable directive to ensure a clean and isolated development environment. It is the first step before the "Issue and Branching Protocol".
+
+---
 # Gemini Workflow
 
 This document outlines the primary workflow for interacting with the Ferri project. I will use this as my guide for our sessions.
@@ -34,9 +44,9 @@ At the start of each session, I will:
 
 At the end of a session, or when a major pivot in strategy occurs, I will write a summary of our progress to a log file.
 
-*   **Location:** `development_resources/logs/`
-*   **Filename:** `log-YYYY-MM-DD.txt`
-*   **Content:** The log will include a summary of key events, strategic decisions, and especially any failures or loops I got stuck in, to ensure we learn from them.
+* **Location:** `development_resources/logs/`
+* **Filename:** `log-YYYY-MM-DD.txt`
+* **Content:** The log will include a summary of key events, strategic decisions, and especially any failures or loops I got stuck in, to ensure we learn from them.
 
 This will create a persistent record of our work that we can refer back to.
 
@@ -45,9 +55,9 @@ This will create a persistent record of our work that we can refer back to.
 ## Core Reference Files
 
 To inform our work, I will always refer to:
-*   **`README.md`**: For understanding the project's architecture and goals.
-*   **GitHub Issues** (via `gh issue list` and `gh issue view`): As the single source of truth for all development tasks.
-*   **The source code**: To verify implementation status.
+* **`README.md`**: For understanding the project's architecture and goals.
+* **GitHub Issues** (via `gh issue list` and `gh issue view`): As the single source of truth for all development tasks.
+* **The source code**: To verify implementation status.
 
 This should go without saying but always confirm if changing the .gitignore. It already happened before and it made things go crazy for a bit.
 
@@ -56,12 +66,12 @@ This should go without saying but always confirm if changing the .gitignore. It 
 
 To ensure a high-quality, maintainable codebase, we will adhere to the following practices:
 
-*   **Atomic Commits:** Each commit should represent a single, logical change. Commits should reference their corresponding issue number (e.g., `fix(auth): #21 - Fix login redirect bug`).
-*   **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
-*   **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
-*   **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
-*   **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
-*   **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
+* **Atomic Commits:** Each commit should represent a single, logical change. Commits should reference their corresponding issue number (e.g., `fix(auth): #21 - Fix login redirect bug`).
+* **Test-Driven Development (TDD):** For new functionality, we will write a failing test *before* writing the implementation. This ensures the code is correct, testable, and meets requirements from the start.
+* **Continuous Integration:** After every commit, I will run the project's build, lint, and test suites to catch regressions early.
+* **Zero-Warning Policy:** Compiler warnings must be treated as errors and fixed immediately. A clean, warning-free build is required at all times.
+* **User-Centric Testing:** When a feature is complete, I will install the binary and provide clear instructions for you to perform the final user acceptance testing (UAT).
+* **Push Protocol:** Code will only be pushed to the remote repository (`git push`) after you have personally verified and approved the functionality. Frequent local commits will continue.
 
 ---
 ## Multi-Agent Collaboration
@@ -75,20 +85,20 @@ When working in a multi-agent environment, all development practices are superse
 To ensure all work is tracked, isolated, and aligned with project management, the following protocol is **mandatory and non-negotiable**.
 
 1.  **Issue First:** No work of any kind shall begin without a corresponding GitHub issue.
-    *   Before any action, I will generate the appropriate `gh issue create` command.
-    *   I will present this command to you for execution.
-    *   I will not proceed until the issue is created.
+    * Before any action, I will generate the appropriate `gh issue create` command.
+    * I will present this command to you for execution.
+    * I will not proceed until the issue is created.
 
 2.  **Branch from Develop:** All work must be done on a dedicated feature branch created from `develop`.
-    *   After an issue is created, I will ensure I'm on the `develop` branch with `git checkout develop`.
-    *   I will create a new feature branch from `develop`.
-    *   The branch name must follow the format: `feature/<issue-number>-<short-description>` (e.g., `feature/24-job-state-tracking`).
-    *   I will use `git checkout -b <branch-name>` to create and switch to this branch.
+    * After an issue is created, I will ensure I'm on the `develop` branch with `git checkout develop`.
+    * I will create a new feature branch from `develop`.
+    * The branch name must follow the format: `feature/<issue-number>-<short-description>` (e.g., `feature/24-job-state-tracking`).
+    * I will use `git checkout -b <branch-name>` to create and switch to this branch.
 
 3.  **Pull Requests to Develop:** All PRs must target the `develop` branch, not `main`.
-    *   When creating a PR, I will use `gh pr create --base develop`.
-    *   The `develop` branch serves as the integration branch for testing combined changes.
-    *   Only after testing on `develop` will changes be merged to `main`.
+    - **Command:** `gh pr create --base develop`
+    * The `develop` branch serves as the integration branch for testing combined changes.
+    * Only after testing on `develop` will changes be merged to `main`.
 
 4.  **Work in Isolation:** All subsequent file modifications, commits, and tests will occur exclusively on this feature branch. Neither `main` nor `develop` will be touched directly.
 
@@ -103,8 +113,8 @@ To combat context bloat, ensure efficiency, and maintain focus, the following pr
 I will approach context gathering in the following tiered manner:
 
 1.  **Tier 1 (Core Context):** Always begin with the absolute minimum:
-    *   `README.md`: For high-level architecture and project goals.
-    *   GitHub Issues (via `gh issue view <number>`): To understand the specific ticket, goal, and tasks.
+    * `README.md`: For high-level architecture and project goals.
+    * GitHub Issues (via `gh issue view <number>`): To understand the specific ticket, goal, and tasks.
 
 2.  **Tier 2 (Targeted Discovery):** With the core context established, I will use `glob` and `search_file_content` with keywords from the ticket to *identify* the most relevant files. I will not read them yet. This prevents premature context loading.
 
@@ -121,16 +131,16 @@ I will approach context gathering in the following tiered manner:
 To prevent unexpected costs, the following protocol is a **mandatory safeguard**.
 
 1.  **Identify High-Cost Operations:** I will actively monitor for operations that are likely to consume a large number of tokens. This includes, but is not limited to:
-    *   Reading multiple large files.
-    *   Reading an entire directory of files.
-    *   Performing overly broad code searches.
-    *   Generating large volumes of code or text.
+    * Reading multiple large files.
+    * Reading an entire directory of files.
+    * Performing overly broad code searches.
+    * Generating large volumes of code or text.
 
 2.  **Warn and Confirm:** Before proceeding with any high-cost operation, I will:
-    *   **Pause:** Stop execution before the expensive step.
-    *   **Warn:** Explicitly state that the next action may have a high token cost.
-    *   **Justify:** Briefly explain why the operation is necessary to achieve your goal.
-    *   **Request Confirmation:** Ask for your explicit "yes" or "proceed" to continue.
+    * **Pause:** Stop execution before the expensive step.
+    * **Warn:** Explicitly state that the next action may have a high token cost.
+    * **Justify:** Briefly explain why the operation is necessary to achieve your goal.
+    * **Request Confirmation:** Ask for your explicit "yes" or "proceed" to continue.
 
 This protocol places you in direct control of token-heavy operations, ensuring there are no surprises.
 
@@ -143,10 +153,10 @@ If at any point my context becomes fragmented, lost, or if I am repeatedly faili
 1.  **Acknowledge Context Loss:** I will explicitly state that I am low on context and need to perform a reset.
 
 2.  **Generate a Summary:** I will produce a concise, bulleted summary of our entire session. This summary will include:
-    *   The initial high-level goal.
-    *   Each distinct problem or bug that was identified.
-    *   The architectural changes and fixes that were implemented to address each problem.
-    *   The current status and my hypothesis for the remaining issue.
+    * The initial high-level goal.
+    * Each distinct problem or bug that was identified.
+    * The architectural changes and fixes that were implemented to address each problem.
+    * The current status and my hypothesis for the remaining issue.
 
 3.  **Save Session to File:** I will save this summary to a dedicated file: `development_resources/logs/last_session.md`.
 
