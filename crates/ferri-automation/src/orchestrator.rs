@@ -12,7 +12,7 @@ use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::{self, BufRead};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
