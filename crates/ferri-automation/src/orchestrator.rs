@@ -399,6 +399,9 @@ impl FlowOrchestrator {
         workspace_paths: &HashMap<String, PathBuf>,
         step_workspaces: &Option<Vec<crate::flow::StepWorkspace>>,
     ) -> io::Result<()> {
+        // Create a temporary file for step outputs
+        let output_file = base_path.join(format!(".ferri-step-output-{}-{}", job_id, step_name));
+
         // Build command for direct execution
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(command);
@@ -445,8 +448,28 @@ impl FlowOrchestrator {
                 }
 
                 if output.status.success() {
-                    // Store step output in context
-                    // TODO: Parse ferri-runtime set-output commands from output (#29)
+                    // Parse outputs from the output file
+                    if output_file.exists() {
+                        if let Ok(file) = fs::File::open(&output_file) {
+                            let reader = io::BufReader::new(file);
+                            for line in reader.lines() {
+                                if let Ok(line) = line {
+                                    // Parse format: name=value
+                                    if let Some((name, value)) = line.split_once('=') {
+                                        ctx.add_step_output(
+                                            step_name.to_string(),
+                                            name.trim().to_string(),
+                                            value.trim().to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        // Clean up the temporary file
+                        let _ = fs::remove_file(&output_file);
+                    }
+
+                    // Also store stdout for backward compatibility
                     ctx.add_step_output(
                         step_name.to_string(),
                         "stdout".to_string(),
@@ -463,6 +486,11 @@ impl FlowOrchestrator {
 
                     Ok(())
                 } else {
+                    // Clean up output file on failure
+                    if output_file.exists() {
+                        let _ = fs::remove_file(&output_file);
+                    }
+
                     // Command failed
                     let exit_code = output.status.code().unwrap_or(-1);
                     let err_msg = format!(
