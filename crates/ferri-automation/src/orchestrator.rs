@@ -11,7 +11,7 @@ use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpd
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::io;
+use std::io::{self, BufRead};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
