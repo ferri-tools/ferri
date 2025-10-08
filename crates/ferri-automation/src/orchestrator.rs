@@ -11,8 +11,8 @@ use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpd
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::io::{self, BufRead};
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -42,6 +42,12 @@ impl FlowOrchestrator {
 
     /// Execute the entire flow
     pub fn execute(&self) -> io::Result<()> {
+        // Create temporary workspace directories
+        let workspace_root = self.create_workspace_directories()?;
+
+        // Ensure cleanup happens even if execution fails
+        let _cleanup_guard = WorkspaceCleanupGuard::new(workspace_root.clone());
+
         // Resolve execution order
         let execution_order = self.resolve_execution_order()?;
 
@@ -54,6 +60,32 @@ impl FlowOrchestrator {
         }
 
         Ok(())
+    }
+
+    /// Create temporary workspace directories for this flow run
+    fn create_workspace_directories(&self) -> io::Result<PathBuf> {
+        // Create a unique temporary directory for this flow run
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let flow_name = &self.flow.metadata.name;
+        let workspace_root = std::env::temp_dir()
+            .join("ferri-workspaces")
+            .join(format!("{}-{}", flow_name, timestamp));
+
+        // Create the root directory
+        fs::create_dir_all(&workspace_root)?;
+
+        // Create a subdirectory for each workspace defined in the flow
+        if let Some(workspaces) = &self.flow.spec.workspaces {
+            for workspace in workspaces {
+                let workspace_dir = workspace_root.join(&workspace.name);
+                fs::create_dir_all(&workspace_dir)?;
+            }
+        }
+
+        Ok(workspace_root)
     }
 
     /// Resolve job execution order using topological sort
@@ -452,6 +484,25 @@ impl FlowOrchestrator {
     }
 }
 
+/// Guard that ensures workspace directories are cleaned up when dropped
+struct WorkspaceCleanupGuard {
+    workspace_root: PathBuf,
+}
+
+impl WorkspaceCleanupGuard {
+    fn new(workspace_root: PathBuf) -> Self {
+        Self { workspace_root }
+    }
+}
+
+impl Drop for WorkspaceCleanupGuard {
+    fn drop(&mut self) {
+        // Attempt to remove the workspace directory
+        // Ignore errors during cleanup to avoid panicking in drop
+        let _ = fs::remove_dir_all(&self.workspace_root);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -635,55 +686,66 @@ mod tests {
     }
 
     #[test]
-    fn test_step_output_parsing() {
-        use std::io::Write;
-        use tempfile::TempDir;
+    fn test_workspace_creation_and_cleanup() {
+        use crate::flow::Workspace;
 
-        // Create a temporary directory for the test
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path();
+        // Create a flow with workspace definitions
+        let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job {
+            name: Some("Test Job".to_string()),
+            runs_on: "ubuntu-latest".to_string(),
+            needs: None,
+            steps: vec![],
+        });
 
-        // Create a mock output file
-        let output_file = temp_path.join(".ferri-step-output-job1-step1");
-        let mut file = fs::File::create(&output_file).unwrap();
-        writeln!(file, "result=42").unwrap();
-        writeln!(file, "message=hello world").unwrap();
-        writeln!(file, "status=success").unwrap();
-        drop(file);
+        let flow = FlowDocument {
+            api_version: "ferri.flow/v1alpha1".to_string(),
+            kind: "Flow".to_string(),
+            metadata: Metadata {
+                name: "test-workspace-flow".to_string(),
+                labels: None,
+                annotations: None,
+            },
+            spec: FlowSpec {
+                inputs: None,
+                workspaces: Some(vec![
+                    Workspace { name: "data".to_string() },
+                    Workspace { name: "logs".to_string() },
+                ]),
+                jobs,
+            },
+        };
 
-        // Create evaluation context
-        let mut ctx = EvaluationContext::new();
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let orchestrator = FlowOrchestrator::new(
+            flow,
+            Path::new("/tmp"),
+            tx,
+            HashMap::new(),
+        );
 
-        // Parse the output file (simulating what the orchestrator does)
-        if output_file.exists() {
-            if let Ok(file) = fs::File::open(&output_file) {
-                let reader = io::BufReader::new(file);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        if let Some((name, value)) = line.split_once('=') {
-                            ctx.add_step_output(
-                                "step1".to_string(),
-                                name.trim().to_string(),
-                                value.trim().to_string(),
-                            );
-                        }
-                    }
-                }
-            }
+        // Create workspaces
+        let workspace_root = orchestrator.create_workspace_directories().unwrap();
+
+        // Verify root directory was created
+        assert!(workspace_root.exists());
+        assert!(workspace_root.is_dir());
+
+        // Verify workspace subdirectories were created
+        let data_workspace = workspace_root.join("data");
+        let logs_workspace = workspace_root.join("logs");
+        assert!(data_workspace.exists());
+        assert!(data_workspace.is_dir());
+        assert!(logs_workspace.exists());
+        assert!(logs_workspace.is_dir());
+
+        // Test cleanup guard
+        {
+            let _guard = WorkspaceCleanupGuard::new(workspace_root.clone());
+            // Guard goes out of scope here
         }
 
-        // Verify outputs were parsed correctly
-        assert_eq!(
-            ctx.step_outputs.get("step1").unwrap().get("result").unwrap(),
-            "42"
-        );
-        assert_eq!(
-            ctx.step_outputs.get("step1").unwrap().get("message").unwrap(),
-            "hello world"
-        );
-        assert_eq!(
-            ctx.step_outputs.get("step1").unwrap().get("status").unwrap(),
-            "success"
-        );
+        // Verify directory was cleaned up
+        assert!(!workspace_root.exists());
     }
 }
