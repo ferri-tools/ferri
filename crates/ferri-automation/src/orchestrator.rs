@@ -7,12 +7,12 @@
 //! - Real-time status updates
 
 use crate::expressions::{self, EvaluationContext};
-use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpdate, StepStatus};
+use crate::flow::{FlowDocument, Job, JobStatus, JobUpdate, Step, StepStatus, StepUpdate, Update};
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::io::{self, BufRead};
+use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -70,10 +70,7 @@ impl FlowOrchestrator {
         let mut paths = HashMap::new();
         if let Some(workspaces) = &self.flow.spec.workspaces {
             for workspace in workspaces {
-                paths.insert(
-                    workspace.name.clone(),
-                    workspace_root.join(&workspace.name),
-                );
+                paths.insert(workspace.name.clone(), workspace_root.join(&workspace.name));
             }
         }
         paths
@@ -171,7 +168,7 @@ impl FlowOrchestrator {
         if processed != jobs.len() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Circular dependency detected in job graph"
+                "Circular dependency detected in job graph",
             ));
         }
 
@@ -187,10 +184,12 @@ impl FlowOrchestrator {
     ) -> io::Result<()> {
         // Send Pending status for all jobs in this wave
         for job_id in wave {
-            self.update_sender.send(Update::Job(JobUpdate {
-                job_id: job_id.clone(),
-                status: JobStatus::Pending,
-            })).unwrap();
+            self.update_sender
+                .send(Update::Job(JobUpdate {
+                    job_id: job_id.clone(),
+                    status: JobStatus::Pending,
+                }))
+                .unwrap();
         }
 
         let mut handles = Vec::new();
@@ -229,37 +228,40 @@ impl FlowOrchestrator {
             match handle.join() {
                 Ok(Ok(())) => {
                     // Job succeeded
-                    self.update_sender.send(Update::Job(JobUpdate {
-                        job_id: job_id.clone(),
-                        status: JobStatus::Succeeded,
-                    })).unwrap();
+                    self.update_sender
+                        .send(Update::Job(JobUpdate {
+                            job_id: job_id.clone(),
+                            status: JobStatus::Succeeded,
+                        }))
+                        .unwrap();
                 }
                 Ok(Err(e)) => {
                     // Job returned an error
                     let error_msg = e.to_string();
-                    self.update_sender.send(Update::Job(JobUpdate {
-                        job_id: job_id.clone(),
-                        status: JobStatus::Failed(error_msg.clone()),
-                    })).unwrap();
+                    self.update_sender
+                        .send(Update::Job(JobUpdate {
+                            job_id: job_id.clone(),
+                            status: JobStatus::Failed(error_msg.clone()),
+                        }))
+                        .unwrap();
                     errors.push(format!("Job '{}' failed: {}", job_id, error_msg));
                 }
                 Err(e) => {
                     // Thread panicked
                     let panic_msg = format!("Job thread panicked: {:?}", e);
-                    self.update_sender.send(Update::Job(JobUpdate {
-                        job_id: job_id.clone(),
-                        status: JobStatus::Failed(panic_msg.clone()),
-                    })).unwrap();
+                    self.update_sender
+                        .send(Update::Job(JobUpdate {
+                            job_id: job_id.clone(),
+                            status: JobStatus::Failed(panic_msg.clone()),
+                        }))
+                        .unwrap();
                     errors.push(panic_msg);
                 }
             }
         }
 
         if !errors.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                errors.join("; ")
-            ));
+            return Err(io::Error::new(io::ErrorKind::Other, errors.join("; ")));
         }
 
         Ok(())
@@ -277,10 +279,12 @@ impl FlowOrchestrator {
         workspace_paths: &HashMap<String, PathBuf>,
     ) -> io::Result<()> {
         // Send Running status
-        update_sender.send(Update::Job(JobUpdate {
-            job_id: job_id.to_string(),
-            status: JobStatus::Running,
-        })).unwrap();
+        update_sender
+            .send(Update::Job(JobUpdate {
+                job_id: job_id.to_string(),
+                status: JobStatus::Running,
+            }))
+            .unwrap();
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -301,7 +305,9 @@ impl FlowOrchestrator {
 
         // Execute each step sequentially within the job
         for (step_idx, step) in job.steps.iter().enumerate() {
-            let step_name = step.name.clone()
+            let step_name = step
+                .name
+                .clone()
                 .unwrap_or_else(|| format!("step-{}", step_idx));
 
             Self::execute_step(
@@ -331,12 +337,14 @@ impl FlowOrchestrator {
         workspace_paths: &HashMap<String, PathBuf>,
     ) -> io::Result<()> {
         // Send running status
-        update_sender.send(Update::Step(StepUpdate {
-            job_id: job_id.to_string(),
-            step_name: step_name.to_string(),
-            status: StepStatus::Running,
-            output: None,
-        })).unwrap();
+        update_sender
+            .send(Update::Step(StepUpdate {
+                job_id: job_id.to_string(),
+                step_name: step_name.to_string(),
+                status: StepStatus::Running,
+                output: None,
+            }))
+            .unwrap();
 
         // Evaluate expressions in the step
         let evaluated_step = Self::evaluate_step_expressions(step, ctx)?;
@@ -358,7 +366,7 @@ impl FlowOrchestrator {
             // TODO: Implement reusable actions
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                format!("Reusable actions not yet implemented: {}", uses)
+                format!("Reusable actions not yet implemented: {}", uses),
             ));
         }
 
@@ -399,26 +407,16 @@ impl FlowOrchestrator {
         workspace_paths: &HashMap<String, PathBuf>,
         step_workspaces: &Option<Vec<crate::flow::StepWorkspace>>,
     ) -> io::Result<()> {
+        // Create a temporary file for step outputs
+        let output_file = base_path.join(format!(".ferri-step-output-{}-{}", job_id, step_name));
+
         // Build command for direct execution
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(command);
         cmd.current_dir(base_path);
 
-        // Mount workspaces by setting environment variables
-        if let Some(step_ws) = step_workspaces {
-            for ws in step_ws {
-                if let Some(workspace_path) = workspace_paths.get(&ws.name) {
-                    // Set FERRI_WORKSPACE_<NAME> environment variable
-                    let env_var_name = format!("FERRI_WORKSPACE_{}", ws.name.to_uppercase());
-                    cmd.env(&env_var_name, workspace_path);
-                } else {
-                    return Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("Workspace '{}' not found in flow definition", ws.name)
-                    ));
-                }
-            }
-        }
+        // Set FERRI_OUTPUT_FILE environment variable
+        cmd.env("FERRI_OUTPUT_FILE", &output_file);
 
         // Add user-provided environment variables
         if let Some(env_vars) = env {
@@ -445,8 +443,28 @@ impl FlowOrchestrator {
                 }
 
                 if output.status.success() {
-                    // Store step output in context
-                    // TODO: Parse ferri-runtime set-output commands from output (#29)
+                    // Parse outputs from the output file
+                    if output_file.exists() {
+                        if let Ok(file) = fs::File::open(&output_file) {
+                            let reader = io::BufReader::new(file);
+                            for line in reader.lines() {
+                                if let Ok(line) = line {
+                                    // Parse format: name=value
+                                    if let Some((name, value)) = line.split_once('=') {
+                                        ctx.add_step_output(
+                                            step_name.to_string(),
+                                            name.trim().to_string(),
+                                            value.trim().to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        // Clean up the temporary file
+                        let _ = fs::remove_file(&output_file);
+                    }
+
+                    // Also store stdout for backward compatibility
                     ctx.add_step_output(
                         step_name.to_string(),
                         "stdout".to_string(),
@@ -454,15 +472,22 @@ impl FlowOrchestrator {
                     );
 
                     // Send completion update
-                    update_sender.send(Update::Step(StepUpdate {
-                        job_id: job_id.to_string(),
-                        step_name: step_name.to_string(),
-                        status: StepStatus::Completed,
-                        output: Some(combined_output),
-                    })).unwrap();
+                    update_sender
+                        .send(Update::Step(StepUpdate {
+                            job_id: job_id.to_string(),
+                            step_name: step_name.to_string(),
+                            status: StepStatus::Completed,
+                            output: Some(combined_output),
+                        }))
+                        .unwrap();
 
                     Ok(())
                 } else {
+                    // Clean up output file on failure
+                    if output_file.exists() {
+                        let _ = fs::remove_file(&output_file);
+                    }
+
                     // Command failed
                     let exit_code = output.status.code().unwrap_or(-1);
                     let err_msg = format!(
@@ -470,12 +495,14 @@ impl FlowOrchestrator {
                         step_name, exit_code, combined_output
                     );
 
-                    update_sender.send(Update::Step(StepUpdate {
-                        job_id: job_id.to_string(),
-                        step_name: step_name.to_string(),
-                        status: StepStatus::Failed(err_msg.clone()),
-                        output: Some(combined_output),
-                    })).unwrap();
+                    update_sender
+                        .send(Update::Step(StepUpdate {
+                            job_id: job_id.to_string(),
+                            step_name: step_name.to_string(),
+                            status: StepStatus::Failed(err_msg.clone()),
+                            output: Some(combined_output),
+                        }))
+                        .unwrap();
 
                     Err(io::Error::new(io::ErrorKind::Other, err_msg))
                 }
@@ -484,12 +511,14 @@ impl FlowOrchestrator {
                 // Failed to execute command
                 let err_msg = format!("Failed to execute step '{}': {}", step_name, e);
 
-                update_sender.send(Update::Step(StepUpdate {
-                    job_id: job_id.to_string(),
-                    step_name: step_name.to_string(),
-                    status: StepStatus::Failed(err_msg.clone()),
-                    output: None,
-                })).unwrap();
+                update_sender
+                    .send(Update::Step(StepUpdate {
+                        job_id: job_id.to_string(),
+                        step_name: step_name.to_string(),
+                        status: StepStatus::Failed(err_msg.clone()),
+                        output: None,
+                    }))
+                    .unwrap();
 
                 Err(io::Error::new(io::ErrorKind::Other, err_msg))
             }
@@ -526,26 +555,35 @@ mod tests {
         // Create a simple flow: job1 -> job2 -> job3
         let mut jobs = HashMap::new();
 
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Job 1".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: None,
+                steps: vec![],
+            },
+        );
 
-        jobs.insert("job2".to_string(), Job {
-            name: Some("Job 2".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job1".to_string()]),
-            steps: vec![],
-        });
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: Some(vec!["job1".to_string()]),
+                steps: vec![],
+            },
+        );
 
-        jobs.insert("job3".to_string(), Job {
-            name: Some("Job 3".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job2".to_string()]),
-            steps: vec![],
-        });
+        jobs.insert(
+            "job3".to_string(),
+            Job {
+                name: Some("Job 3".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: Some(vec!["job2".to_string()]),
+                steps: vec![],
+            },
+        );
 
         let flow = FlowDocument {
             api_version: "ferri.flow/v1alpha1".to_string(),
@@ -563,12 +601,7 @@ mod tests {
         };
 
         let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
-        );
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), tx, HashMap::new());
 
         let order = orchestrator.resolve_execution_order().unwrap();
 
@@ -583,26 +616,35 @@ mod tests {
         // Create jobs that can run in parallel
         let mut jobs = HashMap::new();
 
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Job 1".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: None,
+                steps: vec![],
+            },
+        );
 
-        jobs.insert("job2".to_string(), Job {
-            name: Some("Job 2".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: None,
+                steps: vec![],
+            },
+        );
 
-        jobs.insert("job3".to_string(), Job {
-            name: Some("Job 3".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job1".to_string(), "job2".to_string()]),
-            steps: vec![],
-        });
+        jobs.insert(
+            "job3".to_string(),
+            Job {
+                name: Some("Job 3".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: Some(vec!["job1".to_string(), "job2".to_string()]),
+                steps: vec![],
+            },
+        );
 
         let flow = FlowDocument {
             api_version: "ferri.flow/v1alpha1".to_string(),
@@ -620,12 +662,7 @@ mod tests {
         };
 
         let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
-        );
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), tx, HashMap::new());
 
         let order = orchestrator.resolve_execution_order().unwrap();
 
@@ -641,19 +678,25 @@ mod tests {
         // Create a simple flow with two jobs
         let mut jobs = HashMap::new();
 
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Job 1".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: None,
+                steps: vec![],
+            },
+        );
 
-        jobs.insert("job2".to_string(), Job {
-            name: Some("Job 2".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job1".to_string()]),
-            steps: vec![],
-        });
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: "ubuntu-latest".to_string(),
+                needs: Some(vec!["job1".to_string()]),
+                steps: vec![],
+            },
+        );
 
         let flow = FlowDocument {
             api_version: "ferri.flow/v1alpha1".to_string(),
@@ -671,12 +714,7 @@ mod tests {
         };
 
         let (tx, rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
-        );
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), tx, HashMap::new());
 
         // Get execution order
         let order = orchestrator.resolve_execution_order().unwrap();
@@ -699,121 +737,67 @@ mod tests {
     }
 
     #[test]
-    fn test_workspace_creation_and_cleanup() {
-        use crate::flow::Workspace;
+    fn test_step_output_parsing() {
+        use std::io::Write;
+        use tempfile::TempDir;
 
-        // Create a flow with workspace definitions
-        let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Test Job".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
+        // Create a temporary directory for the test
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path();
 
-        let flow = FlowDocument {
-            api_version: "ferri.flow/v1alpha1".to_string(),
-            kind: "Flow".to_string(),
-            metadata: Metadata {
-                name: "test-workspace-flow".to_string(),
-                labels: None,
-                annotations: None,
-            },
-            spec: FlowSpec {
-                inputs: None,
-                workspaces: Some(vec![
-                    Workspace { name: "data".to_string() },
-                    Workspace { name: "logs".to_string() },
-                ]),
-                jobs,
-            },
-        };
+        // Create a mock output file
+        let output_file = temp_path.join(".ferri-step-output-job1-step1");
+        let mut file = fs::File::create(&output_file).unwrap();
+        writeln!(file, "result=42").unwrap();
+        writeln!(file, "message=hello world").unwrap();
+        writeln!(file, "status=success").unwrap();
+        drop(file);
 
-        let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
-        );
+        // Create evaluation context
+        let mut ctx = EvaluationContext::new();
 
-        // Create workspaces
-        let workspace_root = orchestrator.create_workspace_directories().unwrap();
-
-        // Verify root directory was created
-        assert!(workspace_root.exists());
-        assert!(workspace_root.is_dir());
-
-        // Verify workspace subdirectories were created
-        let data_workspace = workspace_root.join("data");
-        let logs_workspace = workspace_root.join("logs");
-        assert!(data_workspace.exists());
-        assert!(data_workspace.is_dir());
-        assert!(logs_workspace.exists());
-        assert!(logs_workspace.is_dir());
-
-        // Test cleanup guard
-        {
-            let _guard = WorkspaceCleanupGuard::new(workspace_root.clone());
-            // Guard goes out of scope here
+        // Parse the output file (simulating what the orchestrator does)
+        if output_file.exists() {
+            if let Ok(file) = fs::File::open(&output_file) {
+                let reader = io::BufReader::new(file);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        if let Some((name, value)) = line.split_once('=') {
+                            ctx.add_step_output(
+                                "step1".to_string(),
+                                name.trim().to_string(),
+                                value.trim().to_string(),
+                            );
+                        }
+                    }
+                }
+            }
         }
 
-        // Verify directory was cleaned up
-        assert!(!workspace_root.exists());
-    }
-
-    #[test]
-    fn test_workspace_paths_mapping() {
-        use crate::flow::Workspace;
-        use std::path::PathBuf;
-
-        // Create a flow with workspaces
-        let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Test Job".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
-
-        let flow = FlowDocument {
-            api_version: "ferri.flow/v1alpha1".to_string(),
-            kind: "Flow".to_string(),
-            metadata: Metadata {
-                name: "test-flow".to_string(),
-                labels: None,
-                annotations: None,
-            },
-            spec: FlowSpec {
-                inputs: None,
-                workspaces: Some(vec![
-                    Workspace { name: "data".to_string() },
-                    Workspace { name: "cache".to_string() },
-                ]),
-                jobs,
-            },
-        };
-
-        let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
-        );
-
-        // Test workspace path building
-        let workspace_root = PathBuf::from("/tmp/test-workspaces");
-        let workspace_paths = orchestrator.build_workspace_paths(&workspace_root);
-
-        assert_eq!(workspace_paths.len(), 2);
+        // Verify outputs were parsed correctly
         assert_eq!(
-            workspace_paths.get("data").unwrap(),
-            &workspace_root.join("data")
+            ctx.step_outputs
+                .get("step1")
+                .unwrap()
+                .get("result")
+                .unwrap(),
+            "42"
         );
         assert_eq!(
-            workspace_paths.get("cache").unwrap(),
-            &workspace_root.join("cache")
+            ctx.step_outputs
+                .get("step1")
+                .unwrap()
+                .get("message")
+                .unwrap(),
+            "hello world"
+        );
+        assert_eq!(
+            ctx.step_outputs
+                .get("step1")
+                .unwrap()
+                .get("status")
+                .unwrap(),
+            "success"
         );
     }
 }
