@@ -11,3 +11,5 @@ project_resources/development_resources/
 .obsidian
 .zed
 sandbox
+claude-worktree/
+gemini-worktree/
