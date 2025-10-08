@@ -65,6 +65,19 @@ enum Commands {
     Ui,
     #[command(hide = true)]
     Doctor,
+    #[command(hide = true)]
+    Runtime {
+        #[command(subcommand)]
+        action: RuntimeCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum RuntimeCommand {
+    SetOutput {
+        name: String,
+        value: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -594,6 +607,38 @@ async fn main() {
             }
             println!("\n--- Diagnostics Complete ---");
         }
+        Commands::Runtime { action } => match action {
+            RuntimeCommand::SetOutput { name, value } => {
+                // Read the output file path from environment variable
+                let output_file = match env::var("FERRI_OUTPUT_FILE") {
+                    Ok(path) => path,
+                    Err(_) => {
+                        eprintln!("Error: FERRI_OUTPUT_FILE environment variable not set");
+                        eprintln!("This command should only be called from within a ferri flow step");
+                        std::process::exit(1);
+                    }
+                };
+
+                // Append the output to the file in the format: name=value
+                let output_line = format!("{}={}\n", name, value);
+                match fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&output_file)
+                {
+                    Ok(mut file) => {
+                        if let Err(e) = file.write_all(output_line.as_bytes()) {
+                            eprintln!("Error: Failed to write to output file - {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: Failed to open output file '{}' - {}", output_file, e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
     }
 }
 

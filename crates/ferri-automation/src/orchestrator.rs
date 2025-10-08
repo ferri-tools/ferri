@@ -10,7 +10,8 @@ use crate::expressions::{self, EvaluationContext};
 use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpdate, StepStatus};
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
-use std::io;
+use std::fs;
+use std::io::{self, BufRead};
 use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -338,12 +339,18 @@ impl FlowOrchestrator {
         update_sender: &Sender<Update>,
         ctx: &mut EvaluationContext,
     ) -> io::Result<()> {
+        // Create a temporary file for step outputs
+        let output_file = base_path.join(format!(".ferri-step-output-{}-{}", job_id, step_name));
+
         // Build command for direct execution
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(command);
         cmd.current_dir(base_path);
 
-        // Add environment variables
+        // Set FERRI_OUTPUT_FILE environment variable
+        cmd.env("FERRI_OUTPUT_FILE", &output_file);
+
+        // Add user-provided environment variables
         if let Some(env_vars) = env {
             for (key, value) in env_vars {
                 cmd.env(key, value);
@@ -368,8 +375,28 @@ impl FlowOrchestrator {
                 }
 
                 if output.status.success() {
-                    // Store step output in context
-                    // TODO: Parse ferri-runtime set-output commands from output (#29)
+                    // Parse outputs from the output file
+                    if output_file.exists() {
+                        if let Ok(file) = fs::File::open(&output_file) {
+                            let reader = io::BufReader::new(file);
+                            for line in reader.lines() {
+                                if let Ok(line) = line {
+                                    // Parse format: name=value
+                                    if let Some((name, value)) = line.split_once('=') {
+                                        ctx.add_step_output(
+                                            step_name.to_string(),
+                                            name.trim().to_string(),
+                                            value.trim().to_string(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        // Clean up the temporary file
+                        let _ = fs::remove_file(&output_file);
+                    }
+
+                    // Also store stdout for backward compatibility
                     ctx.add_step_output(
                         step_name.to_string(),
                         "stdout".to_string(),
@@ -386,6 +413,11 @@ impl FlowOrchestrator {
 
                     Ok(())
                 } else {
+                    // Clean up output file on failure
+                    if output_file.exists() {
+                        let _ = fs::remove_file(&output_file);
+                    }
+
                     // Command failed
                     let exit_code = output.status.code().unwrap_or(-1);
                     let err_msg = format!(
@@ -600,5 +632,58 @@ mod tests {
         // - Update::Job(JobUpdate { job_id: "job2", status: Running })
         // - Update::Job(JobUpdate { job_id: "job2", status: Succeeded })
         drop(rx); // Verify channel was created
+    }
+
+    #[test]
+    fn test_step_output_parsing() {
+        use std::io::Write;
+        use tempfile::TempDir;
+
+        // Create a temporary directory for the test
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path();
+
+        // Create a mock output file
+        let output_file = temp_path.join(".ferri-step-output-job1-step1");
+        let mut file = fs::File::create(&output_file).unwrap();
+        writeln!(file, "result=42").unwrap();
+        writeln!(file, "message=hello world").unwrap();
+        writeln!(file, "status=success").unwrap();
+        drop(file);
+
+        // Create evaluation context
+        let mut ctx = EvaluationContext::new();
+
+        // Parse the output file (simulating what the orchestrator does)
+        if output_file.exists() {
+            if let Ok(file) = fs::File::open(&output_file) {
+                let reader = io::BufReader::new(file);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        if let Some((name, value)) = line.split_once('=') {
+                            ctx.add_step_output(
+                                "step1".to_string(),
+                                name.trim().to_string(),
+                                value.trim().to_string(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // Verify outputs were parsed correctly
+        assert_eq!(
+            ctx.step_outputs.get("step1").unwrap().get("result").unwrap(),
+            "42"
+        );
+        assert_eq!(
+            ctx.step_outputs.get("step1").unwrap().get("message").unwrap(),
+            "hello world"
+        );
+        assert_eq!(
+            ctx.step_outputs.get("step1").unwrap().get("status").unwrap(),
+            "success"
+        );
     }
 }
