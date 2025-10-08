@@ -10,8 +10,9 @@ use crate::expressions::{self, EvaluationContext};
 use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpdate, StepStatus};
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
+use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -41,6 +42,12 @@ impl FlowOrchestrator {
 
     /// Execute the entire flow
     pub fn execute(&self) -> io::Result<()> {
+        // Create temporary workspace directories
+        let workspace_root = self.create_workspace_directories()?;
+
+        // Ensure cleanup happens even if execution fails
+        let _cleanup_guard = WorkspaceCleanupGuard::new(workspace_root.clone());
+
         // Resolve execution order
         let execution_order = self.resolve_execution_order()?;
 
@@ -53,6 +60,32 @@ impl FlowOrchestrator {
         }
 
         Ok(())
+    }
+
+    /// Create temporary workspace directories for this flow run
+    fn create_workspace_directories(&self) -> io::Result<PathBuf> {
+        // Create a unique temporary directory for this flow run
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let flow_name = &self.flow.metadata.name;
+        let workspace_root = std::env::temp_dir()
+            .join("ferri-workspaces")
+            .join(format!("{}-{}", flow_name, timestamp));
+
+        // Create the root directory
+        fs::create_dir_all(&workspace_root)?;
+
+        // Create a subdirectory for each workspace defined in the flow
+        if let Some(workspaces) = &self.flow.spec.workspaces {
+            for workspace in workspaces {
+                let workspace_dir = workspace_root.join(&workspace.name);
+                fs::create_dir_all(&workspace_dir)?;
+            }
+        }
+
+        Ok(workspace_root)
     }
 
     /// Resolve job execution order using topological sort
@@ -420,6 +453,25 @@ impl FlowOrchestrator {
     }
 }
 
+/// Guard that ensures workspace directories are cleaned up when dropped
+struct WorkspaceCleanupGuard {
+    workspace_root: PathBuf,
+}
+
+impl WorkspaceCleanupGuard {
+    fn new(workspace_root: PathBuf) -> Self {
+        Self { workspace_root }
+    }
+}
+
+impl Drop for WorkspaceCleanupGuard {
+    fn drop(&mut self) {
+        // Attempt to remove the workspace directory
+        // Ignore errors during cleanup to avoid panicking in drop
+        let _ = fs::remove_dir_all(&self.workspace_root);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -600,5 +652,69 @@ mod tests {
         // - Update::Job(JobUpdate { job_id: "job2", status: Running })
         // - Update::Job(JobUpdate { job_id: "job2", status: Succeeded })
         drop(rx); // Verify channel was created
+    }
+
+    #[test]
+    fn test_workspace_creation_and_cleanup() {
+        use crate::flow::Workspace;
+
+        // Create a flow with workspace definitions
+        let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job {
+            name: Some("Test Job".to_string()),
+            runs_on: "ubuntu-latest".to_string(),
+            needs: None,
+            steps: vec![],
+        });
+
+        let flow = FlowDocument {
+            api_version: "ferri.flow/v1alpha1".to_string(),
+            kind: "Flow".to_string(),
+            metadata: Metadata {
+                name: "test-workspace-flow".to_string(),
+                labels: None,
+                annotations: None,
+            },
+            spec: FlowSpec {
+                inputs: None,
+                workspaces: Some(vec![
+                    Workspace { name: "data".to_string() },
+                    Workspace { name: "logs".to_string() },
+                ]),
+                jobs,
+            },
+        };
+
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let orchestrator = FlowOrchestrator::new(
+            flow,
+            Path::new("/tmp"),
+            tx,
+            HashMap::new(),
+        );
+
+        // Create workspaces
+        let workspace_root = orchestrator.create_workspace_directories().unwrap();
+
+        // Verify root directory was created
+        assert!(workspace_root.exists());
+        assert!(workspace_root.is_dir());
+
+        // Verify workspace subdirectories were created
+        let data_workspace = workspace_root.join("data");
+        let logs_workspace = workspace_root.join("logs");
+        assert!(data_workspace.exists());
+        assert!(data_workspace.is_dir());
+        assert!(logs_workspace.exists());
+        assert!(logs_workspace.is_dir());
+
+        // Test cleanup guard
+        {
+            let _guard = WorkspaceCleanupGuard::new(workspace_root.clone());
+            // Guard goes out of scope here
+        }
+
+        // Verify directory was cleaned up
+        assert!(!workspace_root.exists());
     }
 }
