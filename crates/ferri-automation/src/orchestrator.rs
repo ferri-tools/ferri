@@ -45,6 +45,9 @@ impl FlowOrchestrator {
         // Create temporary workspace directories
         let workspace_root = self.create_workspace_directories()?;
 
+        // Build workspace path mapping
+        let workspace_paths = self.build_workspace_paths(&workspace_root);
+
         // Ensure cleanup happens even if execution fails
         let _cleanup_guard = WorkspaceCleanupGuard::new(workspace_root.clone());
 
@@ -56,10 +59,24 @@ impl FlowOrchestrator {
 
         // Execute jobs in waves (each wave contains jobs that can run in parallel)
         for wave in execution_order {
-            self.execute_wave(&wave, Arc::clone(&job_outputs))?;
+            self.execute_wave(&wave, Arc::clone(&job_outputs), &workspace_paths)?;
         }
 
         Ok(())
+    }
+
+    /// Build a mapping of workspace names to their absolute paths
+    fn build_workspace_paths(&self, workspace_root: &Path) -> HashMap<String, PathBuf> {
+        let mut paths = HashMap::new();
+        if let Some(workspaces) = &self.flow.spec.workspaces {
+            for workspace in workspaces {
+                paths.insert(
+                    workspace.name.clone(),
+                    workspace_root.join(&workspace.name),
+                );
+            }
+        }
+        paths
     }
 
     /// Create temporary workspace directories for this flow run
@@ -166,6 +183,7 @@ impl FlowOrchestrator {
         &self,
         wave: &[String],
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
+        workspace_paths: &HashMap<String, PathBuf>,
     ) -> io::Result<()> {
         // Send Pending status for all jobs in this wave
         for job_id in wave {
@@ -186,6 +204,8 @@ impl FlowOrchestrator {
             let job_outputs_clone = Arc::clone(&job_outputs);
             let flow = self.flow.clone();
 
+            let workspace_paths_clone = workspace_paths.clone();
+
             let handle = thread::spawn(move || {
                 Self::execute_job(
                     &job_id,
@@ -195,6 +215,7 @@ impl FlowOrchestrator {
                     &runtime_inputs,
                     job_outputs_clone,
                     &flow,
+                    &workspace_paths_clone,
                 )
             });
 
@@ -253,6 +274,7 @@ impl FlowOrchestrator {
         runtime_inputs: &HashMap<String, String>,
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         _flow: &FlowDocument,
+        workspace_paths: &HashMap<String, PathBuf>,
     ) -> io::Result<()> {
         // Send Running status
         update_sender.send(Update::Job(JobUpdate {
@@ -289,6 +311,7 @@ impl FlowOrchestrator {
                 base_path,
                 &update_sender,
                 &mut ctx,
+                workspace_paths,
             )?;
         }
 
@@ -305,6 +328,7 @@ impl FlowOrchestrator {
         base_path: &Path,
         update_sender: &Sender<Update>,
         ctx: &mut EvaluationContext,
+        workspace_paths: &HashMap<String, PathBuf>,
     ) -> io::Result<()> {
         // Send running status
         update_sender.send(Update::Step(StepUpdate {
@@ -327,6 +351,8 @@ impl FlowOrchestrator {
                 base_path,
                 update_sender,
                 ctx,
+                workspace_paths,
+                &evaluated_step.workspaces,
             )?;
         } else if let Some(uses) = &evaluated_step.uses {
             // TODO: Implement reusable actions
@@ -370,13 +396,31 @@ impl FlowOrchestrator {
         base_path: &Path,
         update_sender: &Sender<Update>,
         ctx: &mut EvaluationContext,
+        workspace_paths: &HashMap<String, PathBuf>,
+        step_workspaces: &Option<Vec<crate::flow::StepWorkspace>>,
     ) -> io::Result<()> {
         // Build command for direct execution
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(command);
         cmd.current_dir(base_path);
 
-        // Add environment variables
+        // Mount workspaces by setting environment variables
+        if let Some(step_ws) = step_workspaces {
+            for ws in step_ws {
+                if let Some(workspace_path) = workspace_paths.get(&ws.name) {
+                    // Set FERRI_WORKSPACE_<NAME> environment variable
+                    let env_var_name = format!("FERRI_WORKSPACE_{}", ws.name.to_uppercase());
+                    cmd.env(&env_var_name, workspace_path);
+                } else {
+                    return Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("Workspace '{}' not found in flow definition", ws.name)
+                    ));
+                }
+            }
+        }
+
+        // Add user-provided environment variables
         if let Some(env_vars) = env {
             for (key, value) in env_vars {
                 cmd.env(key, value);
@@ -716,5 +760,60 @@ mod tests {
 
         // Verify directory was cleaned up
         assert!(!workspace_root.exists());
+    }
+
+    #[test]
+    fn test_workspace_paths_mapping() {
+        use crate::flow::Workspace;
+        use std::path::PathBuf;
+
+        // Create a flow with workspaces
+        let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job {
+            name: Some("Test Job".to_string()),
+            runs_on: "ubuntu-latest".to_string(),
+            needs: None,
+            steps: vec![],
+        });
+
+        let flow = FlowDocument {
+            api_version: "ferri.flow/v1alpha1".to_string(),
+            kind: "Flow".to_string(),
+            metadata: Metadata {
+                name: "test-flow".to_string(),
+                labels: None,
+                annotations: None,
+            },
+            spec: FlowSpec {
+                inputs: None,
+                workspaces: Some(vec![
+                    Workspace { name: "data".to_string() },
+                    Workspace { name: "cache".to_string() },
+                ]),
+                jobs,
+            },
+        };
+
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let orchestrator = FlowOrchestrator::new(
+            flow,
+            Path::new("/tmp"),
+            tx,
+            HashMap::new(),
+        );
+
+        // Test workspace path building
+        let workspace_root = PathBuf::from("/tmp/test-workspaces");
+        let workspace_paths = orchestrator.build_workspace_paths(&workspace_root);
+
+        assert_eq!(workspace_paths.len(), 2);
+        assert_eq!(
+            workspace_paths.get("data").unwrap(),
+            &workspace_root.join("data")
+        );
+        assert_eq!(
+            workspace_paths.get("cache").unwrap(),
+            &workspace_root.join("cache")
+        );
     }
 }
