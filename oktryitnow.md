@@ -1,213 +1,85 @@
-# Test: Background Jobs with Status Updates (Ollama Local Models)
-
-**Objective:** Verify that `ferri run` jobs properly transition from "Running" to "Completed" status for local Ollama models.
-
-**Note:** Remote model support (`--model gemini`) is not yet implemented for background jobs.
-
----
+# Test Plan: E2E Integration Tests for L2 Engine (#35)
 
 ## Prerequisites
 
-1. Rebuild and install `ferri`:
-   ```bash
-   cd /Users/jorgeajimenez/repos/ferri
-   cargo build --release
-   cargo install --path .
-   ```
+These tests run automatically as part of the test suite. No manual setup required.
 
-2. Ensure Ollama is running with a model pulled:
-   ```bash
-   ollama pull gemma:2b
-   ```
+## Running the Tests
 
----
-
-## Setup: Clean Test Environment
+From the project root (or claude-worktree):
 
 ```bash
-# Create fresh test directory
-mkdir -p /tmp/ferri-jobs-test-$(date +%s)
-cd /tmp/ferri-jobs-test-$(date +%s)
+# Run only the E2E integration tests
+cargo test --test flow_e2e_tests
 
-# Initialize ferri
-ferri init
+# Run with output
+cargo test --test flow_e2e_tests -- --nocapture
+
+# Run a specific test
+cargo test --test flow_e2e_tests test_simple_single_job_execution
+
+# Run all tests including unit tests
+cargo test
 ```
 
----
+## Test Coverage
 
-## Configure Ollama Model
+The new integration test suite covers:
 
-```bash
-# Add local Ollama model
-ferri models add gemma --provider ollama --model-name gemma:2b
+1. **Simple single-job execution** - Basic job with multiple steps
+2. **Multi-job with dependencies** - Sequential jobs using `needs`
+3. **Job failure propagation** - Jobs fail when steps exit with non-zero
+4. **Dependency failure behavior** - Failed jobs skip downstream dependents
+5. **Multiple steps in job** - Five sequential steps execute in order
+6. **Step failure stops job** - Failing step prevents subsequent steps
+7. **Empty command output** - Commands with no output succeed
+8. **Long-running commands** - Sleep commands complete successfully
+9. **Multiline shell scripts** - Multiline YAML `run:` blocks work correctly
 
-# Verify model is registered
-ferri models ls
+## Expected Results
+
+When you run the tests, you should see:
+
+```
+running 9 tests
+test test_dependency_failure_skips_downstream ... ok
+test test_empty_command_output ... ok
+test test_job_failure_propagation ... ok
+test test_long_running_command ... ok
+test test_multi_job_with_dependencies ... ok
+test test_multiline_shell_script ... ok
+test test_multiple_steps_in_job ... ok
+test test_simple_single_job_execution ... ok
+test test_step_failure_stops_job ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured
 ```
 
----
+## Adding New Tests
 
-## Test 1: Simple Local Job
+To add new integration tests:
 
-```bash
-# Run a quick local job
-ferri run --model gemma -- "Write a haiku about Rust programming"
+1. Open `crates/ferri-automation/tests/flow_e2e_tests.rs`
+2. Create a new test function with `#[test]` attribute
+3. Define your flow YAML inline as a string
+4. Call `execute_flow(flow_yaml)` to run it
+5. Use the `ExecutionSummary` helper methods to make assertions:
+   - `summary.job_succeeded("job_id")`
+   - `summary.job_failed("job_id")`
+   - `summary.step_completed("job_id", "step_name")`
+   - `summary.step_failed("job_id", "step_name")`
+   - `summary.get_step_output("job_id", "step_name")`
 
-# Immediately check status (should show "Running")
-ferri ps
+## Future Test Ideas
 
-# Wait 5 seconds for completion
-sleep 5
+As issue #35 is ongoing, consider adding tests for:
 
-# Check status again (should show "Completed")
-ferri ps
-
-# Get the job ID from the last run
-JOB_ID=$(cat .ferri/jobs.json | grep '"id"' | tail -1 | cut -d'"' -f4)
-
-# Retrieve the output
-ferri yank $JOB_ID
-```
-
-**Expected Results:**
-- ✅ Job initially shows "Running" in `ferri ps`
-- ✅ After completion, job shows "Completed" in `ferri ps`
-- ✅ `ferri yank` returns the haiku output
-
----
-
-## Test 2: Multiple Concurrent Jobs
-
-```bash
-# Launch 3 jobs at once
-ferri run --model gemma -- "Name 3 Rust crates for web development"
-ferri run --model gemma -- "What is cargo?"
-ferri run --model gemma -- "Explain borrowing in one sentence"
-
-# Check all are running
-ferri ps
-
-# Wait for completion
-sleep 8
-
-# Verify all completed
-ferri ps
-
-# View all outputs
-cat .ferri/jobs.json | grep '"id"' | tail -3 | cut -d'"' -f4 | while read job; do
-  echo "=== $job ==="
-  ferri yank $job
-  echo ""
-done
-```
-
-**Expected Results:**
-- ✅ All 3 jobs show "Running" initially
-- ✅ All 3 transition to "Completed"
-- ✅ All outputs are retrievable
-
----
-
-## Test 3: Long-Running Job with Real-Time Status Checks
-
-```bash
-# Start a longer generation
-ferri run --model gemma -- "Write a 300-word story about a developer debugging code at 3am"
-
-# Check status multiple times while it runs
-ferri ps
-sleep 3
-ferri ps
-sleep 3
-ferri ps
-sleep 5
-
-# Final check (should be completed)
-ferri ps
-
-# Get output
-JOB_ID=$(cat .ferri/jobs.json | grep '"id"' | tail -1 | cut -d'"' -f4)
-ferri yank $JOB_ID
-```
-
-**Expected Results:**
-- ✅ Status updates correctly on each `ferri ps` call
-- ✅ Final status is "Completed"
-- ✅ Full story is retrieved
-
----
-
-## Test 4: Verify Job Files Created Correctly
-
-```bash
-# Run a simple job
-ferri run --model gemma -- "Count to 5"
-
-# Get the job ID
-JOB_ID=$(cat .ferri/jobs.json | grep '"id"' | tail -1 | cut -d'"' -f4)
-
-# Wait for completion
-sleep 5
-
-# Check files were created
-ls -la .ferri/jobs/$JOB_ID/
-
-# Expected files:
-# - stdout.log (contains the output)
-# - stderr.log (should be empty or minimal)
-
-# Check stdout content
-cat .ferri/jobs/$JOB_ID/stdout.log
-
-# Verify ferri ps shows completed
-ferri ps
-```
-
-**Expected Results:**
-- ✅ Job directory exists with stdout.log and stderr.log
-- ✅ stdout.log contains the model output
-- ✅ Status shows "Completed" in `ferri ps`
-
----
-
-## Debugging
-
-If jobs stay "Running":
-
-```bash
-# Check if process still exists
-ps aux | grep -i ollama
-ps aux | grep -i ferri
-
-# Check job files
-ls -la .ferri/jobs/job-*/
-
-# Check jobs.json directly
-cat .ferri/jobs.json | tail -30
-
-# Check stdout/stderr logs
-cat .ferri/jobs/job-*/stdout.log
-cat .ferri/jobs/job-*/stderr.log
-
-# Check if PID is still valid
-cat .ferri/jobs.json | grep '"pid"' | tail -1
-```
-
----
-
-## Success Criteria
-
-All of the following must work:
-
-1. ✅ Local (Ollama) jobs complete and update status
-2. ✅ Multiple concurrent jobs all transition correctly
-3. ✅ `ferri ps` shows accurate real-time status
-4. ✅ `ferri yank` retrieves all outputs successfully
-5. ✅ Job files (stdout.log, stderr.log) are created properly
-
----
-
-## Known Limitations
-
-- ❌ Remote models (Gemini, etc.) are not yet supported in `ferri run`
-- ✅ Only local Ollama models work with background jobs currently
+- Context interpolation (`${{ ctx.inputs.foo }}`)
+- Environment variable injection
+- Workspace mounting (when implemented)
+- Parallel job execution (when implemented)
+- Job outputs and step outputs
+- Conditional execution
+- Matrix builds
+- Retry logic
+- Timeout handling
