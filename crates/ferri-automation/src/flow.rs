@@ -152,7 +152,8 @@ pub struct Job {
     pub name: Option<String>,
 
     /// Runner environment (e.g., "ubuntu-latest")
-    pub runs_on: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runs_on: Option<String>,
 
     /// Job IDs that must complete before this job starts
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -182,6 +183,10 @@ pub struct Step {
     /// Reusable action to execute (mutually exclusive with 'run')
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uses: Option<String>,
+    
+    /// Declared output artifacts or files the task is expected to produce.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outputs: Option<Vec<String>>,
 
     /// Input parameters for the action specified by 'uses'
     #[serde(default, skip_serializing_if = "Option::is_none")]
