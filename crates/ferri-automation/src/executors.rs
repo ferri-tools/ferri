@@ -68,8 +68,62 @@ impl Executor for ProcessExecutor {
         Ok(Box::new(empty))
     }
 
-    fn cleanup(&self, _context: ExecutionContext) -> Result<()> {
-        // Placeholder implementation
-        Ok(())
+        fn cleanup(&self, _context: ExecutionContext) -> Result<()> {
+
+            // Placeholder implementation
+
+            Ok(())
+
+        }
+
     }
-}
+
+    
+
+    // --- Executor Registry ---
+
+    
+
+    /// A registry for managing and accessing available executors.
+
+    pub struct ExecutorRegistry {
+
+        executors: std::collections::HashMap<String, Box<dyn Executor + Send + Sync>>,
+
+    }
+
+    
+
+    impl ExecutorRegistry {
+
+        /// Creates a new registry and populates it with the default executors.
+
+        pub fn new() -> Self {
+
+            let mut executors = std::collections::HashMap::new();
+
+            executors.insert(
+
+                "process".to_string(),
+
+                Box::new(ProcessExecutor) as Box<dyn Executor + Send + Sync>,
+
+            );
+
+            Self { executors }
+
+        }
+
+    
+
+        /// Retrieves an executor by name.
+
+        pub fn get(&self, name: &str) -> Option<&(dyn Executor + Send + Sync)> {
+
+            self.executors.get(name).map(|e| e.as_ref())
+
+        }
+
+    }
+
+    

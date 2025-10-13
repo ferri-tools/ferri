@@ -6,6 +6,7 @@
 //! - Context management and expression evaluation
 //! - Real-time status updates
 
+use crate::executors::ExecutorRegistry;
 use crate::expressions::{self, EvaluationContext};
 use crate::flow::{FlowDocument, Job, JobStatus, JobUpdate, Step, StepStatus, StepUpdate, Update};
 use crossbeam_channel::Sender;
@@ -23,6 +24,7 @@ pub struct FlowOrchestrator {
     base_path: std::path::PathBuf,
     update_sender: Sender<Update>,
     runtime_inputs: HashMap<String, String>,
+    executor_registry: ExecutorRegistry,
 }
 
 impl FlowOrchestrator {
@@ -37,6 +39,7 @@ impl FlowOrchestrator {
             base_path: base_path.to_path_buf(),
             update_sender,
             runtime_inputs,
+            executor_registry: ExecutorRegistry::new(),
         }
     }
 
