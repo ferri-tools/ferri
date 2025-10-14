@@ -298,7 +298,9 @@ impl FlowOrchestrator {
             )
         })?;
 
-        println!("Job '{}' selected executor: {}", job_id, executor_name); // Temporary for verification
+        let handle = executor.execute(job, base_path, &HashMap::new())?;
+
+        println!("Job '{}' started with handle: {:?}", job_id, handle); // Temporary for verification
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());

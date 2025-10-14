@@ -163,42 +163,7 @@ fn spawn_local_command(
     Ok(child)
 }
 
-fn execute_remote_command(
-    request: reqwest::blocking::RequestBuilder,
-) -> io::Result<Vec<u8>> {
-    let response = request.send().map_err(|e| io::Error::new(ErrorKind::Other, e))?;
-    let status = response.status();
-    let body = response.text().map_err(|e| io::Error::new(ErrorKind::Other, e))?;
 
-    if !status.is_success() {
-        return Err(io::Error::new(
-            ErrorKind::Other,
-            format!("API Error ({}): {}", status, body),
-        ));
-    }
-
-    let mut text_content = String::new();
-    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-        let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
-        for chunk in response_chunks {
-            if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                for candidate in candidates {
-                    if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                        for part in parts {
-                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                text_content.push_str(text);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        text_content = body;
-    }
-
-    Ok(text_content.into_bytes())
-}
 
 
 pub fn submit_job(
