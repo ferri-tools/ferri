@@ -2,7 +2,7 @@ use crate::tui::widgets::{
     cpu_widget::CpuWidget, memory_widget::MemoryWidget, network_widget::NetworkWidget,
     process_widget::ProcessWidget,
 };
-use ferri_automation::jobs::Job;
+use ferri_automation::jobs::JobInstance;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
@@ -12,7 +12,7 @@ use ratatui::{
 
 /// Represents the main application state.
 pub struct App<'a> {
-    pub jobs: &'a [Job],
+    pub jobs: &'a [JobInstance],
     pub process_table_state: TableState,
     pub cpu_usage_data: Vec<u64>,
     pub mem_used: u64,
@@ -23,7 +23,7 @@ pub struct App<'a> {
 
 impl<'a> App<'a> {
     /// Creates a new instance of the application.
-    pub fn new(jobs: &'a [Job]) -> Self {
+    pub fn new(jobs: &'a [JobInstance]) -> Self {
         Self {
             jobs,
             process_table_state: TableState::default(),

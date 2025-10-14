@@ -446,9 +446,13 @@ async fn main() {
         }
         Commands::Ps => match jobs::list_jobs(&current_path) {
             Ok(jobs) => {
-                if let Err(e) = ps_tui::run(jobs) {
-                    eprintln!("Error: Failed to launch ps dashboard - {}", e);
-                    std::process::exit(1);
+                if jobs.is_empty() {
+                    println!("No jobs found.");
+                } else {
+                    println!("{:<10} {:<12} {:<30} {:<20}", "ID", "Status", "Command", "Start Time");
+                    for job in jobs {
+                        println!("{:<10} {:<12} {:<30} {:<20}", job.id, job.status, job.command, job.start_time.format("%Y-%m-%d %H:%M:%S"));
+                    }
                 }
             }
             Err(e) => {
@@ -559,7 +563,7 @@ async fn main() {
             }
         }
         Commands::Doctor => {
-            println!("--- Ferri Doctor ---");
+            println!("-- Ferri Doctor --");
             println!("Running diagnostics...");
             print!("1. Checking for 'ollama' executable... ");
             match std::process::Command::new("which").arg("ollama").output() {
@@ -682,7 +686,7 @@ fn execute_flow_with_output(
 
                 job_states.insert(job_update.job_id.clone(), status_str.clone());
 
-                println!("📦 Job [{}]: {}", job_update.job_id, status_str);
+                println!("📦 Job [{}]:{}", job_update.job_id, status_str);
             }
             Update::Step(step_update) => {
                 let status_str = match &step_update.status {
@@ -772,7 +776,6 @@ fn print_init_message() {
                       *##***************                            *****************=
               =********************************              +******************************+
     "#;
-
     let mut recipe: Vec<serde_json::Value> = Vec::new();
     for c in art.chars() {
         match c {
