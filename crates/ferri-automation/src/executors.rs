@@ -31,16 +31,21 @@ impl ExecutorRegistry {
     }
 }
 
+use std::process::Command;
+
 struct ProcessExecutor;
 
 impl Executor for ProcessExecutor {
     fn execute(
         &self,
-        _job: &Job,
-        _base_path: &Path,
+        job: &Job,
+        base_path: &Path,
         _secrets: &HashMap<String, String>,
     ) -> io::Result<ExecutionHandle> {
-        // TODO: Implement process execution
-        Ok(ExecutionHandle("dummy-handle".to_string()))
+        let mut cmd = Command::new("echo");
+        cmd.arg("Hello from the process executor!");
+        cmd.current_dir(base_path);
+        let child = cmd.spawn()?;
+        Ok(ExecutionHandle(child.id().to_string()))
     }
 }
