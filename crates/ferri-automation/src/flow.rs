@@ -523,8 +523,8 @@ pub fn run_pipeline(
         loop {
             thread::sleep(std::time::Duration::from_millis(500));
             let jobs = jobs::list_jobs(base_path)?;
-            if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
-                match job.status.as_str() {
+            if let Some(job_instance) = jobs.iter().find(|j| j.id == job_id) {
+                match job_instance.status.as_str() {
                     "Completed" => {
                         // If this step produced an output file, record it for subsequent steps.
                         if let Some(output_path) = output_file_for_registration {

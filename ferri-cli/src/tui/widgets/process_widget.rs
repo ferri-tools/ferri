@@ -1,4 +1,4 @@
-use ferri_automation::jobs::Job;
+use ferri_automation::jobs::JobInstance;
 use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, StatefulWidget, Table, TableState},
@@ -6,11 +6,11 @@ use ratatui::{
 
 /// A stateful widget to display a list of Ferri jobs.
 pub struct ProcessWidget<'a> {
-    jobs: &'a [Job],
+    jobs: &'a [JobInstance],
 }
 
 impl<'a> ProcessWidget<'a> {
-    pub fn new(jobs: &'a [Job]) -> Self {
+    pub fn new(jobs: &'a [JobInstance]) -> Self {
         Self { jobs }
     }
 }
