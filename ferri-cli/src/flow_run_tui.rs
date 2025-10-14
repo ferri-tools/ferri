@@ -1,18 +1,65 @@
-use crate::flow_run_tui::app::App;
+
 use ferri_automation::flow::Pipeline;
+
 use crossterm::{
+
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+
     execute,
+
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+
 };
+
 use ratatui::{
+
     prelude::*,
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
+
+    widgets::{Block, Borders},
+
 };
+
 use std::io;
+
 use std::time::{Duration, Instant};
 
-mod app;
+
+
+struct App;
+
+
+
+
+
+
+
+impl App {
+
+
+
+    pub fn new(_pipeline: Pipeline) -> Self {
+
+
+
+        Self
+
+
+
+    }
+
+
+
+
+
+
+
+    pub fn on_tick(&mut self) {}
+
+
+
+}
+
+
 
 pub fn run(pipeline: Pipeline) -> io::Result<()> {
     enable_raw_mode()?;
@@ -69,7 +116,7 @@ fn run_app<B: Backend>(
     }
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+fn ui(f: &mut Frame, _app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(100)].as_ref())
