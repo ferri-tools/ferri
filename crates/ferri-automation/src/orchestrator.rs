@@ -24,7 +24,7 @@ pub struct FlowOrchestrator {
     base_path: std::path::PathBuf,
     update_sender: Sender<Update>,
     runtime_inputs: HashMap<String, String>,
-    executor_registry: ExecutorRegistry,
+    executor_registry: Arc<ExecutorRegistry>,
 }
 
 impl FlowOrchestrator {
@@ -39,7 +39,7 @@ impl FlowOrchestrator {
             base_path: base_path.to_path_buf(),
             update_sender,
             runtime_inputs,
-            executor_registry: ExecutorRegistry::new(),
+            executor_registry: Arc::new(ExecutorRegistry::new()),
         }
     }
 
@@ -208,6 +208,8 @@ impl FlowOrchestrator {
 
             let workspace_paths_clone = workspace_paths.clone();
 
+            let registry_clone = Arc::clone(&self.executor_registry);
+
             let handle = thread::spawn(move || {
                 Self::execute_job(
                     &job_id,
@@ -218,6 +220,7 @@ impl FlowOrchestrator {
                     job_outputs_clone,
                     &flow,
                     &workspace_paths_clone,
+                    registry_clone,
                 )
             });
 
@@ -280,6 +283,7 @@ impl FlowOrchestrator {
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         _flow: &FlowDocument,
         workspace_paths: &HashMap<String, PathBuf>,
+        executor_registry: Arc<ExecutorRegistry>,
     ) -> io::Result<()> {
         // Send Running status
         update_sender
@@ -288,6 +292,17 @@ impl FlowOrchestrator {
                 status: JobStatus::Running,
             }))
             .unwrap();
+
+        // --- Executor Selection ---
+        let executor_name = job.runs_on.as_deref().unwrap_or("process");
+        let executor = executor_registry.get(executor_name).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Executor '{}' not found for job '{}'", executor_name, job_id),
+            )
+        })?;
+
+        println!("Job '{}' selected executor: {}", job_id, executor_name); // Temporary for verification
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
