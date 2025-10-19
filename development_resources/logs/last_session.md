@@ -1,11 +1,19 @@
 ### **Session Summary**
 
-*   **Initial Goal:** Implement the Unification Plan, starting with Phase 1.
-*   **Problem 1:** I was using a destructive `git reset` workflow that caused me to lose local commits for issues #48 and #49.
-*   **Fix 1:** We corrected the workflow. I updated my `GEMINI.md` protocol to mandate creating a Pull Request and waiting for a merge before starting new work.
-*   **Problem 2:** While implementing the orchestrator integration (#57, #58), I have repeatedly failed to solve a series of Rust compiler errors related to thread safety, ownership, and lifetimes (`E0277`, `E0521`, `E0599`). My attempts to fix them have been circular and have sometimes corrupted the source file.
-*   **Current Status:** I have a clean branch (`feature/43-orchestrator-integration`) with the `ExecutorRegistry` changes applied, but I am stuck on a final compiler error in `orchestrator.rs` (`E0599: no method named as_deref`).
+*   **Initial Goal:** Continue the orchestrator refactoring (Issue #43), which was blocked by compiler errors after splitting `Job` into `Job` (definition) and `JobInstance` (runtime).
 
-### **Hypothesis for Remaining Issue**
+*   **Problem 1 (Major Detour):** The `Job`/`JobInstance` refactor broke the `ferri ps` TUI. After fixing the type errors, a persistent, environment-specific `crossterm` error ("Device not configured") blocked all progress. We spent a significant amount of time attempting to debug this TUI issue through various means (re-spawning processes, changing the async runtime), none of which were successful.
 
-The compiler is correct. The type of `job.runs_on` is `Option<String>`. The method `.as_deref()` is the correct one to get an `Option<&str>`. My repeated failures suggest I am either misreading the compiler error or there is a deeper type mismatch that I am not seeing. The correct line of code should be `let executor_name = job.runs_on.as_deref().unwrap_or("process");`. My repeated failure to make this work suggests I am fundamentally misunderstanding something about the types involved.
+*   **Fix 1 (The Pivot):** We made the strategic decision to abandon the TUI for now to unblock the main goal.
+    *   I reverted all complex TUI-related changes.
+    *   I implemented a simple, non-TUI `ferri ps` command that prints a formatted table of jobs to the console. This is now functional.
+    *   I created GitHub Issue #59 to track the TUI problem for a separate investigation.
+
+*   **Problem 2 (Return to Orchestrator):** With the `ps` command working, we returned to the orchestrator.
+    *   I successfully committed the `Job`/`JobInstance` refactor.
+    *   I began implementing the decoupled execution logic as per issue #43 and the roadmap. This involved creating an `Executor` trait and a basic `ProcessExecutor`.
+    *   While implementing the `ProcessExecutor` to run job steps and send status updates, I got stuck in a loop of compiler errors in `crates/ferri-automation/src/executors.rs`.
+
+*   **Current Status:** The `executors.rs` file is currently in a non-compilable state. The primary issue is a series of duplicate and missing `use` statements that were introduced during my attempts to implement the step execution logic.
+
+*   **Next Step:** The immediate next step upon resuming is to read `executors.rs`, clean up all the import statements at the top of the file to resolve the compiler errors, and then continue with the implementation of the `ProcessExecutor`.
