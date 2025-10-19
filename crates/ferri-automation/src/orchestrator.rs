@@ -7,14 +7,13 @@
 //! - Real-time status updates
 
 use crate::executors::ExecutorRegistry;
-use crate::expressions::{self, EvaluationContext};
-use crate::flow::{FlowDocument, Job, Step, Update, JobUpdate, JobStatus, StepUpdate, StepStatus};
+use crate::expressions::EvaluationContext;
+use crate::flow::{FlowDocument, Job, Update, JobUpdate, JobStatus};
 use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::io::{self, BufRead};
+use std::io::{self};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -280,7 +279,7 @@ impl FlowOrchestrator {
         runtime_inputs: &HashMap<String, String>,
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         _flow: &FlowDocument,
-        workspace_paths: &HashMap<String, PathBuf>,
+        _workspace_paths: &HashMap<String, PathBuf>,
         executor_registry: Arc<ExecutorRegistry>,
     ) -> io::Result<()> {
         // Send Running status
