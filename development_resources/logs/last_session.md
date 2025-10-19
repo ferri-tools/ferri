@@ -14,6 +14,12 @@
     *   I began implementing the decoupled execution logic as per issue #43 and the roadmap. This involved creating an `Executor` trait and a basic `ProcessExecutor`.
     *   While implementing the `ProcessExecutor` to run job steps and send status updates, I got stuck in a loop of compiler errors in `crates/ferri-automation/src/executors.rs`.
 
-*   **Current Status:** The `executors.rs` file is currently in a non-compilable state. The primary issue is a series of duplicate and missing `use` statements that were introduced during my attempts to implement the step execution logic.
+*   **Fix 2 (Orchestrator Refactoring):** I successfully refactored the orchestrator to decouple the step execution from the orchestrator and move it to the `Executor` trait.
+    *   I modified the `Executor` trait to return a `JoinHandle` to allow the orchestrator to wait for the executor to finish.
+    *   I removed the step execution logic from the `orchestrator.rs` file.
+    *   I added a new thread to the orchestrator to process updates from the executors.
+    *   I added a new field to the orchestrator to store the state of the steps.
 
-*   **Next Step:** The immediate next step upon resuming is to read `executors.rs`, clean up all the import statements at the top of the file to resolve the compiler errors, and then continue with the implementation of the `ProcessExecutor`.
+*   **Current Status:** The orchestrator integration is complete. The `ProcessExecutor` can now execute jobs and send status updates to the orchestrator, which processes them in a separate thread.
+
+*   **Next Step:** The next step is to implement the other executors, such as the Docker executor and the remote executor.
