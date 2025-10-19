@@ -298,9 +298,23 @@ impl FlowOrchestrator {
             )
         })?;
 
-        let handle = executor.execute(job, base_path, &HashMap::new())?;
+        let handle = executor.execute(job_id, job, base_path, &HashMap::new(), update_sender.clone())?;
 
-        println!("Job '{}' started with handle: {:?}", job_id, handle); // Temporary for verification
+        // Wait for the executor to finish
+        match handle.0.join() {
+            Ok(Ok(())) => {
+                // Job succeeded
+            }
+            Ok(Err(e)) => {
+                // Job returned an error
+                return Err(e);
+            }
+            Err(e) => {
+                // Thread panicked
+                let panic_msg = format!("Job thread panicked: {:?}", e);
+                return Err(io::Error::new(io::ErrorKind::Other, panic_msg));
+            }
+        }
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -319,229 +333,9 @@ impl FlowOrchestrator {
             }
         }
 
-        // Execute each step sequentially within the job
-        for (step_idx, step) in job.steps.iter().enumerate() {
-            let step_name = step.name.clone()
-                .unwrap_or_else(|| format!("step-{}", step_idx));
-
-            Self::execute_step(
-                job_id,
-                &step_name,
-                step,
-                base_path,
-                &update_sender,
-                &mut ctx,
-                workspace_paths,
-            )?;
-        }
-
         // TODO: Collect job-level outputs and store them in job_outputs
 
         Ok(())
-    }
-
-    /// Execute a single step
-    fn execute_step(
-        job_id: &str,
-        step_name: &str,
-        step: &Step,
-        base_path: &Path,
-        update_sender: &Sender<Update>,
-        ctx: &mut EvaluationContext,
-        workspace_paths: &HashMap<String, PathBuf>,
-    ) -> io::Result<()> {
-        // Send running status
-        update_sender.send(Update::Step(StepUpdate {
-            job_id: job_id.to_string(),
-            step_name: step_name.to_string(),
-            status: StepStatus::Running,
-            output: None,
-        })).unwrap();
-
-        // Evaluate expressions in the step
-        let evaluated_step = Self::evaluate_step_expressions(step, ctx)?;
-
-        // Execute based on step type
-        if let Some(run_command) = &evaluated_step.run {
-            Self::execute_run_step(
-                job_id,
-                step_name,
-                run_command,
-                &evaluated_step.env,
-                base_path,
-                update_sender,
-                ctx,
-                workspace_paths,
-                &evaluated_step.workspaces,
-            )?;
-        } else if let Some(uses) = &evaluated_step.uses {
-            // TODO: Implement reusable actions
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("Reusable actions not yet implemented: {}", uses)
-            ));
-        }
-
-        Ok(())
-    }
-
-    /// Evaluate expressions in a step
-    fn evaluate_step_expressions(step: &Step, ctx: &EvaluationContext) -> io::Result<Step> {
-        let mut evaluated = step.clone();
-
-        // Evaluate 'run' field
-        if let Some(run) = &step.run {
-            evaluated.run = Some(expressions::evaluate_expressions(run, ctx)?);
-        }
-
-        // Evaluate environment variables
-        if let Some(env) = &step.env {
-            let mut evaluated_env = HashMap::new();
-            for (key, value) in env {
-                let evaluated_value = expressions::evaluate_expressions(value, ctx)?;
-                evaluated_env.insert(key.clone(), evaluated_value);
-            }
-            evaluated.env = Some(evaluated_env);
-        }
-
-        Ok(evaluated)
-    }
-
-    /// Execute a 'run' step
-    fn execute_run_step(
-        job_id: &str,
-        step_name: &str,
-        command: &str,
-        env: &Option<HashMap<String, String>>,
-        base_path: &Path,
-        update_sender: &Sender<Update>,
-        ctx: &mut EvaluationContext,
-        workspace_paths: &HashMap<String, PathBuf>,
-        step_workspaces: &Option<Vec<crate::flow::StepWorkspace>>,
-    ) -> io::Result<()> {
-        // Create a temporary file for step outputs
-        let output_file = base_path.join(format!(".ferri-step-output-{}-{}", job_id, step_name));
-
-        // Build command for direct execution
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(command);
-        cmd.current_dir(base_path);
-
-        // Mount workspaces by setting environment variables
-        if let Some(step_ws) = step_workspaces {
-            for ws in step_ws {
-                if let Some(workspace_path) = workspace_paths.get(&ws.name) {
-                    // Set FERRI_WORKSPACE_<NAME> environment variable
-                    let env_var_name = format!("FERRI_WORKSPACE_{}", ws.name.to_uppercase());
-                    cmd.env(&env_var_name, workspace_path);
-                } else {
-                    return Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("Workspace '{}' not found in flow definition", ws.name)
-                    ));
-                }
-            }
-        }
-
-        // Add user-provided environment variables
-        if let Some(env_vars) = env {
-            for (key, value) in env_vars {
-                cmd.env(key, value);
-            }
-        }
-
-        // Execute command and capture output
-        let output_result = cmd.output();
-
-        match output_result {
-            Ok(output) => {
-                // Combine stdout and stderr
-                let mut combined_output = String::new();
-                if !output.stdout.is_empty() {
-                    combined_output.push_str(&String::from_utf8_lossy(&output.stdout));
-                }
-                if !output.stderr.is_empty() {
-                    if !combined_output.is_empty() {
-                        combined_output.push('\n');
-                    }
-                    combined_output.push_str(&String::from_utf8_lossy(&output.stderr));
-                }
-
-                if output.status.success() {
-                    // Parse outputs from the output file
-                    if output_file.exists() {
-                        if let Ok(file) = fs::File::open(&output_file) {
-                            let reader = io::BufReader::new(file);
-                            for line in reader.lines() {
-                                if let Ok(line) = line {
-                                    // Parse format: name=value
-                                    if let Some((name, value)) = line.split_once('=') {
-                                        ctx.add_step_output(
-                                            step_name.to_string(),
-                                            name.trim().to_string(),
-                                            value.trim().to_string(),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        // Clean up the temporary file
-                        let _ = fs::remove_file(&output_file);
-                    }
-
-                    // Also store stdout for backward compatibility
-                    ctx.add_step_output(
-                        step_name.to_string(),
-                        "stdout".to_string(),
-                        combined_output.clone(),
-                    );
-
-                    // Send completion update
-                    update_sender.send(Update::Step(StepUpdate {
-                        job_id: job_id.to_string(),
-                        step_name: step_name.to_string(),
-                        status: StepStatus::Completed,
-                        output: Some(combined_output),
-                    })).unwrap();
-
-                    Ok(())
-                } else {
-                    // Clean up output file on failure
-                    if output_file.exists() {
-                        let _ = fs::remove_file(&output_file);
-                    }
-
-                    // Command failed
-                    let exit_code = output.status.code().unwrap_or(-1);
-                    let err_msg = format!(
-                        "Step '{}' failed with exit code {}\n{}",
-                        step_name, exit_code, combined_output
-                    );
-
-                    update_sender.send(Update::Step(StepUpdate {
-                        job_id: job_id.to_string(),
-                        step_name: step_name.to_string(),
-                        status: StepStatus::Failed(err_msg.clone()),
-                        output: Some(combined_output),
-                    })).unwrap();
-
-                    Err(io::Error::new(io::ErrorKind::Other, err_msg))
-                }
-            }
-            Err(e) => {
-                // Failed to execute command
-                let err_msg = format!("Failed to execute step '{}': {}", step_name, e);
-
-                update_sender.send(Update::Step(StepUpdate {
-                    job_id: job_id.to_string(),
-                    step_name: step_name.to_string(),
-                    status: StepStatus::Failed(err_msg.clone()),
-                    output: None,
-                })).unwrap();
-
-                Err(io::Error::new(io::ErrorKind::Other, err_msg))
-            }
-        }
     }
 }
 
