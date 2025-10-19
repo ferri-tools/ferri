@@ -24,6 +24,7 @@ pub struct FlowOrchestrator {
     runtime_inputs: HashMap<String, String>,
     executor_registry: Arc<ExecutorRegistry>,
     job_states: Arc<Mutex<HashMap<String, JobStatus>>>,
+    step_states: Arc<Mutex<HashMap<String, HashMap<String, crate::flow::StepStatus>>>>,
 }
 
 impl FlowOrchestrator {
@@ -38,6 +39,7 @@ impl FlowOrchestrator {
             runtime_inputs,
             executor_registry: Arc::new(ExecutorRegistry::new()),
             job_states: Arc::new(Mutex::new(HashMap::new())),
+            step_states: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -48,8 +50,9 @@ impl FlowOrchestrator {
 
         // Spawn a thread to process updates
         let job_states = Arc::clone(&self.job_states);
+        let step_states = Arc::clone(&self.step_states);
         thread::spawn(move || {
-            Self::process_updates(update_receiver, job_states);
+            Self::process_updates(update_receiver, job_states, step_states);
         });
 
         // Create temporary workspace directories
@@ -347,7 +350,11 @@ impl FlowOrchestrator {
     }
 
     /// Process updates from the executors
-    fn process_updates(receiver: crossbeam_channel::Receiver<Update>, job_states: Arc<Mutex<HashMap<String, JobStatus>>>) {
+    fn process_updates(
+        receiver: crossbeam_channel::Receiver<Update>,
+        job_states: Arc<Mutex<HashMap<String, JobStatus>>>,
+        step_states: Arc<Mutex<HashMap<String, HashMap<String, crate::flow::StepStatus>>>>,
+    ) {
         for update in receiver {
             match update {
                 Update::Job(job_update) => {
@@ -355,8 +362,9 @@ impl FlowOrchestrator {
                     states.insert(job_update.job_id, job_update.status);
                 }
                 Update::Step(step_update) => {
-                    // TODO: Handle step updates
-                    println!("Step update: {:?}", step_update);
+                    let mut states = step_states.lock().unwrap();
+                    let job_steps = states.entry(step_update.job_id).or_default();
+                    job_steps.insert(step_update.step_name, step_update.status);
                 }
             }
         }
