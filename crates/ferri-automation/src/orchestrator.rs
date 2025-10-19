@@ -21,29 +21,37 @@ use std::thread;
 pub struct FlowOrchestrator {
     flow: FlowDocument,
     base_path: std::path::PathBuf,
-    update_sender: Sender<Update>,
     runtime_inputs: HashMap<String, String>,
     executor_registry: Arc<ExecutorRegistry>,
+    job_states: Arc<Mutex<HashMap<String, JobStatus>>>,
 }
 
 impl FlowOrchestrator {
     pub fn new(
         flow: FlowDocument,
         base_path: &Path,
-        update_sender: Sender<Update>,
         runtime_inputs: HashMap<String, String>,
     ) -> Self {
         Self {
             flow,
             base_path: base_path.to_path_buf(),
-            update_sender,
             runtime_inputs,
             executor_registry: Arc::new(ExecutorRegistry::new()),
+            job_states: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Execute the entire flow
     pub fn execute(&self) -> io::Result<()> {
+        // Create a new channel for updates
+        let (update_sender, update_receiver) = crossbeam_channel::unbounded();
+
+        // Spawn a thread to process updates
+        let job_states = Arc::clone(&self.job_states);
+        thread::spawn(move || {
+            Self::process_updates(update_receiver, job_states);
+        });
+
         // Create temporary workspace directories
         let workspace_root = self.create_workspace_directories()?;
 
@@ -61,7 +69,12 @@ impl FlowOrchestrator {
 
         // Execute jobs in waves (each wave contains jobs that can run in parallel)
         for wave in execution_order {
-            self.execute_wave(&wave, Arc::clone(&job_outputs), &workspace_paths)?;
+            self.execute_wave(
+                &wave,
+                Arc::clone(&job_outputs),
+                &workspace_paths,
+                &update_sender,
+            )?;
         }
 
         Ok(())
@@ -183,10 +196,11 @@ impl FlowOrchestrator {
         wave: &[String],
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         workspace_paths: &HashMap<String, PathBuf>,
+        update_sender: &Sender<Update>,
     ) -> io::Result<()> {
         // Send Pending status for all jobs in this wave
         for job_id in wave {
-            self.update_sender
+            update_sender
                 .send(Update::Job(JobUpdate {
                     job_id: job_id.clone(),
                     status: JobStatus::Pending,
@@ -200,7 +214,7 @@ impl FlowOrchestrator {
             let job = self.flow.spec.jobs.get(job_id).unwrap().clone();
             let job_id = job_id.clone();
             let base_path = self.base_path.clone();
-            let update_sender = self.update_sender.clone();
+            let update_sender = update_sender.clone();
             let runtime_inputs = self.runtime_inputs.clone();
             let job_outputs_clone = Arc::clone(&job_outputs);
             let flow = self.flow.clone();
@@ -233,7 +247,7 @@ impl FlowOrchestrator {
             match handle.join() {
                 Ok(Ok(())) => {
                     // Job succeeded
-                    self.update_sender
+                    update_sender
                         .send(Update::Job(JobUpdate {
                             job_id: job_id.clone(),
                             status: JobStatus::Succeeded,
@@ -243,7 +257,7 @@ impl FlowOrchestrator {
                 Ok(Err(e)) => {
                     // Job returned an error
                     let error_msg = e.to_string();
-                    self.update_sender
+                    update_sender
                         .send(Update::Job(JobUpdate {
                             job_id: job_id.clone(),
                             status: JobStatus::Failed(error_msg.clone()),
@@ -254,7 +268,7 @@ impl FlowOrchestrator {
                 Err(e) => {
                     // Thread panicked
                     let panic_msg = format!("Job thread panicked: {:?}", e);
-                    self.update_sender
+                    update_sender
                         .send(Update::Job(JobUpdate {
                             job_id: job_id.clone(),
                             status: JobStatus::Failed(panic_msg.clone()),
@@ -348,6 +362,25 @@ impl FlowOrchestrator {
         // TODO: Collect job-level outputs and store them in job_outputs
 
         Ok(())
+    }
+
+    /// Process updates from the executors
+    fn process_updates(
+        receiver: crossbeam_channel::Receiver<Update>,
+        job_states: Arc<Mutex<HashMap<String, JobStatus>>>,
+    ) {
+        for update in receiver {
+            match update {
+                Update::Job(job_update) => {
+                    let mut states = job_states.lock().unwrap();
+                    states.insert(job_update.job_id, job_update.status);
+                }
+                Update::Step(step_update) => {
+                    // TODO: Handle step updates
+                    println!("Step update: {:?}", step_update);
+                }
+            }
+        }
     }
 }
 
