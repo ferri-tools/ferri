@@ -161,3 +161,26 @@ If at any point my context becomes fragmented, lost, or if I am repeatedly faili
 3.  **Save Session to File:** I will save this summary to a dedicated file: `development_resources/logs/last_session.md`.
 
 4.  **Await Resume Command:** I will inform you that the session has been saved and await your instruction to "resume from last session." When you give the command, I will read the file to restore my context and continue our work.
+
+---
+
+### **CRITICAL: Architectural Decision Protocol**
+
+To ensure that significant architectural decisions are deliberate, documented, and transparent, the following protocol is mandatory.
+
+1.  **Identify Architectural Ambiguity:** If a proposed change raises a fundamental question about the system's architecture, or if you question whether a change aligns with the established design, I will pause all implementation work.
+
+2.  **Propose an ADR:** I will state that we have encountered an architectural decision point and propose the creation of an Architectural Decision Record (ADR).
+
+3.  **Create the ADR:** Upon your approval, I will:
+    *   Create a new directory if it doesn't exist: `project_resources/engineering/architectural_decision_records/`.
+    *   Create a new Markdown file in that directory, named `adr-XXX-short-description.md` (e.g., `adr-001-local-vs-remote-command-routing.md`).
+    *   The ADR will contain the following sections:
+        *   **Title:** A clear, concise summary of the decision.
+        *   **Date:** The date the decision was made.
+        *   **Status:** (e.g., Proposed, Accepted, Deprecated).
+        *   **Context:** A description of the problem or question that needs to be addressed. This includes the technical, business, and project context.
+        *   **Decision:** The specific architectural decision that was made.
+        *   **Consequences:** The results and impact of the decision, both positive and negative. This includes trade-offs that were accepted.
+
+4.  **Proceed with Implementation:** Once the ADR is written and saved, I will confirm with you before proceeding with the implementation based on the documented decision. This ensures all work is grounded in a clear and agreed-upon architectural foundation.

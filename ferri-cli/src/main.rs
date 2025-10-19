@@ -130,8 +130,7 @@ enum ModelsCommand {
     },
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
     let current_path_result = env::current_dir();
 
@@ -251,7 +250,14 @@ async fn main() {
                                     Ok(output) => {
                                         if output.status.success() {
                                             if let Ok(stdout_str) = String::from_utf8(output.stdout) {
-                                                print!("{}", stdout_str);
+                                                if let Some(output_path) = &exec_args.output_file {
+                                                    if let Err(e) = fs::write(output_path, &stdout_str) {
+                                                        eprintln!("Error: Failed to write to output file {} - {}", output_path.display(), e);
+                                                        std::process::exit(1);
+                                                    }
+                                                } else {
+                                                    print!("{}", stdout_str);
+                                                }
                                             } else {
                                                 eprintln!("Error: Failed to decode command output as UTF-8.");
                                             }
@@ -306,7 +312,14 @@ async fn main() {
                                         }
                                     }
                                     if !text_content.is_empty() {
-                                        print!("{}", text_content);
+                                        if let Some(output_path) = &exec_args.output_file {
+                                            if let Err(e) = fs::write(output_path, &text_content) {
+                                                eprintln!("Error: Failed to write to output file {} - {}", output_path.display(), e);
+                                                std::process::exit(1);
+                                            }
+                                        } else {
+                                            print!("{}", text_content);
+                                        }
                                     } else if !image_saved {
                                         eprintln!("Error: Could not extract text or image data from API response.");
                                         eprintln!("Full response: {}", body);
