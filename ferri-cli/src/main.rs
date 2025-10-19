@@ -656,59 +656,15 @@ fn execute_flow_with_output(
     use ferri_automation::orchestrator::FlowOrchestrator;
     use std::collections::HashMap;
 
-    // Create channel for receiving updates
-    let (tx, rx) = crossbeam_channel::unbounded();
-
     // Create orchestrator
     let orchestrator = FlowOrchestrator::new(
         flow_doc,
         base_path,
-        tx,
         HashMap::new(), // TODO: Parse runtime inputs from CLI args
     );
 
     // Spawn execution thread
     let execution_handle = std::thread::spawn(move || orchestrator.execute());
-
-    // Track job and step states
-    let mut job_states: HashMap<String, String> = HashMap::new();
-
-    // Receive and display updates
-    for update in rx {
-        match update {
-            Update::Job(job_update) => {
-                let status_str = match &job_update.status {
-                    JobStatus::Pending => "⏳ Pending".to_string(),
-                    JobStatus::Running => "▶️  Running".to_string(),
-                    JobStatus::Succeeded => "✅ Succeeded".to_string(),
-                    JobStatus::Failed(err) => format!("❌ Failed: {}", err),
-                };
-
-                job_states.insert(job_update.job_id.clone(), status_str.clone());
-
-                println!("📦 Job [{}]:{}", job_update.job_id, status_str);
-            }
-            Update::Step(step_update) => {
-                let status_str = match &step_update.status {
-                    StepStatus::Pending => "⏳ Pending".to_string(),
-                    StepStatus::Running => "▶️  Running".to_string(),
-                    StepStatus::Completed => "✅ Completed".to_string(),
-                    StepStatus::Failed(err) => format!("❌ Failed: {}", err),
-                };
-
-                println!("  └─ Step [{}]: {}", step_update.step_name, status_str);
-
-                // Print step output if available and not too long
-                if let Some(output) = &step_update.output {
-                    if !output.trim().is_empty() && output.len() < 500 {
-                        for line in output.lines() {
-                            println!("     │ {}", line);
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     // Wait for execution to complete
     match execution_handle.join() {
