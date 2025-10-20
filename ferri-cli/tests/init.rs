@@ -8,7 +8,7 @@ fn test_init_command() {
     let base_path = dir.path();
 
     // Run the `init` command.
-    let mut cmd = Command::cargo_bin("ferri-cli").unwrap();
+    let mut cmd = Command::cargo_bin("ferri").unwrap();
     cmd.current_dir(base_path).arg("init").assert().success();
 
     // Check that the .ferri directory and files were created.
@@ -29,5 +29,5 @@ fn test_init_command() {
     let context_path = ferri_dir.join("context.json");
     assert!(context_path.exists());
     assert!(context_path.is_file());
-    assert_eq!(std::fs::read_to_string(context_path).unwrap(), "[]");
+    assert_eq!(std::fs::read_to_string(context_path).unwrap(), "{\n  \"files\": []\n}");
 }

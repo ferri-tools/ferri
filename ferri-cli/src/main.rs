@@ -218,17 +218,11 @@ fn main() {
             match execute::prepare_command(&current_path, &exec_args) {
                 Ok((prepared_command, secrets)) => match prepared_command {
                     execute::PreparedCommand::Local(mut command, stdin_data) => {
-                        let mut final_command_str = String::new();
+                        // Inject secrets directly into the command's environment
                         for (key, value) in &secrets {
-                            final_command_str.push_str(&format!("export {}='{}' ; ", key, value.replace("'", "'\\''")));
+                            command.env(key, value);
                         }
-                        let original_cmd_parts: Vec<String> = std::iter::once(command.get_program().to_string_lossy().to_string())
-                            .chain(command.get_args().map(|s| s.to_string_lossy().to_string()))
-                            .collect();
-                        final_command_str.push_str(&original_cmd_parts.join(" "));
-                        let mut new_command = Command::new("sh");
-                        new_command.arg("-c").arg(final_command_str);
-                        command = new_command;
+
                         if stdin_data.is_some() {
                             command.stdin(std::process::Stdio::piped());
                         }
