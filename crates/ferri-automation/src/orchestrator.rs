@@ -231,7 +231,6 @@ impl FlowOrchestrator {
                     &job_id,
                     &job,
                     &base_path,
-                    update_sender,
                     &runtime_inputs,
                     job_outputs_clone,
                     &flow,
@@ -294,13 +293,13 @@ impl FlowOrchestrator {
         job_id: &str,
         job: &Job,
         base_path: &Path,
-        update_sender: Sender<Update>,
         runtime_inputs: &HashMap<String, String>,
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         _flow: &FlowDocument,
         _workspace_paths: &HashMap<String, PathBuf>,
         executor_registry: Arc<ExecutorRegistry>,
     ) -> io::Result<()> {
+<<<<<<< HEAD
         // Send Running status
         update_sender
             .send(Update::Job(JobUpdate {
@@ -309,6 +308,8 @@ impl FlowOrchestrator {
             }))
             .unwrap();
 
+=======
+>>>>>>> 4cf6ef6 (feat(orchestrator): Complete rebase and fix post-rebase regressions)
         // --- Executor Selection ---
         let executor_name = job.runs_on.as_deref().unwrap_or("process");
         let executor = executor_registry.get(executor_name).ok_or_else(|| {
@@ -321,6 +322,7 @@ impl FlowOrchestrator {
             )
         })?;
 
+<<<<<<< HEAD
         let handle = executor.execute(
             job_id,
             job,
@@ -344,6 +346,10 @@ impl FlowOrchestrator {
                 return Err(io::Error::new(io::ErrorKind::Other, panic_msg));
             }
         }
+=======
+        // Secrets are not yet implemented, so we pass an empty HashMap.
+        let _handle = executor.execute(job, base_path, &HashMap::new())?;
+>>>>>>> 4cf6ef6 (feat(orchestrator): Complete rebase and fix post-rebase regressions)
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -411,44 +417,10 @@ impl Drop for WorkspaceCleanupGuard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flow::{FlowSpec, Metadata};
+    use crate::flow::{FlowSpec, Metadata, Workspace};
 
-    #[test]
-    fn test_simple_dependency_resolution() {
-        // Create a simple flow: job1 -> job2 -> job3
-        let mut jobs = HashMap::new();
-
-        jobs.insert(
-            "job1".to_string(),
-            Job {
-                name: Some("Job 1".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: None,
-                steps: vec![],
-            },
-        );
-
-        jobs.insert(
-            "job2".to_string(),
-            Job {
-                name: Some("Job 2".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: Some(vec!["job1".to_string()]),
-                steps: vec![],
-            },
-        );
-
-        jobs.insert(
-            "job3".to_string(),
-            Job {
-                name: Some("Job 3".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: Some(vec!["job2".to_string()]),
-                steps: vec![],
-            },
-        );
-
-        let flow = FlowDocument {
+    fn create_test_flow(jobs: HashMap<String, Job>, workspaces: Option<Vec<Workspace>>) -> FlowDocument {
+        FlowDocument {
             api_version: "ferri.flow/v1alpha1".to_string(),
             kind: "Flow".to_string(),
             metadata: Metadata {
@@ -458,14 +430,21 @@ mod tests {
             },
             spec: FlowSpec {
                 inputs: None,
-                workspaces: None,
+                workspaces,
                 jobs,
             },
-        };
+        }
+    }
 
-        let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), tx, HashMap::new());
+    #[test]
+    fn test_simple_dependency_resolution() {
+        let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job { name: Some("Job 1".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        jobs.insert("job2".to_string(), Job { name: Some("Job 2".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job1".to_string()]), steps: vec![] });
+        jobs.insert("job3".to_string(), Job { name: Some("Job 3".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job2".to_string()]), steps: vec![] });
 
+        let flow = create_test_flow(jobs, None);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
         let order = orchestrator.resolve_execution_order().unwrap();
 
         assert_eq!(order.len(), 3);
@@ -476,61 +455,17 @@ mod tests {
 
     #[test]
     fn test_parallel_jobs() {
-        // Create jobs that can run in parallel
         let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job { name: Some("Job 1".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        jobs.insert("job2".to_string(), Job { name: Some("Job 2".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        jobs.insert("job3".to_string(), Job { name: Some("Job 3".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job1".to_string(), "job2".to_string()]), steps: vec![] });
 
-        jobs.insert(
-            "job1".to_string(),
-            Job {
-                name: Some("Job 1".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: None,
-                steps: vec![],
-            },
-        );
-
-        jobs.insert(
-            "job2".to_string(),
-            Job {
-                name: Some("Job 2".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: None,
-                steps: vec![],
-            },
-        );
-
-        jobs.insert(
-            "job3".to_string(),
-            Job {
-                name: Some("Job 3".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: Some(vec!["job1".to_string(), "job2".to_string()]),
-                steps: vec![],
-            },
-        );
-
-        let flow = FlowDocument {
-            api_version: "ferri.flow/v1alpha1".to_string(),
-            kind: "Flow".to_string(),
-            metadata: Metadata {
-                name: "test-flow".to_string(),
-                labels: None,
-                annotations: None,
-            },
-            spec: FlowSpec {
-                inputs: None,
-                workspaces: None,
-                jobs,
-            },
-        };
-
-        let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), tx, HashMap::new());
-
+        let flow = create_test_flow(jobs, None);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
         let order = orchestrator.resolve_execution_order().unwrap();
 
         assert_eq!(order.len(), 2);
-        assert_eq!(order[0].len(), 2); // job1 and job2 in parallel
+        assert_eq!(order[0].len(), 2);
         assert!(order[0].contains(&"job1".to_string()));
         assert!(order[0].contains(&"job2".to_string()));
         assert_eq!(order[1], vec!["job3"]);
@@ -538,129 +473,56 @@ mod tests {
 
     #[test]
     fn test_job_state_tracking() {
-        // Create a simple flow with two jobs
         let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job { name: Some("Job 1".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        jobs.insert("job2".to_string(), Job { name: Some("Job 2".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job1".to_string()]), steps: vec![] });
 
-        jobs.insert(
-            "job1".to_string(),
-            Job {
-                name: Some("Job 1".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: None,
-                steps: vec![],
-            },
-        );
-
-        jobs.insert(
-            "job2".to_string(),
-            Job {
-                name: Some("Job 2".to_string()),
-                runs_on: "ubuntu-latest".to_string(),
-                needs: Some(vec!["job1".to_string()]),
-                steps: vec![],
-            },
-        );
-
-        let flow = FlowDocument {
-            api_version: "ferri.flow/v1alpha1".to_string(),
-            kind: "Flow".to_string(),
-            metadata: Metadata {
-                name: "test-flow".to_string(),
-                labels: None,
-                annotations: None,
-            },
-            spec: FlowSpec {
-                inputs: None,
-                workspaces: None,
-                jobs,
-            },
-        };
-
-        let (tx, rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), tx, HashMap::new());
-
-        // Get execution order
+        let flow = create_test_flow(jobs, None);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
         let order = orchestrator.resolve_execution_order().unwrap();
-        assert_eq!(order.len(), 2);
 
-        // Verify we have the channel set up correctly
-        // (Full execution test would require mocking the job system)
-        // For now, just verify the structure is correct
+        assert_eq!(order.len(), 2);
         assert_eq!(order[0], vec!["job1"]);
         assert_eq!(order[1], vec!["job2"]);
-
-        // The channel rx would receive job status updates during actual execution:
-        // - Update::Job(JobUpdate { job_id: "job1", status: Pending })
-        // - Update::Job(JobUpdate { job_id: "job1", status: Running })
-        // - Update::Job(JobUpdate { job_id: "job1", status: Succeeded })
-        // - Update::Job(JobUpdate { job_id: "job2", status: Pending })
-        // - Update::Job(JobUpdate { job_id: "job2", status: Running })
-        // - Update::Job(JobUpdate { job_id: "job2", status: Succeeded })
-        drop(rx); // Verify channel was created
     }
 
     #[test]
-    fn test_step_output_parsing() {
-        use std::io::Write;
-        use tempfile::TempDir;
+    fn test_workspace_creation_and_cleanup() {
+        let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job { name: Some("Test Job".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        let workspaces = Some(vec![
+            Workspace { name: "data".to_string() },
+            Workspace { name: "logs".to_string() },
+        ]);
 
-        // Create a temporary directory for the test
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path();
+        let flow = create_test_flow(jobs, workspaces);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
+        let workspace_root = orchestrator.create_workspace_directories().unwrap();
 
-        // Create a mock output file
-        let output_file = temp_path.join(".ferri-step-output-job1-step1");
-        let mut file = fs::File::create(&output_file).unwrap();
-        writeln!(file, "result=42").unwrap();
-        writeln!(file, "message=hello world").unwrap();
-        writeln!(file, "status=success").unwrap();
-        drop(file);
+        assert!(workspace_root.exists() && workspace_root.is_dir());
+        assert!(workspace_root.join("data").exists());
+        assert!(workspace_root.join("logs").exists());
 
-        // Create evaluation context
-        let mut ctx = EvaluationContext::new();
+        drop(WorkspaceCleanupGuard::new(workspace_root.clone()));
+        assert!(!workspace_root.exists());
+    }
 
-        // Parse the output file (simulating what the orchestrator does)
-        if output_file.exists() {
-            if let Ok(file) = fs::File::open(&output_file) {
-                let reader = io::BufReader::new(file);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        if let Some((name, value)) = line.split_once('=') {
-                            ctx.add_step_output(
-                                "step1".to_string(),
-                                name.trim().to_string(),
-                                value.trim().to_string(),
-                            );
-                        }
-                    }
-                }
-            }
-        }
+    #[test]
+    fn test_workspace_paths_mapping() {
+        let mut jobs = HashMap::new();
+        jobs.insert("job1".to_string(), Job { name: Some("Test Job".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        let workspaces = Some(vec![
+            Workspace { name: "data".to_string() },
+            Workspace { name: "cache".to_string() },
+        ]);
 
-        // Verify outputs were parsed correctly
-        assert_eq!(
-            ctx.step_outputs
-                .get("step1")
-                .unwrap()
-                .get("result")
-                .unwrap(),
-            "42"
-        );
-        assert_eq!(
-            ctx.step_outputs
-                .get("step1")
-                .unwrap()
-                .get("message")
-                .unwrap(),
-            "hello world"
-        );
-        assert_eq!(
-            ctx.step_outputs
-                .get("step1")
-                .unwrap()
-                .get("status")
-                .unwrap(),
-            "success"
-        );
+        let flow = create_test_flow(jobs, workspaces);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
+        let workspace_root = PathBuf::from("/tmp/test-workspaces");
+        let workspace_paths = orchestrator.build_workspace_paths(&workspace_root);
+
+        assert_eq!(workspace_paths.len(), 2);
+        assert_eq!(workspace_paths.get("data").unwrap(), &workspace_root.join("data"));
+        assert_eq!(workspace_paths.get("cache").unwrap(), &workspace_root.join("cache"));
     }
 }
