@@ -13,3 +13,7 @@ project_resources/development_resources/
 sandbox
 claude-worktree/
 gemini-worktree/
+/development_resources/logs/last_session.md
+/project_resources/flow_engine_status_summary.md
+/development_resources/logs/last_session.md
+/project_resources/flow_engine_status_summary.md
