@@ -292,17 +292,8 @@ impl FlowOrchestrator {
         _workspace_paths: &HashMap<String, PathBuf>,
         executor_registry: Arc<ExecutorRegistry>,
     ) -> io::Result<()> {
-        // --- Executor Selection ---
-        let executor_name = job.runs_on.as_deref().unwrap_or("process");
-        let executor = executor_registry.get(executor_name).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("Executor '{}' not found for job '{}'", executor_name, job_id),
-            )
-        })?;
-
-        // Secrets are not yet implemented, so we pass an empty HashMap.
-        let _handle = executor.execute(job, base_path, &HashMap::new())?;
+        // Run the job using the appropriate executor
+        Self::run_job_executor(job_id, job, base_path, executor_registry)?;
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -322,6 +313,28 @@ impl FlowOrchestrator {
         }
 
         // TODO: Collect job-level outputs and store them in job_outputs
+
+        Ok(())
+    }
+
+    /// Selects and runs the appropriate executor for a job
+    fn run_job_executor(
+        job_id: &str,
+        job: &Job,
+        base_path: &Path,
+        executor_registry: Arc<ExecutorRegistry>,
+    ) -> io::Result<()> {
+        // --- Executor Selection ---
+        let executor_name = job.runs_on.as_deref().unwrap_or("process");
+        let executor = executor_registry.get(executor_name).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Executor '{}' not found for job '{}'", executor_name, job_id),
+            )
+        })?;
+
+        // Secrets are not yet implemented, so we pass an empty HashMap.
+        let _handle = executor.execute(job, base_path, &HashMap::new())?;
 
         Ok(())
     }
