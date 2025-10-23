@@ -299,57 +299,8 @@ impl FlowOrchestrator {
         _workspace_paths: &HashMap<String, PathBuf>,
         executor_registry: Arc<ExecutorRegistry>,
     ) -> io::Result<()> {
-<<<<<<< HEAD
-        // Send Running status
-        update_sender
-            .send(Update::Job(JobUpdate {
-                job_id: job_id.to_string(),
-                status: JobStatus::Running,
-            }))
-            .unwrap();
-
-=======
->>>>>>> 4cf6ef6 (feat(orchestrator): Complete rebase and fix post-rebase regressions)
-        // --- Executor Selection ---
-        let executor_name = job.runs_on.as_deref().unwrap_or("process");
-        let executor = executor_registry.get(executor_name).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!(
-                    "Executor '{}' not found for job '{}'",
-                    executor_name, job_id
-                ),
-            )
-        })?;
-
-<<<<<<< HEAD
-        let handle = executor.execute(
-            job_id,
-            job,
-            base_path,
-            &HashMap::new(),
-            update_sender.clone(),
-        )?;
-
-        // Wait for the executor to finish
-        match handle.0.join() {
-            Ok(Ok(())) => {
-                // Job succeeded
-            }
-            Ok(Err(e)) => {
-                // Job returned an error
-                return Err(e);
-            }
-            Err(e) => {
-                // Thread panicked
-                let panic_msg = format!("Job thread panicked: {:?}", e);
-                return Err(io::Error::new(io::ErrorKind::Other, panic_msg));
-            }
-        }
-=======
-        // Secrets are not yet implemented, so we pass an empty HashMap.
-        let _handle = executor.execute(job, base_path, &HashMap::new())?;
->>>>>>> 4cf6ef6 (feat(orchestrator): Complete rebase and fix post-rebase regressions)
+        // Run the job using the appropriate executor
+        Self::run_job_executor(job_id, job, base_path, executor_registry)?;
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -369,6 +320,31 @@ impl FlowOrchestrator {
         }
 
         // TODO: Collect job-level outputs and store them in job_outputs
+
+        Ok(())
+    }
+
+    /// Selects and runs the appropriate executor for a job
+    fn run_job_executor(
+        job_id: &str,
+        job: &Job,
+        base_path: &Path,
+        executor_registry: Arc<ExecutorRegistry>,
+    ) -> io::Result<()> {
+        // --- Executor Selection ---
+        let executor_name = job.runs_on.as_deref().unwrap_or("process");
+        let executor = executor_registry.get(executor_name).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "Executor '{}' not found for job '{}'",
+                    executor_name, job_id
+                ),
+            )
+        })?;
+
+        // Secrets are not yet implemented, so we pass an empty HashMap.
+        let _handle = executor.execute(job, base_path, &HashMap::new())?;
 
         Ok(())
     }
@@ -419,7 +395,10 @@ mod tests {
     use super::*;
     use crate::flow::{FlowSpec, Metadata, Workspace};
 
-    fn create_test_flow(jobs: HashMap<String, Job>, workspaces: Option<Vec<Workspace>>) -> FlowDocument {
+    fn create_test_flow(
+        jobs: HashMap<String, Job>,
+        workspaces: Option<Vec<Workspace>>,
+    ) -> FlowDocument {
         FlowDocument {
             api_version: "ferri.flow/v1alpha1".to_string(),
             kind: "Flow".to_string(),
@@ -439,9 +418,33 @@ mod tests {
     #[test]
     fn test_simple_dependency_resolution() {
         let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job { name: Some("Job 1".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
-        jobs.insert("job2".to_string(), Job { name: Some("Job 2".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job1".to_string()]), steps: vec![] });
-        jobs.insert("job3".to_string(), Job { name: Some("Job 3".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job2".to_string()]), steps: vec![] });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job1".to_string()]),
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job3".to_string(),
+            Job {
+                name: Some("Job 3".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job2".to_string()]),
+                steps: vec![],
+            },
+        );
 
         let flow = create_test_flow(jobs, None);
         let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
@@ -456,9 +459,33 @@ mod tests {
     #[test]
     fn test_parallel_jobs() {
         let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job { name: Some("Job 1".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
-        jobs.insert("job2".to_string(), Job { name: Some("Job 2".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
-        jobs.insert("job3".to_string(), Job { name: Some("Job 3".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job1".to_string(), "job2".to_string()]), steps: vec![] });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job3".to_string(),
+            Job {
+                name: Some("Job 3".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job1".to_string(), "job2".to_string()]),
+                steps: vec![],
+            },
+        );
 
         let flow = create_test_flow(jobs, None);
         let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
@@ -474,8 +501,24 @@ mod tests {
     #[test]
     fn test_job_state_tracking() {
         let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job { name: Some("Job 1".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
-        jobs.insert("job2".to_string(), Job { name: Some("Job 2".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: Some(vec!["job1".to_string()]), steps: vec![] });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job1".to_string()]),
+                steps: vec![],
+            },
+        );
 
         let flow = create_test_flow(jobs, None);
         let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
@@ -489,10 +532,22 @@ mod tests {
     #[test]
     fn test_workspace_creation_and_cleanup() {
         let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job { name: Some("Test Job".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Test Job".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
         let workspaces = Some(vec![
-            Workspace { name: "data".to_string() },
-            Workspace { name: "logs".to_string() },
+            Workspace {
+                name: "data".to_string(),
+            },
+            Workspace {
+                name: "logs".to_string(),
+            },
         ]);
 
         let flow = create_test_flow(jobs, workspaces);
@@ -510,10 +565,22 @@ mod tests {
     #[test]
     fn test_workspace_paths_mapping() {
         let mut jobs = HashMap::new();
-        jobs.insert("job1".to_string(), Job { name: Some("Test Job".to_string()), runs_on: Some("ubuntu-latest".to_string()), needs: None, steps: vec![] });
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Test Job".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
         let workspaces = Some(vec![
-            Workspace { name: "data".to_string() },
-            Workspace { name: "cache".to_string() },
+            Workspace {
+                name: "data".to_string(),
+            },
+            Workspace {
+                name: "cache".to_string(),
+            },
         ]);
 
         let flow = create_test_flow(jobs, workspaces);
@@ -522,7 +589,13 @@ mod tests {
         let workspace_paths = orchestrator.build_workspace_paths(&workspace_root);
 
         assert_eq!(workspace_paths.len(), 2);
-        assert_eq!(workspace_paths.get("data").unwrap(), &workspace_root.join("data"));
-        assert_eq!(workspace_paths.get("cache").unwrap(), &workspace_root.join("cache"));
+        assert_eq!(
+            workspace_paths.get("data").unwrap(),
+            &workspace_root.join("data")
+        );
+        assert_eq!(
+            workspace_paths.get("cache").unwrap(),
+            &workspace_root.join("cache")
+        );
     }
 }
