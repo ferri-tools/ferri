@@ -1,0 +1,20 @@
+# This flow generates a piece of text and then runs a standard shell command to analyze it.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: text-generator-and-analyzer
+spec:
+  jobs:
+    write-poem:
+      name: "Write Poem"
+      steps:
+        - name: "Use Gemma to write a poem"
+          run: "ferri with --model gemma --output poem.txt -- 'write a short poem about the command line'"
+
+    analyze-poem:
+      name: "Analyze Poem with wc"
+      needs:
+        - write-poem
+      steps:
+        - name: "Count the lines, words, and characters in the poem"
+          run: "wc poem.txt"

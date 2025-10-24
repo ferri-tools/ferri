@@ -1,0 +1,22 @@
+# This flow uses a powerful AI to generate a long document, then a smaller AI to summarize it.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: ai-text-generation-and-summarization
+spec:
+  jobs:
+    generate-long-text:
+      name: "Generate Technical Document"
+      steps:
+        - name: "Use Gemini to explain Rust's ownership model"
+          run: "ferri with --model gemini-pro --output rust_ownership.txt -- 'Explain the concept of ownership in Rust in about 300 words, including the rules of ownership, borrowing, and slices.'"
+
+    summarize-text:
+      name: "Summarize Document with Local Model"
+      needs:
+        - generate-long-text
+      steps:
+        - name: "Add the document to the context"
+          run: "ferri ctx add rust_ownership.txt"
+        - name: "Use Gemma to summarize the document"
+          run: "ferri with --ctx --model gemma --output summary.txt -- 'Summarize the provided text about Rust ownership in a single, concise paragraph.'"
