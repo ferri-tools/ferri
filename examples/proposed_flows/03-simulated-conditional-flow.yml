@@ -1,0 +1,46 @@
+# This flow simulates conditional logic. It runs a deep security scan only if an initial AI triage finds a potential vulnerability.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: ai-conditional-security-scan
+spec:
+  jobs:
+    triage-code:
+      name: "Perform AI Security Triage"
+      steps:
+        - name: "Create a sample Python script with a potential vulnerability"
+          run: |
+            echo 'import os
+            def get_user_data(user_input):
+                # This is a potential command injection vulnerability
+                os.system(f"echo User data: {user_input}")
+            ' > sample_script.py
+        - name: "Ask Gemma to check for vulnerabilities"
+          run: "ferri with --ctx sample_script.py --model gemma --output triage_report.txt -- 'Analyze this Python script for security vulnerabilities. If you find any security issues, start your response with the word VULNERABLE:. Otherwise, start with SECURE:.'"
+
+    check-for-vulnerability:
+      name: "Check Triage Report"
+      needs:
+        - triage-code
+      steps:
+        - name: "Create a flag file if vulnerability is found"
+          # This step uses grep to check the report. If 'VULNERABLE' is found, it creates a flag file.
+          # The '|| true' ensures the step succeeds even if grep doesn't find the word.
+          run: "(grep -q 'VULNERABLE:' triage_report.txt && touch is_vulnerable.flag) || true"
+
+    run-security-scan:
+      name: "Run Deep Security Scan (If Needed)"
+      needs:
+        - check-for-vulnerability
+      steps:
+        - name: "Run a simulated deep scan if the flag file exists"
+          # This step uses a shell 'if' to check for the flag file's existence before running.
+          run: |
+            if [ -f is_vulnerable.flag ]; then
+              echo "Vulnerability detected! Running deep security scan..."
+              # In a real-world scenario, this would be a call to a tool like 'semgrep' or 'snyk'.
+              sleep 5 
+              echo "Deep scan complete."
+            else
+              echo "No vulnerabilities found in initial triage. Skipping deep scan."
+            fi
