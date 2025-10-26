@@ -36,7 +36,7 @@ Next, register the `gemini-pro` model with Ferri. This command tells Ferri that 
 
 **Command:**
 ```bash
-ferri models add gemini-pro --provider google --model-name gemini-pro --api-key-secret GOOGLE_API_KEY
+ferri models add gemini-pro --provider google --model-name gemini-2.5-pro --api-key-secret GOOGLE_API_KEY
 ```
 
 **Expected Result:**

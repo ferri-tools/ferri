@@ -22,7 +22,7 @@ Automate a full-repo code review using a multi-step Ferri flow that:
     ferri models add gemini-pro \
       --provider google \
       --api-key-secret GOOGLE_API_KEY \
-      --model-name gemini-pro
+      --model-name gemini-2.5-pro
     ```
 
 ## Step 1: Create the Flow Definition File

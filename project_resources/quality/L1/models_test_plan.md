@@ -45,7 +45,7 @@ This document outlines the manual testing steps for the `ferri models` command.
 2.  **Add the Gemini Model:**
     *   Now, register the Gemini model, linking it to the secret you just stored. We'll give it the alias `gemini-pro`.
     ```bash
-    ferri models add gemini-pro --provider google --model-name gemini-1.5-pro --api-key-secret GOOGLE_API_KEY
+    ferri models add gemini-pro --provider google --model-name gemini-2.5-pro --api-key-secret GOOGLE_API_KEY
     ```
     *   You should see the message: `Model 'gemini-pro' added successfully.`
 
