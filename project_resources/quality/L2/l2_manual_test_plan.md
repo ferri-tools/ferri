@@ -53,7 +53,7 @@ This part ensures the environment is correctly configured for both local and rem
     ferri models add gemini-pro \
       --provider google \
       --api-key-secret GOOGLE_API_KEY \
-      --model-name gemini-pro
+      --model-name gemini-2.5-pro
     ```
 
 ### Part 2: Test Case - Long-Running Creative AI Job

@@ -173,7 +173,7 @@ Tell Ferri about the model you want to use. This command creates a local alias (
 ferri models add gemini-pro \
   --provider google \
   --api-key-secret GOOGLE_API_KEY \
-  --model-name gemini-1.5-pro-latest
+  --model-name gemini-2.5-pro
 ```
 
 You are now fully configured to use the `gemini-pro` model in any `ferri` command.

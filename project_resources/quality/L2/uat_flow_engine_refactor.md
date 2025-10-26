@@ -36,7 +36,7 @@ cd ferri_uat_project
         ferri models add gemini-pro \
           --provider google \
           --api-key-secret GEMINI_API_KEY \
-          --model-name gemini-1.5-pro-latest
+          --model-name gemini-2.5-pro
         ```
 
     4.  **Create a sample script to be reviewed:**

@@ -21,7 +21,7 @@ ferri models add gemma --provider ollama --model-name gemma
 ferri secrets set GOOGLE_API_KEY "YOUR_API_KEY_HERE"
 
 # 3. Add the remote gemini model that uses the key
-ferri models add gemini-pro --provider google --model-name gemini-pro --api-key-secret GOOGLE_API_KEY
+ferri models add gemini-pro --provider google --model-name gemini-2.5-pro --api-key-secret GOOGLE_API_KEY
 ```
 
 ---

@@ -15,7 +15,7 @@
     ```bash
     # For Google text models
     ferri secrets set GOOGLE_API_KEY "your-google-api-key"
-    ferri models add gemini-pro --provider google --api-key-secret GOOGLE_API_KEY --model-name gemini-pro
+    ferri models add gemini-pro --provider google --api-key-secret GOOGLE_API_KEY --model-name gemini-2.5-pro
 
     # For Google image models
     ferri models add gemini-image-generator --provider google-gemini-image --api-key-secret GOOGLE_API_KEY --model-name gemini-2.5-flash-image-preview

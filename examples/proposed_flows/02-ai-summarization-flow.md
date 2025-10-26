@@ -12,3 +12,67 @@ This flow demonstrates a more advanced and powerful concept: the output of one A
 
 -   **Explicit Context:** This flow highlights the importance of Ferri's explicit context management. The second job doesn't just read the file; it formally adds it to the context using `ferri ctx add`. This ensures the AI model receives the content in a structured way.
 -   **AI Collaboration:** This flow shows how you can use different models for different tasks. A powerful model can be used for the heavy lifting (generation), while a smaller, faster model can be used for subsequent refinement or analysis tasks (summarization).
+
+## How to Run
+
+This flow uses both a remote model (`gemini-pro`) and a local model (`gemma`).
+
+### Prerequisites
+
+1.  **Configure Remote Models:** Ensure you have set your `GOOGLE_API_KEY` secret using `ferri secrets set GOOGLE_API_KEY "YOUR_KEY"`.
+2.  **Install and run Ollama:** [https://ollama.com/](https://ollama.com/)
+3.  **Pull the gemma model:** `ollama pull gemma:2b`
+4.  **(One-time setup)** Add the required models to Ferri's registry.
+    ```bash
+    # Add the local gemma model
+    ferri models add gemma --provider ollama --model-name gemma:2b
+
+    # Add the remote gemini-pro model
+    ferri models add gemini-pro \
+      --provider google \
+      --api-key-secret GOOGLE_API_KEY \
+      --model-name gemini-2.5-pro
+    ```
+
+### Execution
+
+The following commands are fully self-contained and can be run from any directory to test the flow in an isolated environment.
+
+```bash
+# 1. Create a temporary directory and navigate into it.
+mkdir -p /tmp/flow-tests/02-ai-summarization && cd /tmp/flow-tests/02-ai-summarization
+
+# 2. Initialize a new ferri workspace.
+ferri init
+
+# 3. Create the flow YAML file in the current directory.
+cat <<'EOF' > 02-ai-summarization-flow.yml
+# This flow uses a powerful AI to generate a long document, then a smaller AI to summarize it.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: ai-text-generation-and-summarization
+spec:
+  jobs:
+    generate-long-text:
+      name: "Generate Technical Document"
+      steps:
+        - name: "Use Gemini to explain Rust's ownership model"
+          run: "ferri with --model gemini-pro --output rust_ownership.txt -- 'Explain the concept of ownership in Rust in about 300 words, including the rules of ownership, borrowing, and slices.'"
+
+    summarize-text:
+      name: "Summarize Document with Local Model"
+      needs:
+        - generate-long-text
+      steps:
+        - name: "Add the document to the context"
+          run: "ferri ctx add rust_ownership.txt"
+        - name: "Use Gemma to summarize the document"
+          run: "ferri with --ctx --model gemma --output summary.txt -- 'Summarize the provided text about Rust ownership in a single, concise paragraph.'"
+EOF
+
+# 4. Run the flow.
+ferri flow run 02-ai-summarization-flow.yml
+```
+
+After the run, you can inspect the generated `rust_ownership.txt` and `summary.txt` in `/tmp/flow-tests/02-ai-summarization`.

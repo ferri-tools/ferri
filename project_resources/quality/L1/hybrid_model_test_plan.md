@@ -33,7 +33,7 @@ This document outlines the manual testing steps for a `ferri flow` that uses bot
     *   Register the remote Gemini Pro model, linking it to the secret.
     ```bash
     ferri models add gemma --provider ollama --model-name gemma:2b
-    ferri models add gemini-pro --provider google --api-key-secret GOOGLE_API_KEY --model-name gemini-1.5-pro-latest
+    ferri models add gemini-pro --provider google --api-key-secret GOOGLE_API_KEY --model-name gemini-2.5-pro
     ```
 
 4.  **Create the Demo Python Script:**
