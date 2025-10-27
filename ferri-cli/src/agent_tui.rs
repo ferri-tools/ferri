@@ -33,7 +33,9 @@ impl App {
     }
 }
 
-pub fn run(prompt: &str) -> io::Result<()> {
+use std::path::Path;
+
+pub fn run(project_root: &Path, prompt: &str) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -42,7 +44,7 @@ pub fn run(prompt: &str) -> io::Result<()> {
 
     let tick_rate = Duration::from_millis(250);
     let app = App::new();
-    let res = run_app(&mut terminal, app, tick_rate, prompt);
+    let res = run_app(&mut terminal, app, tick_rate, project_root, prompt);
 
     disable_raw_mode()?;
     execute!(
@@ -63,12 +65,13 @@ fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
     tick_rate: Duration,
+    project_root: &Path,
     prompt: &str,
 ) -> io::Result<()> {
     let mut last_tick = Instant::now();
     let (tx, rx) = std::sync::mpsc::channel::<String>();
 
-    let base_path = std::env::current_dir()?;
+    let base_path = project_root.to_path_buf();
     let prompt_clone = prompt.to_string();
 
     std::thread::spawn(move || {
@@ -131,7 +134,6 @@ fn run_app<B: Backend>(
         if let Ok(msg) = rx.try_recv() {
             if msg.starts_with("AGENT FAILED:") {
                 app.state = AgentState::Failed(msg);
-                app.quit = true;
             } else if msg.starts_with("AGENT SUCCESS") {
                  if let AgentState::Executing(current_output) = &app.state {
                     app.state = AgentState::Success(current_output.clone());

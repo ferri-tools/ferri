@@ -82,7 +82,11 @@ enum RuntimeCommand {
 
 #[derive(Subcommand)]
 enum FlowCommand {
-    Run { file: String },
+    Run {
+        file: String,
+        #[arg(long)]
+        quiet: bool,
+    },
     Show { file: String },
 }
 
@@ -482,19 +486,24 @@ fn main() {
             }
         },
         Commands::Flow { action } => match action {
-            FlowCommand::Run { file } => {
+            FlowCommand::Run { file, quiet } => {
                 let file_path = PathBuf::from(file);
 
                 // Try parsing as new format first
                 match flow::parse_flow_file(&file_path) {
                     Ok(flow_doc) => {
                         // New format - use orchestrator
-                        println!("🚀 Running flow: {} ({})", flow_doc.metadata.name, flow_doc.api_version);
-                        println!("   Jobs: {}", flow_doc.spec.jobs.len());
-                        println!();
+                        if !quiet {
+                            println!(
+                                "🚀 Running flow: {} ({})",
+                                flow_doc.metadata.name, flow_doc.api_version
+                            );
+                            println!("   Jobs: {}", flow_doc.spec.jobs.len());
+                            println!();
+                        }
 
                         // Execute the flow with rich output
-                        if let Err(e) = execute_flow_with_output(flow_doc, &current_path) {
+                        if let Err(e) = execute_flow_with_output(flow_doc, &current_path, *quiet) {
                             eprintln!("\n❌ Flow execution failed: {}", e);
                             std::process::exit(1);
                         }
@@ -558,7 +567,7 @@ fn main() {
         },
         Commands::Do { prompt } => {
             let prompt_str = prompt.join(" ");
-            if let Err(e) = agent_tui::run(&prompt_str) {
+            if let Err(e) = agent_tui::run(&current_path, &prompt_str) {
                 eprintln!("Error: Agent TUI failed - {}", e);
                 std::process::exit(1);
             }
@@ -656,29 +665,57 @@ fn main() {
 }
 
 fn execute_flow_with_output(
+
     flow_doc: ferri_automation::flow::FlowDocument,
+
     base_path: &PathBuf,
+
+    quiet: bool,
+
 ) -> io::Result<()> {
-    
+
     use ferri_automation::orchestrator::FlowOrchestrator;
+
     use std::collections::HashMap;
 
+
+
     // Create orchestrator
+
     let orchestrator = FlowOrchestrator::new(
+
         flow_doc,
+
         base_path,
+
         HashMap::new(), // TODO: Parse runtime inputs from CLI args
+
     );
 
+
+
     // Spawn execution thread
+
     let execution_handle = std::thread::spawn(move || orchestrator.execute());
 
+
+
     // Wait for execution to complete
+
     match execution_handle.join() {
+
         Ok(result) => {
+
             result?;
-            println!("\n✨ Flow completed successfully!");
+
+            if !quiet {
+
+                println!("\n✨ Flow completed successfully!");
+
+            }
+
             Ok(())
+
         }
         Err(_) => {
             Err(io::Error::new(
