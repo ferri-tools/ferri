@@ -15,14 +15,15 @@ spec:
         - name: "Compile JS and CSS"
           workspaces:
             - name: build-output
-              mountPath: /dist
+              mountPath: dist
           run: |
+            mkdir -p dist
             echo "--- Building frontend assets ---"
-            mkdir -p /dist/static/css
-            echo "/* main.css */" > /dist/static/css/main.css
-            mkdir -p /dist/static/js
-            echo "// app.js" > /dist/static/js/app.js
-            echo "index.html" > /dist/index.html
+            mkdir -p dist/static/css
+            echo "/* main.css */" > dist/static/css/main.css
+            mkdir -p dist/static/js
+            echo "// app.js" > dist/static/js/app.js
+            echo "index.html" > dist/index.html
             echo "Frontend build complete."
 
     build-backend:
@@ -31,12 +32,13 @@ spec:
         - name: "Compile Rust binary"
           workspaces:
             - name: build-output
-              mountPath: /dist
+              mountPath: dist
           run: |
+            mkdir -p dist
             echo "--- Building backend binary ---"
-            echo "#!/bin/sh" > /dist/app.bin
-            echo "echo 'Backend server running'" >> /dist/app.bin
-            chmod +x /dist/app.bin
+            echo "#!/bin/sh" > dist/app.bin
+            echo "echo 'Backend server running'" >> dist/app.bin
+            chmod +x dist/app.bin
             echo "Backend build complete."
 
     package-application:
@@ -48,14 +50,14 @@ spec:
         - name: "Verify contents and create tarball"
           workspaces:
             - name: build-output
-              mountPath: /app
+              mountPath: app
           run: |
             echo "--- Packaging application ---"
             echo "Final directory structure:"
-            ls -R /app
+            ls -R app
             echo ""
             echo "Creating package.tar.gz..."
             # In a real runner, we'd use tar
-            # tar -czf /app/package.tar.gz -C /app .
+            # tar -czf app/package.tar.gz -C app .
             echo "Tarball created."
             echo "Packaging complete."

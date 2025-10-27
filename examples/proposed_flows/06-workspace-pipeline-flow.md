@@ -68,17 +68,19 @@ spec:
           # This step mounts the two workspaces into its virtual filesystem.
           workspaces:
             - name: source-code
-              mountPath: /app/src
+              mountPath: app/src
             - name: build-artifacts
-              mountPath: /app/dist
+              mountPath: app/dist
           run: |
+            mkdir -p app/src
+            mkdir -p app/dist
             echo "--- Building Application ---"
-            echo "print('hello from my app')" > /app/src/main.py
-            echo "Build artifact created at $(date)" > /app/dist/app.bin
+            echo "print('hello from my app')" > app/src/main.py
+            echo "Build artifact created at $(date)" > app/dist/app.bin
             echo "Source code:"
-            cat /app/src/main.py
+            cat app/src/main.py
             echo "Build artifact:"
-            cat /app/dist/app.bin
+            cat app/dist/app.bin
 
     test-application:
       name: "Test Application"
@@ -89,16 +91,16 @@ spec:
           # This job mounts the same workspaces, but with different permissions.
           workspaces:
             - name: source-code
-              mountPath: /app/src
+              mountPath: app/src
               readOnly: true # The test job cannot modify the source code.
             - name: build-artifacts
-              mountPath: /app/dist
+              mountPath: app/dist
           run: |
             echo "--- Testing Application ---"
             echo "Verifying source code (read-only):"
-            cat /app/src/main.py
+            cat app/src/main.py
             echo "Verifying build artifact:"
-            cat /app/dist/app.bin
+            cat app/dist/app.bin
             echo "Test successful!"
 EOF
 
