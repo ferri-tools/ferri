@@ -17,10 +17,11 @@ spec:
         - name: "Simulate downloading a CSV"
           workspaces:
             - name: raw-data
-              mountPath: /data/raw
+              mountPath: data/raw
           run: |
+            mkdir -p data/raw
             echo "--- Downloading data ---"
-            echo -e "id,category,value\n1,A,100\n2,B,150\n3,A,200" > /data/raw/dataset.csv
+            echo -e "id,category,value\n1,A,100\n2,B,150\n3,A,200" > data/raw/dataset.csv
             echo "Download complete."
 
     process-data:
@@ -31,13 +32,14 @@ spec:
         - name: "Filter for category A"
           workspaces:
             - name: raw-data
-              mountPath: /data/raw
+              mountPath: data/raw
               readOnly: true # Enforce immutability of raw data
             - name: processed-data
-              mountPath: /data/processed
+              mountPath: data/processed
           run: |
+            mkdir -p data/processed
             echo "--- Processing data ---"
-            grep "A" /data/raw/dataset.csv > /data/processed/category_a.csv
+            grep "A" data/raw/dataset.csv > data/processed/category_a.csv
             echo "Processing complete."
 
     generate-report:
@@ -48,13 +50,13 @@ spec:
         - name: "Use AI to summarize the processed data"
           workspaces:
             - name: processed-data
-              mountPath: /data/processed
+              mountPath: data/processed
               readOnly: true
             - name: final-report
-              mountPath: /report
+              mountPath: report
           run: |
+            mkdir -p report
             echo "--- Generating report ---"
-            # In a real flow, we'd add the file to context first.
-            # For this simulation, we pass it via stdin for simplicity.
-            cat /data/processed/category_a.csv | ferri with --model gemma --output /report/summary.md -- "Summarize the key findings from this CSV data."
+            ferri ctx add data/processed/category_a.csv
+            ferri with --ctx --model gemma --output report/summary.md -- "Analyze the provided CSV data and summarize its key findings."
             echo "Report generation complete."

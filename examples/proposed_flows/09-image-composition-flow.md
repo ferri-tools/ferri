@@ -65,11 +65,12 @@ spec:
         - name: "Use Gemini to generate a picture of a cat"
           workspaces:
             - name: generated-image
-              mountPath: /output
+              mountPath: output
           run: |
+            mkdir -p output
             echo "--- Generating AI image ---"
             # Simulate creating an image file. A real model would do this.
-            echo "IMAGE_DATA_OF_A_CAT" > /output/cat.png
+            echo "IMAGE_DATA_OF_A_CAT" > output/cat.png
             echo "Image generation complete."
 
     download-watermark:
@@ -78,10 +79,11 @@ spec:
         - name: "Simulate downloading a watermark.png"
           workspaces:
             - name: assets
-              mountPath: /assets
+              mountPath: assets
           run: |
+            mkdir -p assets
             echo "--- Downloading assets ---"
-            echo "WATERMARK_PNG_DATA" > /assets/watermark.png
+            echo "WATERMARK_PNG_DATA" > assets/watermark.png
             echo "Asset download complete."
 
     apply-watermark:
@@ -94,18 +96,19 @@ spec:
           # This job mounts two different workspaces to combine their contents.
           workspaces:
             - name: generated-image
-              mountPath: /images # Contains the dynamic content
+              mountPath: images # Contains the dynamic content
             - name: assets
-              mountPath: /assets   # Contains the static assets
+              mountPath: assets   # Contains the static assets
               readOnly: true
           run: |
+            mkdir -p images
             echo "--- Applying watermark ---"
             # Simulate a tool like ImageMagick: composite watermark.png cat.png final.png
-            IMAGE=$(cat /images/cat.png)
-            WATERMARK=$(cat /assets/watermark.png)
-            echo "${IMAGE}_WITH_${WATERMARK}" > /images/final_watermarked_cat.png
+            IMAGE=$(cat images/cat.png)
+            WATERMARK=$(cat assets/watermark.png)
+            echo "${IMAGE}_WITH_${WATERMARK}" > images/final_watermarked_cat.png
             echo "Composition complete. Final image:"
-            cat /images/final_watermarked_cat.png
+            cat images/final_watermarked_cat.png
 EOF
 
 # 4. Run the flow.
