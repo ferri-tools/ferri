@@ -21,14 +21,10 @@ This flow uses the `gemma` model via Ollama.
 
 1.  **Install and run Ollama:** [https://ollama.com/](https://ollama.com/)
 2.  **Pull the gemma model:** `ollama pull gemma:2b`
-3.  **(One-time setup)** Add the `gemma` model to Ferri's registry. This command only needs to be run once.
-    ```bash
-    ferri models add gemma --provider ollama --model-name gemma:2b
-    ```
 
 ### Execution
 
-The following commands are fully self-contained and can be run from any directory to test the flow in an isolated environment.
+The following commands are fully self-contained. They will create a temporary workspace, configure the necessary models, and then run the flow.
 
 ```bash
 # 1. Create a temporary directory and navigate into it.
@@ -36,6 +32,9 @@ mkdir -p /tmp/flow-tests/01-text-analysis && cd /tmp/flow-tests/01-text-analysis
 
 # 2. Initialize a new ferri workspace.
 ferri init
+
+# 3. Add the required model to the workspace's registry.
+ferri models add gemma --provider ollama --model-name gemma:2b
 
 # 4. Create the flow YAML file in the current directory.
 cat <<'EOF' > 01-text-analysis-flow.yml

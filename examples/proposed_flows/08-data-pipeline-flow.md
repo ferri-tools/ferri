@@ -29,3 +29,94 @@ This flow demonstrates how to use multiple workspaces to represent the different
 
 -   **Workspaces as Data Stages:** This is the core concept. The workspaces aren't just folders; they represent the state of the data as it moves through the pipeline. This makes the flow's purpose self-documenting.
 -   **Immutability and Safety:** The use of `readOnly: true` is a critical feature. It guarantees that the `process-data` job cannot accidentally corrupt the original raw data, and the `generate-report` job cannot alter the processed data. This enforces a one-way data flow, which is a best practice in data engineering.
+
+## How to Run
+
+This flow uses the `gemma` model via Ollama.
+
+### Prerequisites
+
+1.  **Install and run Ollama:** [https://ollama.com/](https://ollama.com/)
+2.  **Pull the gemma model:** `ollama pull gemma:2b`
+
+### Execution
+
+The following commands are fully self-contained. They will create a temporary workspace, configure the necessary models, and then run the flow.
+
+```bash
+# 1. Create a temporary directory and navigate into it.
+mkdir -p /tmp/flow-tests/08-data-pipeline && cd /tmp/flow-tests/08-data-pipeline
+
+# 2. Initialize a new ferri workspace.
+ferri init
+
+# 3. Add the required model to the workspace's registry.
+ferri models add gemma --provider ollama --model-name gemma:2b
+
+# 4. Create the flow YAML file in the current directory.
+cat <<'EOF' > 08-data-pipeline-flow.yml
+# This flow demonstrates a multi-stage data pipeline where each stage is
+# represented by a distinct workspace, ensuring data integrity.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: staged-data-processing-pipeline
+spec:
+  workspaces:
+    - name: raw-data
+    - name: processed-data
+    - name: final-report
+
+  jobs:
+    download-dataset:
+      name: "Download Raw Dataset"
+      steps:
+        - name: "Simulate downloading a CSV"
+          workspaces:
+            - name: raw-data
+              mountPath: /data/raw
+          run: |
+            echo "--- Downloading data ---"
+            echo -e "id,category,value\n1,A,100\n2,B,150\n3,A,200" > /data/raw/dataset.csv
+            echo "Download complete."
+
+    process-data:
+      name: "Process and Clean Data"
+      needs:
+        - download-dataset
+      steps:
+        - name: "Filter for category A"
+          workspaces:
+            - name: raw-data
+              mountPath: /data/raw
+              readOnly: true # Enforce immutability of raw data
+            - name: processed-data
+              mountPath: /data/processed
+          run: |
+            echo "--- Processing data ---"
+            grep "A" /data/raw/dataset.csv > /data/processed/category_a.csv
+            echo "Processing complete."
+
+    generate-report:
+      name: "Generate Final Report"
+      needs:
+        - process-data
+      steps:
+        - name: "Use AI to summarize the processed data"
+          workspaces:
+            - name: processed-data
+              mountPath: /data/processed
+              readOnly: true
+            - name: final-report
+              mountPath: /report
+          run: |
+            echo "--- Generating report ---"
+            # In a real flow, we'd add the file to context first.
+            # For this simulation, we pass it via stdin for simplicity.
+            cat /data/processed/category_a.csv | ferri with --model gemma --output /report/summary.md -- "Summarize the key findings from this CSV data."
+            echo "Report generation complete."
+EOF
+
+# 5. Run the flow.
+ferri flow run 08-data-pipeline-flow.yml
+```

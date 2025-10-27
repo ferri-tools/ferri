@@ -15,8 +15,10 @@ spec:
                 # This is a potential command injection vulnerability
                 os.system(f"echo User data: {user_input}")
             ' > sample_script.py
+        - name: "Add script to context"
+          run: "ferri ctx add sample_script.py"
         - name: "Ask Gemma to check for vulnerabilities"
-          run: "ferri with --ctx sample_script.py --model gemma --output triage_report.txt -- 'Analyze this Python script for security vulnerabilities. If you find any security issues, start your response with the word VULNERABLE:. Otherwise, start with SECURE:.'"
+          run: "ferri with --ctx --model gemma --output triage_report.txt -- 'Analyze this Python script for security vulnerabilities. If you find any security issues, start your response with the word V-ULNERABLE:. Otherwise, start with SECURE:.'"
 
     check-for-vulnerability:
       name: "Check Triage Report"
