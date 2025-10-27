@@ -19,24 +19,13 @@ This flow uses both a remote model (`gemini-pro`) and a local model (`gemma`).
 
 ### Prerequisites
 
-1.  **Configure Remote Models:** Ensure you have set your `GOOGLE_API_KEY` secret using `ferri secrets set GOOGLE_API_KEY "YOUR_KEY"`.
+1.  **Google API Key:** You need a Google API key with the Gemini API enabled.
 2.  **Install and run Ollama:** [https://ollama.com/](https://ollama.com/)
 3.  **Pull the gemma model:** `ollama pull gemma:2b`
-4.  **(One-time setup)** Add the required models to Ferri's registry.
-    ```bash
-    # Add the local gemma model
-    ferri models add gemma --provider ollama --model-name gemma:2b
-
-    # Add the remote gemini-pro model
-    ferri models add gemini-pro \
-      --provider google \
-      --api-key-secret GOOGLE_API_KEY \
-      --model-name gemini-2.5-pro
-    ```
 
 ### Execution
 
-The following commands are fully self-contained and can be run from any directory to test the flow in an isolated environment.
+The following commands are fully self-contained. They will create a temporary workspace, configure the necessary secrets and models, and then run the flow.
 
 ```bash
 # 1. Create a temporary directory and navigate into it.
@@ -45,7 +34,17 @@ mkdir -p /tmp/flow-tests/02-ai-summarization && cd /tmp/flow-tests/02-ai-summari
 # 2. Initialize a new ferri workspace.
 ferri init
 
-# 3. Create the flow YAML file in the current directory.
+# 3. Set the required secret. Replace "YOUR_KEY" with your actual Google API key.
+ferri secrets set GOOGLE_API_KEY "YOUR_KEY"
+
+# 4. Add the required models to the workspace's registry.
+ferri models add gemma --provider ollama --model-name gemma:2b
+ferri models add gemini-pro \
+  --provider google \
+  --api-key-secret GOOGLE_API_KEY \
+  --model-name gemini-2.5-pro
+
+# 5. Create the flow YAML file in the current directory.
 cat <<'EOF' > 02-ai-summarization-flow.yml
 # This flow uses a powerful AI to generate a long document, then a smaller AI to summarize it.
 apiVersion: ferri.flow/v1alpha1
@@ -71,7 +70,7 @@ spec:
           run: "ferri with --ctx --model gemma --output summary.txt -- 'Summarize the provided text about Rust ownership in a single, concise paragraph.'"
 EOF
 
-# 4. Run the flow.
+# 6. Run the flow.
 ferri flow run 02-ai-summarization-flow.yml
 ```
 

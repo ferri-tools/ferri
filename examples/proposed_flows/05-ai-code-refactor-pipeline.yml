@@ -19,8 +19,10 @@ spec:
                         results.append(str(i))
                 return ",".join(results)
             ' > original_script.py
+        - name: "Add script to context"
+          run: "ferri ctx add original_script.py"
         - name: "Use local model for a quick triage"
-          run: "ferri with --ctx original_script.py --model gemma --output triage_report.txt -- 'Briefly review this Python code. Identify one area for improvement.'"
+          run: "ferri with --ctx --model gemma --output triage_report.txt -- 'Briefly review this Python code. Identify one area for improvement.'"
 
     refactor-code:
       name: "Refactor Code with Powerful AI"
@@ -30,15 +32,17 @@ spec:
         - name: "Add original script and triage report to context"
           run: "ferri ctx add original_script.py triage_report.txt"
         - name: "Use Gemini to refactor the code based on the triage"
-          run: "ferri with --ctx --model gemini-pro --output enhanced_script.py -- 'Rewrite the Python script from the context to implement the improvement suggested in the triage report. Respond only with the raw, runnable code.'"
+          run: "ferri with --ctx --model gemini-pro --output enhanced_script.py -- 'Rewrite the Python script from the context to implement the improvement suggested in the triage report. CRITICAL: Your response must be ONLY the raw, runnable code. Do not include markdown fences like ```python or any other explanatory text.'"
 
     generate-tests:
       name: "Generate Unit Tests"
       needs:
         - triage-code
       steps:
+        - name: "Add script to context"
+          run: "ferri ctx add original_script.py"
         - name: "Use Gemini to write unit tests for the original script's logic"
-          run: "ferri with --ctx original_script.py --model gemini-pro --output tests.py -- 'Write a Python unit test file using the unittest library to verify the logic of the script in context. The tests should be runnable with python3. Respond only with the raw, runnable code.'"
+          run: "ferri with --ctx --model gemini-pro --output tests.py -- 'Write a Python unit test file using the unittest library to verify the logic of the script in context. The tests must be runnable with python3. CRITICAL: Your response must be ONLY the raw, runnable code. Do not include markdown fences like ```python or any other explanatory text.'"
 
     validate-and-document:
       name: "Validate and Generate Commit Message"

@@ -25,3 +25,89 @@ This flow demonstrates a more advanced use of workspaces where a single job need
     -   Applying a standard header/footer to an AI-generated report.
     -   Injecting an AI-generated code snippet into a boilerplate file.
     -   Placing a generated 3D model into a pre-defined scene.
+
+## How to Run
+
+This flow does not require any AI models and runs entirely with shell commands, simulating the AI steps.
+
+### Prerequisites
+
+None.
+
+### Execution
+
+The following commands are fully self-contained and can be run from any directory to test the flow in an isolated environment.
+
+```bash
+# 1. Create a temporary directory and navigate into it.
+mkdir -p /tmp/flow-tests/09-image-composition && cd /tmp/flow-tests/09-image-composition
+
+# 2. Initialize a new ferri workspace.
+ferri init
+
+# 3. Create the flow YAML file in the current directory.
+cat <<'EOF' > 09-image-composition-flow.yml
+# This flow demonstrates a "composition" job that mounts multiple workspaces
+# to combine an AI-generated image with a static asset.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: ai-image-composition-pipeline
+spec:
+  workspaces:
+    - name: generated-image
+    - name: assets
+
+  jobs:
+    generate-image:
+      name: "Generate Image with AI"
+      steps:
+        - name: "Use Gemini to generate a picture of a cat"
+          workspaces:
+            - name: generated-image
+              mountPath: /output
+          run: |
+            echo "--- Generating AI image ---"
+            # Simulate creating an image file. A real model would do this.
+            echo "IMAGE_DATA_OF_A_CAT" > /output/cat.png
+            echo "Image generation complete."
+
+    download-watermark:
+      name: "Download Watermark Asset"
+      steps:
+        - name: "Simulate downloading a watermark.png"
+          workspaces:
+            - name: assets
+              mountPath: /assets
+          run: |
+            echo "--- Downloading assets ---"
+            echo "WATERMARK_PNG_DATA" > /assets/watermark.png
+            echo "Asset download complete."
+
+    apply-watermark:
+      name: "Apply Watermark to Image"
+      needs:
+        - generate-image
+        - download-watermark
+      steps:
+        - name: "Combine image and watermark"
+          # This job mounts two different workspaces to combine their contents.
+          workspaces:
+            - name: generated-image
+              mountPath: /images # Contains the dynamic content
+            - name: assets
+              mountPath: /assets   # Contains the static assets
+              readOnly: true
+          run: |
+            echo "--- Applying watermark ---"
+            # Simulate a tool like ImageMagick: composite watermark.png cat.png final.png
+            IMAGE=$(cat /images/cat.png)
+            WATERMARK=$(cat /assets/watermark.png)
+            echo "${IMAGE}_WITH_${WATERMARK}" > /images/final_watermarked_cat.png
+            echo "Composition complete. Final image:"
+            cat /images/final_watermarked_cat.png
+EOF
+
+# 4. Run the flow.
+ferri flow run 09-image-composition-flow.yml
+```
