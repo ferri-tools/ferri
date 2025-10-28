@@ -9,10 +9,9 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::process::Command;
 
 // These modules are part of the CLI binary, not library crates.
-mod agent_tui;
+mod flow_monitor_tui;
 mod flow_run_tui;
 mod ps_tui;
 mod tui;
@@ -567,8 +566,51 @@ fn main() {
         },
         Commands::Do { prompt } => {
             let prompt_str = prompt.join(" ");
-            if let Err(e) = agent_tui::run(&current_path, &prompt_str) {
-                eprintln!("Error: Agent TUI failed - {}", e);
+            println!("Generating flow for prompt: '{}'...", prompt_str);
+
+            // 1. Generate the flow file
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let flow_path = match rt.block_on(ferri_agent::agent::generate_flow(
+                &current_path,
+                &prompt_str,
+            )) {
+                Ok(path) => path,
+                Err(e) => {
+                    eprintln!("\n❌ Error generating flow: {}", e);
+                    std::process::exit(1);
+                }
+            };
+
+            println!("✅ Flow generated: {}", flow_path.display());
+
+            // 2. Parse the flow file
+            let flow_doc = match ferri_automation::flow::parse_flow_file(&flow_path) {
+                Ok(doc) => doc,
+                Err(e) => {
+                    eprintln!("\n❌ Error parsing generated flow: {}", e);
+                    std::process::exit(1);
+                }
+            };
+
+            // 3. Set up the orchestrator and TUI
+            let (tx, rx) = crossbeam_channel::unbounded();
+            let orchestrator = ferri_automation::orchestrator::FlowOrchestrator::new(
+                flow_doc,
+                &current_path,
+                Default::default(),
+            );
+
+            // 4. Run orchestrator in a background thread
+            std::thread::spawn(move || {
+                if let Err(e) = orchestrator.execute(Some(tx)) {
+                    // Errors will be sent as updates, but we can log panics here if needed
+                    eprintln!("[Orchestrator Thread Error]: {}", e);
+                }
+            });
+
+            // 5. Run the TUI on the main thread
+            if let Err(e) = flow_monitor_tui::run(rx) {
+                eprintln!("\n❌ TUI Error: {}", e);
                 std::process::exit(1);
             }
         }
@@ -694,9 +736,11 @@ fn execute_flow_with_output(
 
 
 
-    // Spawn execution thread
+        // Spawn execution thread
 
-    let execution_handle = std::thread::spawn(move || orchestrator.execute());
+
+
+        let execution_handle = std::thread::spawn(move || orchestrator.execute(None));
 
 
 

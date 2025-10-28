@@ -44,7 +44,7 @@ impl FlowOrchestrator {
     }
 
     /// Execute the entire flow
-    pub fn execute(&self) -> io::Result<()> {
+    pub fn execute(&self, external_sender: Option<Sender<Update>>) -> io::Result<()> {
         // Create a new channel for updates
         let (update_sender, update_receiver) = crossbeam_channel::unbounded();
 
@@ -77,6 +77,7 @@ impl FlowOrchestrator {
                 Arc::clone(&job_outputs),
                 &workspace_paths,
                 &update_sender,
+                external_sender.as_ref(),
             )?;
         }
 
@@ -200,15 +201,18 @@ impl FlowOrchestrator {
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         workspace_paths: &HashMap<String, PathBuf>,
         update_sender: &Sender<Update>,
+        external_sender: Option<&Sender<Update>>,
     ) -> io::Result<()> {
         // Send Pending status for all jobs in this wave
         for job_id in wave {
-            update_sender
-                .send(Update::Job(JobUpdate {
-                    job_id: job_id.clone(),
-                    status: JobStatus::Pending,
-                }))
-                .unwrap();
+            let update = Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status: JobStatus::Pending,
+            });
+            update_sender.send(update.clone()).unwrap();
+            if let Some(sender) = external_sender {
+                sender.send(update).unwrap();
+            }
         }
 
         let mut handles = Vec::new();
@@ -217,7 +221,6 @@ impl FlowOrchestrator {
             let job = self.flow.spec.jobs.get(job_id).unwrap().clone();
             let job_id = job_id.clone();
             let base_path = self.base_path.clone();
-            let update_sender = update_sender.clone();
             let runtime_inputs = self.runtime_inputs.clone();
             let job_outputs_clone = Arc::clone(&job_outputs);
             let flow = self.flow.clone();
@@ -246,38 +249,29 @@ impl FlowOrchestrator {
         let mut errors = Vec::new();
         for (idx, handle) in handles.into_iter().enumerate() {
             let job_id = &wave[idx];
-            match handle.join() {
-                Ok(Ok(())) => {
-                    // Job succeeded
-                    update_sender
-                        .send(Update::Job(JobUpdate {
-                            job_id: job_id.clone(),
-                            status: JobStatus::Succeeded,
-                        }))
-                        .unwrap();
-                }
+            let (status, error_msg) = match handle.join() {
+                Ok(Ok(())) => (JobStatus::Succeeded, None),
                 Ok(Err(e)) => {
-                    // Job returned an error
-                    let error_msg = e.to_string();
-                    update_sender
-                        .send(Update::Job(JobUpdate {
-                            job_id: job_id.clone(),
-                            status: JobStatus::Failed(error_msg.clone()),
-                        }))
-                        .unwrap();
-                    errors.push(format!("Job '{}' failed: {}", job_id, error_msg));
+                    let msg = e.to_string();
+                    (JobStatus::Failed(msg.clone()), Some(format!("Job '{}' failed: {}", job_id, msg)))
                 }
                 Err(e) => {
-                    // Thread panicked
-                    let panic_msg = format!("Job thread panicked: {:?}", e);
-                    update_sender
-                        .send(Update::Job(JobUpdate {
-                            job_id: job_id.clone(),
-                            status: JobStatus::Failed(panic_msg.clone()),
-                        }))
-                        .unwrap();
-                    errors.push(panic_msg);
+                    let msg = format!("Job thread panicked: {:?}", e);
+                    (JobStatus::Failed(msg.clone()), Some(msg))
                 }
+            };
+
+            let update = Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status,
+            });
+            update_sender.send(update.clone()).unwrap();
+            if let Some(sender) = external_sender {
+                sender.send(update).unwrap();
+            }
+
+            if let Some(msg) = error_msg {
+                errors.push(msg);
             }
         }
 

@@ -1,24 +1,11 @@
-use ferri_automation::execute::PreparedCommand;
-use ferri_automation::jobs;
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
-use std::collections::HashMap;
 use std::env;
-use std::io::Write;
-use std::path::Path;
-use std::process::Command;
-use tempfile::NamedTempFile;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time;
 
-pub async fn generate_and_run_flow<F>(
-    base_path: &Path,
-    prompt: &str,
-    mut status_callback: F,
-) -> Result<String>
-where
-    F: FnMut(&str),
-{
-    status_callback(&format!("Generating flow for prompt: '{}'", prompt));
-
+pub async fn generate_flow(base_path: &Path, prompt: &str) -> Result<PathBuf> {
     let api_key = env::var("GEMINI_API_KEY").map_err(|_| {
         anyhow!(
             "GEMINI_API_KEY environment variable not set.
@@ -30,16 +17,15 @@ export GEMINI_API_KEY=\"your-api-key-here\""
 
     let system_prompt = r###"you are an expert software developer and terminal assistant. your goal is to break down a user's high-level request into a precise, executable ferri flow yaml file.
 
-the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps within a single job in a ferri flow.
+the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps within one or more jobs in a ferri flow. if the request implies a sequence of distinct stages (e.g., "build the frontend, then build the backend"), you should use multiple jobs with `needs` to define dependencies.
 
 **key rules:**
 - the output must be a valid yaml file.
 - the yaml structure must conform to the `ferri.flow/v1alpha1` specification.
-- create a single job with a logical id (e.g., `main-job`).
-- all commands should be placed as steps within that single job.
-- **important**: for multi-line commands, especially for writing files, use the yaml literal block scalar (`|`). this is the most robust method.
+- use logical job ids (e.g., `build-frontend`, `deploy`).
+- for multi-line commands, especially for writing files, use the yaml literal block scalar (`|`). this is the most robust method.
 
-**example 1: simple file operations**
+**example 1: simple file operations (single job)**
 
 user prompt: "create a new directory called 'my_app' and then create an empty file inside it named 'index.js'"
 
@@ -51,9 +37,9 @@ metadata:
   name: "create-my-app"
 spec:
   jobs:
-    main-job:
+    create-structure:
       name: "Create project structure"
-      runs-on: "local"
+      runs-on: "process"
       steps:
         - name: "Create project directory"
           run: "mkdir my_app"
@@ -61,28 +47,35 @@ spec:
           run: "touch my_app/index.js"
 ```
 
-**example 2: writing a multi-line script file**
+**example 2: multi-stage task (multiple jobs)**
 
-user prompt: "create a python script named 'app.py' that prints 'hello'"
+user prompt: "create a rust project and then compile it"
 
 your response:
 ```yaml
 apiVersion: ferri.flow/v1alpha1
 kind: Flow
 metadata:
-  name: "create-python-script"
+  name: "create-and-build-rust-project"
 spec:
   jobs:
-    main-job:
-      name: "Create Hello World Python Script"
-      runs-on: "local"
+    create-project:
+      name: "Create Rust Project"
+      runs-on: "process"
       steps:
-        - name: "Write python script"
+        - name: "Initialize new cargo project"
+          run: "cargo new my_rust_app"
+
+    build-project:
+      name: "Build Rust Project"
+      runs-on: "process"
+      needs:
+        - create-project
+      steps:
+        - name: "Navigate to project and build"
           run: |
-            cat > app.py << EOF
-            #!/usr/bin/env python3
-            print('hello')
-            EOF
+            cd my_rust_app
+            cargo build
 ```
 "###;
 
@@ -103,8 +96,6 @@ spec:
         ]
     });
 
-    status_callback("Sending request to Gemini API...");
-
     let response = client
         .post(&url)
         .json(&request_body)
@@ -112,15 +103,13 @@ spec:
         .await
         .context("Failed to send request to Gemini API")?;
 
-    let status = response.status();
-    if !status.is_success() {
+    if !response.status().is_success() {
         let error_body = response
             .text()
             .await
             .unwrap_or_else(|_| "Could not read error body".to_string());
         return Err(anyhow!(
-            "Gemini API request failed with status: {}. Body: {}",
-            status,
+            "Gemini API request failed. Body: {}",
             error_body
         ));
     }
@@ -129,8 +118,6 @@ spec:
         .json()
         .await
         .context("Failed to parse Gemini API response")?;
-
-    status_callback("Received response from Gemini API. Parsing flow...");
 
     let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
@@ -149,49 +136,20 @@ spec:
 
     let yaml_content = yaml_content.trim();
 
-    status_callback(&format!(
-        "Generated Flow:\n---\n{}\n---",
-        yaml_content
-    ));
-
     // Create the .ferri/do directory
     let do_dir = base_path.join(".ferri").join("do");
-    std::fs::create_dir_all(&do_dir).context("Failed to create .ferri/do directory")?;
+    fs::create_dir_all(&do_dir).context("Failed to create .ferri/do directory")?;
 
     // Generate a unique filename
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let timestamp = time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
     let file_name = format!("flow-{}.yml", timestamp);
     let file_path = do_dir.join(file_name);
 
     // Write the flow to the file
-    std::fs::write(&file_path, yaml_content).context("Failed to write flow to file")?;
+    fs::write(&file_path, yaml_content).context("Failed to write flow to file")?;
 
-    status_callback(&format!(
-        "Executing generated flow: {}",
-        file_path.to_string_lossy()
-    ));
-
-    let base_path_buf = base_path.to_path_buf();
-    let job = tokio::task::spawn_blocking(move || {
-        let command_str = format!("ferri flow run --quiet {}", file_path.to_string_lossy());
-        let mut command = Command::new("sh");
-        command.arg("-c").arg(&command_str);
-
-        jobs::submit_job(
-            &base_path_buf,
-            PreparedCommand::Local(command, None),
-            HashMap::new(),
-            &[],
-            None,
-            None,
-        )
-    })
-    .await
-    .context("Failed to spawn blocking task for job submission")?
-    .context("Job submission failed in blocking task")?;
-
-    Ok(job.id)
+    Ok(file_path)
 }
