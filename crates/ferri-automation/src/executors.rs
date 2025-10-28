@@ -1,4 +1,4 @@
-use crate::flow::{Job, Update, OutputUpdate};
+use crate::flow::{Job, OutputUpdate, StepStatus, StepUpdate, Update};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
@@ -53,8 +53,23 @@ impl Executor for ProcessExecutor {
         let base_path = base_path.to_path_buf();
 
         let handle = thread::spawn(move || {
-            for (step_idx, step) in job.steps.iter().enumerate() {
+            for (step_index, step) in job.steps.iter().enumerate() {
                 if let Some(run_command) = &step.run {
+                    // Log Step Running
+                    let step_update = Update::Step(StepUpdate {
+                        job_id: job_id.clone(),
+                        step_index,
+                        status: StepStatus::Running,
+                    });
+                    let mut writer_lock = writer.lock().unwrap();
+                    writeln!(
+                        writer_lock,
+                        "{}",
+                        serde_json::to_string(&step_update).unwrap()
+                    )?;
+                    writer_lock.flush()?;
+                    drop(writer_lock);
+
                     let mut cmd = Command::new("sh");
                     cmd.arg("-c")
                         .arg(run_command)
@@ -74,6 +89,7 @@ impl Executor for ProcessExecutor {
                         for line in reader.lines() {
                             let update = Update::Output(OutputUpdate {
                                 job_id: stdout_job_id.clone(),
+                                step_index,
                                 line: line.unwrap_or_default(),
                             });
                             let mut writer_lock = stdout_writer.lock().unwrap();
@@ -90,6 +106,7 @@ impl Executor for ProcessExecutor {
                         for line in reader.lines() {
                             let update = Update::Output(OutputUpdate {
                                 job_id: stderr_job_id.clone(),
+                                step_index,
                                 line: line.unwrap_or_default(),
                             });
                             let mut writer_lock = stderr_writer.lock().unwrap();
@@ -104,15 +121,34 @@ impl Executor for ProcessExecutor {
 
                     let status = child.wait()?;
 
-                    if !status.success() {
-                        let step_name =
-                            step.name.clone().unwrap_or_else(|| format!("step-{}", step_idx));
+                    let final_status = if status.success() {
+                        StepStatus::Completed
+                    } else {
                         let err_msg = format!(
-                            "Step '{}' failed with exit code {}",
-                            step_name,
+                            "Step failed with exit code {}",
                             status.code().unwrap_or(1)
                         );
-                        return Err(io::Error::new(io::ErrorKind::Other, err_msg));
+                        StepStatus::Failed(err_msg)
+                    };
+
+                    let step_update = Update::Step(StepUpdate {
+                        job_id: job_id.clone(),
+                        step_index,
+                        status: final_status.clone(),
+                    });
+                    let mut writer_lock = writer.lock().unwrap();
+                    writeln!(
+                        writer_lock,
+                        "{}",
+                        serde_json::to_string(&step_update).unwrap()
+                    )?;
+                    writer_lock.flush()?;
+
+                    if !status.success() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Step {} failed", step_index),
+                        ));
                     }
                 }
             }

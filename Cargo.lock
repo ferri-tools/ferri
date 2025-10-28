@@ -592,6 +592,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "serde_yaml",
  "shell-escape",
  "tempfile",
  "tokio",

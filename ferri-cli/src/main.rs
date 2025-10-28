@@ -486,6 +486,8 @@ fn main() {
         Commands::Flow { action } => match action {
             FlowCommand::Run { file, quiet: _ } => {
                 let file_path = PathBuf::from(file);
+                let flow_content = fs::read_to_string(&file_path).ok();
+
                 let flow_doc = match ferri_automation::flow::parse_flow_file(&file_path) {
                     Ok(doc) => doc,
                     Err(e) => {
@@ -506,7 +508,7 @@ fn main() {
                 match log_path_result {
                     Ok(Ok(log_path)) => {
                         // Run the TUI on the main thread, polling the log file
-                        if let Err(e) = flow_monitor_tui::run(&log_path) {
+                        if let Err(e) = flow_monitor_tui::run(&log_path, flow_content) {
                             eprintln!("\n❌ TUI Error: {}", e);
                             std::process::exit(1);
                         }
@@ -580,12 +582,11 @@ fn main() {
             let runs_dir = current_path.join(".ferri").join("runs");
             fs::create_dir_all(&runs_dir).unwrap();
             let log_path = runs_dir.join(format!("{}.log", run_id));
-            let log_path_clone = log_path.clone();
 
             // 2. Spawn the generator and orchestrator in a background thread
             let _handle = std::thread::spawn(move || {
                 // 3. Write the initial "generating" status to the log
-                let log_file = fs::File::create(&log_path_clone).unwrap();
+                let log_file = fs::File::create(&log_path).unwrap();
                 let mut writer = io::BufWriter::new(log_file);
                 let initial_update = flow::Update::Job(flow::JobUpdate {
                     job_id: "generating-flow".to_string(),
@@ -630,11 +631,18 @@ fn main() {
                 .unwrap();
                 writer.flush().unwrap();
 
-                // 5. Parse and execute the generated flow
+                // 5. Send the flow content to the TUI via the log
+                if let Ok(content) = fs::read_to_string(&flow_path) {
+                    let flow_file_update = flow::Update::FlowFile(flow::FlowFileContent { content });
+                    writeln!(writer, "{}", serde_json::to_string(&flow_file_update).unwrap()).unwrap();
+                    writer.flush().unwrap();
+                }
+
+
+                // 6. Parse and execute the generated flow
                 let flow_doc = match ferri_automation::flow::parse_flow_file(&flow_path) {
                     Ok(doc) => doc,
                     Err(e) => {
-                        // Log a generic error job if parsing fails
                         let err_update = flow::Update::Job(flow::JobUpdate {
                             job_id: "flow-execution".to_string(),
                             status: flow::JobStatus::Failed(format!(
@@ -656,7 +664,6 @@ fn main() {
                 );
 
                 if orchestrator.execute().is_err() {
-                    // The orchestrator logs its own errors, but we can log a generic failure
                     let err_update = flow::Update::Job(flow::JobUpdate {
                         job_id: "flow-execution".to_string(),
                         status: flow::JobStatus::Failed(
@@ -669,8 +676,8 @@ fn main() {
                 }
             });
 
-            // 6. Launch the TUI immediately
-            if let Err(e) = flow_monitor_tui::run(&log_path) {
+            // 7. Launch the TUI immediately
+            if let Err(e) = flow_monitor_tui::run(&log_path, None) {
                 eprintln!("\n❌ TUI Error: {}", e);
                 std::process::exit(1);
             }

@@ -203,14 +203,31 @@ impl FlowOrchestrator {
         workspace_paths: &HashMap<String, PathBuf>,
         writer: Arc<Mutex<io::BufWriter<fs::File>>>,
     ) -> io::Result<()> {
-        // Send Pending status for all jobs in this wave
+        // Send Pending status for all jobs and their steps in this wave
         for job_id in wave {
-            let update = Update::Job(JobUpdate {
+            let job = self.flow.spec.jobs.get(job_id).unwrap();
+            let mut writer_lock = writer.lock().unwrap();
+
+            // Log job as pending
+            let job_update = Update::Job(JobUpdate {
                 job_id: job_id.clone(),
                 status: JobStatus::Pending,
             });
-            let mut writer_lock = writer.lock().unwrap();
-            writeln!(writer_lock, "{}", serde_json::to_string(&update).unwrap())?;
+            writeln!(writer_lock, "{}", serde_json::to_string(&job_update).unwrap())?;
+
+            // Log all steps as pending
+            for (step_index, _) in job.steps.iter().enumerate() {
+                let step_update = Update::Step(crate::flow::StepUpdate {
+                    job_id: job_id.clone(),
+                    step_index,
+                    status: crate::flow::StepStatus::Pending,
+                });
+                writeln!(
+                    writer_lock,
+                    "{}",
+                    serde_json::to_string(&step_update).unwrap()
+                )?;
+            }
             writer_lock.flush()?;
         }
 

@@ -30,9 +30,8 @@ pub enum StepStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepUpdate {
     pub job_id: String,
-    pub step_name: String,
+    pub step_index: usize,
     pub status: StepStatus,
-    pub output: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,7 +57,13 @@ pub struct JobUpdate {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputUpdate {
     pub job_id: String,
+    pub step_index: usize,
     pub line: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FlowFileContent {
+    pub content: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -66,6 +71,7 @@ pub enum Update {
     Job(JobUpdate),
     Step(StepUpdate),
     Output(OutputUpdate),
+    FlowFile(FlowFileContent),
 }
 // ---
 
@@ -468,14 +474,13 @@ pub fn run_pipeline(
     // This map now tracks the explicit output file path for each step.
     let step_output_files = Arc::new(Mutex::new(HashMap::<String, PathBuf>::new()));
 
-    for step in &pipeline.steps {
+    for (step_index, step) in pipeline.steps.iter().enumerate() {
         let sender_clone = update_sender.clone();
         sender_clone
             .send(StepUpdate {
                 job_id: "legacy".to_string(),
-                step_name: step.name.clone(),
+                step_index,
                 status: StepStatus::Running,
-                output: None,
             })
             .unwrap();
 
@@ -545,9 +550,8 @@ pub fn run_pipeline(
                         }
                         sender_clone.send(StepUpdate {
                             job_id: "legacy".to_string(),
-                            step_name: step.name.clone(),
+                            step_index,
                             status: StepStatus::Completed,
-                            output: None
                         }).unwrap();
                         break;
                     }
@@ -555,19 +559,17 @@ pub fn run_pipeline(
                         let err_msg = format!("Step '{}' failed. See job '{}' for details.", step.name, job_id);
                         sender_clone.send(StepUpdate {
                             job_id: "legacy".to_string(),
-                            step_name: step.name.clone(),
+                            step_index,
                             status: StepStatus::Failed(err_msg.clone()),
-                            output: None
                         }).unwrap();
                         return Err(io::Error::new(io::ErrorKind::Other, err_msg));
                     }
                     _ => { // Still running
-                        let output = jobs::get_job_output(base_path, &job_id)?;
+                        // let output = jobs::get_job_output(base_path, &job_id)?;
                         sender_clone.send(StepUpdate {
                             job_id: "legacy".to_string(),
-                            step_name: step.name.clone(),
+                            step_index,
                             status: StepStatus::Running,
-                            output: Some(output)
                         }).unwrap();
                     }
                 }
@@ -576,9 +578,8 @@ pub fn run_pipeline(
                 // For this loop, we assume it's completed.
                 sender_clone.send(StepUpdate {
                     job_id: "legacy".to_string(),
-                    step_name: step.name.clone(),
+                    step_index,
                     status: StepStatus::Completed,
-                    output: None
                 }).unwrap();
                 break;
             }
