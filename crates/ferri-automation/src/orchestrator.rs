@@ -227,6 +227,7 @@ impl FlowOrchestrator {
             let workspace_paths_clone = workspace_paths.clone();
 
             let registry_clone = Arc::clone(&self.executor_registry);
+            let writer_clone = Arc::clone(&writer);
 
             let handle = thread::spawn(move || {
                 Self::execute_job(
@@ -238,6 +239,7 @@ impl FlowOrchestrator {
                     &flow,
                     &workspace_paths_clone,
                     registry_clone,
+                    writer_clone,
                 )
             });
 
@@ -293,9 +295,12 @@ impl FlowOrchestrator {
         _flow: &FlowDocument,
         _workspace_paths: &HashMap<String, PathBuf>,
         executor_registry: Arc<ExecutorRegistry>,
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
     ) -> io::Result<()> {
         // Run the job using the appropriate executor
-        Self::run_job_executor(job_id, job, base_path, executor_registry)?;
+        let handle =
+            Self::run_job_executor(job_id, job, base_path, executor_registry, writer)?;
+        handle.0.join().unwrap()?; // Wait for the executor to finish
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -325,7 +330,8 @@ impl FlowOrchestrator {
         job: &Job,
         base_path: &Path,
         executor_registry: Arc<ExecutorRegistry>,
-    ) -> io::Result<()> {
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
+    ) -> io::Result<crate::executors::ExecutionHandle> {
         // --- Executor Selection ---
         let executor_name = job.runs_on.as_deref().unwrap_or("process");
         let executor = executor_registry.get(executor_name).ok_or_else(|| {
@@ -339,9 +345,9 @@ impl FlowOrchestrator {
         })?;
 
         // Secrets are not yet implemented, so we pass an empty HashMap.
-        let _handle = executor.execute(job, base_path, &HashMap::new())?;
+        let handle = executor.execute(job_id, job, base_path, &HashMap::new(), writer)?;
 
-        Ok(())
+        Ok(handle)
     }
 }
 

@@ -56,9 +56,16 @@ pub struct JobUpdate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputUpdate {
+    pub job_id: String,
+    pub line: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Update {
     Job(JobUpdate),
     Step(StepUpdate),
+    Output(OutputUpdate),
 }
 // ---
 

@@ -13,7 +13,10 @@ use std::time::{Duration, Instant};
 
 struct App {
     jobs: HashMap<String, JobStatus>,
-    total_jobs: usize, // To know when to exit
+    job_outputs: HashMap<String, Vec<String>>,
+    job_order: Vec<String>,
+    selected_job: usize,
+    total_jobs: usize,
     quit: bool,
 }
 
@@ -21,7 +24,10 @@ impl App {
     fn new() -> Self {
         Self {
             jobs: HashMap::new(),
-            total_jobs: 0, // Will be updated as we see jobs
+            job_outputs: HashMap::new(),
+            job_order: Vec::new(),
+            selected_job: 0,
+            total_jobs: 0,
             quit: false,
         }
     }
@@ -31,11 +37,19 @@ impl App {
             Update::Job(job_update) => {
                 if !self.jobs.contains_key(&job_update.job_id) {
                     self.total_jobs += 1;
+                    self.job_order.push(job_update.job_id.clone());
                 }
-                self.jobs.insert(job_update.job_id, job_update.status);
+                self.jobs
+                    .insert(job_update.job_id.clone(), job_update.status);
             }
             Update::Step(_) => {
                 // For now, we only display job-level status
+            }
+            Update::Output(output_update) => {
+                self.job_outputs
+                    .entry(output_update.job_id)
+                    .or_default()
+                    .push(output_update.line);
             }
         }
     }
@@ -46,6 +60,22 @@ impl App {
         }
         let finished_jobs = self.jobs.values().filter(|s| s.is_terminal()).count();
         finished_jobs == self.total_jobs
+    }
+
+    fn next_job(&mut self) {
+        if !self.job_order.is_empty() {
+            self.selected_job = (self.selected_job + 1) % self.job_order.len();
+        }
+    }
+
+    fn previous_job(&mut self) {
+        if !self.job_order.is_empty() {
+            if self.selected_job > 0 {
+                self.selected_job -= 1;
+            } else {
+                self.selected_job = self.job_order.len() - 1;
+            }
+        }
     }
 }
 
@@ -59,7 +89,6 @@ pub fn run(log_path: &Path) -> io::Result<()> {
     let tick_rate = Duration::from_millis(250);
     let mut app = App::new();
 
-    // Wait briefly for the log file to be created
     std::thread::sleep(Duration::from_millis(100));
     let file = File::open(log_path)?;
     let mut reader = BufReader::new(file);
@@ -68,9 +97,8 @@ pub fn run(log_path: &Path) -> io::Result<()> {
     let mut last_tick = Instant::now();
 
     loop {
-        terminal.draw(|f| ui(f, &app))?;
+        terminal.draw(|f| ui(f, &mut app))?;
 
-        // Check for new updates from the log file
         while reader.read_line(&mut line)? > 0 {
             if let Ok(update) = serde_json::from_str::<Update>(&line) {
                 app.on_update(update);
@@ -84,8 +112,11 @@ pub fn run(log_path: &Path) -> io::Result<()> {
 
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('q') {
-                    app.quit = true;
+                match key.code {
+                    KeyCode::Char('q') => app.quit = true,
+                    KeyCode::Down => app.next_job(),
+                    KeyCode::Up => app.previous_job(),
+                    _ => {}
                 }
             }
         }
@@ -95,9 +126,8 @@ pub fn run(log_path: &Path) -> io::Result<()> {
         }
 
         if app.quit || app.is_finished() {
-            // Add a small delay to ensure the final status is rendered
             std::thread::sleep(Duration::from_millis(500));
-            terminal.draw(|f| ui(f, &app))?;
+            terminal.draw(|f| ui(f, &mut app))?;
             break;
         }
     }
@@ -113,35 +143,60 @@ pub fn run(log_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn ui(f: &mut Frame, app: &App) {
+fn ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
-        .constraints([Constraint::Percentage(100)])
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .split(f.size());
 
-    let mut items = vec![];
-    for (job_id, status) in &app.jobs {
+    // Jobs List (Left Pane)
+    let mut job_items = vec![];
+    for job_id in &app.job_order {
+        let status = app.jobs.get(job_id).cloned().unwrap_or(JobStatus::Pending);
         let (status_text, style) = match status {
             JobStatus::Pending => ("⏳ Pending".to_string(), Style::default().fg(Color::Yellow)),
             JobStatus::Running => ("⚙️ Running".to_string(), Style::default().fg(Color::Cyan)),
             JobStatus::Succeeded => ("✅ Succeeded".to_string(), Style::default().fg(Color::Green)),
-            JobStatus::Failed(e) => {
-                (format!("❌ Failed: {}", e), Style::default().fg(Color::Red))
-            }
+            JobStatus::Failed(e) => (format!("❌ Failed: {}", e), Style::default().fg(Color::Red)),
         };
-        items.push(ListItem::new(Line::from(vec![
+        job_items.push(ListItem::new(Line::from(vec![
             Span::styled(format!("{:<20}", job_id), Style::default().bold()),
             Span::styled(status_text, style),
         ])));
     }
 
-    let list = List::new(items)
+    let jobs_list = List::new(job_items)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Flow Execution"),
+                .title("Jobs"),
         )
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .bg(Color::DarkGray),
+        )
         .highlight_symbol("> ");
 
-    f.render_widget(list, chunks[0]);
+    let mut list_state = ListState::default();
+    list_state.select(Some(app.selected_job));
+
+    f.render_stateful_widget(jobs_list, chunks[0], &mut list_state);
+
+    // Output View (Right Pane)
+    let selected_job_id = app.job_order.get(app.selected_job);
+    let output_text = if let Some(job_id) = selected_job_id {
+        app.job_outputs
+            .get(job_id)
+            .map(|lines| lines.join("\n"))
+            .unwrap_or_else(|| "No output for this job yet.".to_string())
+    } else {
+        "Select a job to view its output.".to_string()
+    };
+
+    let output_paragraph = Paragraph::new(output_text)
+        .block(Block::default().borders(Borders::ALL).title("Output"))
+        .wrap(Wrap { trim: true });
+
+    f.render_widget(output_paragraph, chunks[1]);
 }
