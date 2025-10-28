@@ -6,11 +6,14 @@ use crossterm::{
 use ferri_automation::flow::{JobStatus, Update};
 use ratatui::{prelude::*, widgets::*};
 use std::collections::HashMap;
-use std::io;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 struct App {
     jobs: HashMap<String, JobStatus>,
+    total_jobs: usize, // To know when to exit
     quit: bool,
 }
 
@@ -18,6 +21,7 @@ impl App {
     fn new() -> Self {
         Self {
             jobs: HashMap::new(),
+            total_jobs: 0, // Will be updated as we see jobs
             quit: false,
         }
     }
@@ -25,6 +29,9 @@ impl App {
     fn on_update(&mut self, update: Update) {
         match update {
             Update::Job(job_update) => {
+                if !self.jobs.contains_key(&job_update.job_id) {
+                    self.total_jobs += 1;
+                }
                 self.jobs.insert(job_update.job_id, job_update.status);
             }
             Update::Step(_) => {
@@ -32,9 +39,17 @@ impl App {
             }
         }
     }
+
+    fn is_finished(&self) -> bool {
+        if self.total_jobs == 0 {
+            return false;
+        }
+        let finished_jobs = self.jobs.values().filter(|s| s.is_terminal()).count();
+        finished_jobs == self.total_jobs
+    }
 }
 
-pub fn run(receiver: crossbeam_channel::Receiver<Update>) -> io::Result<()> {
+pub fn run(log_path: &Path) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -44,14 +59,23 @@ pub fn run(receiver: crossbeam_channel::Receiver<Update>) -> io::Result<()> {
     let tick_rate = Duration::from_millis(250);
     let mut app = App::new();
 
+    // Wait briefly for the log file to be created
+    std::thread::sleep(Duration::from_millis(100));
+    let file = File::open(log_path)?;
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+
     let mut last_tick = Instant::now();
 
     loop {
         terminal.draw(|f| ui(f, &app))?;
 
-        // Check for new updates from the orchestrator
-        if let Ok(update) = receiver.try_recv() {
-            app.on_update(update);
+        // Check for new updates from the log file
+        while reader.read_line(&mut line)? > 0 {
+            if let Ok(update) = serde_json::from_str::<Update>(&line) {
+                app.on_update(update);
+            }
+            line.clear();
         }
 
         let timeout = tick_rate
@@ -70,7 +94,10 @@ pub fn run(receiver: crossbeam_channel::Receiver<Update>) -> io::Result<()> {
             last_tick = Instant::now();
         }
 
-        if app.quit {
+        if app.quit || app.is_finished() {
+            // Add a small delay to ensure the final status is rendered
+            std::thread::sleep(Duration::from_millis(500));
+            terminal.draw(|f| ui(f, &app))?;
             break;
         }
     }

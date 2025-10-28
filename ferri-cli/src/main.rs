@@ -12,7 +12,6 @@ use std::path::PathBuf;
 
 // These modules are part of the CLI binary, not library crates.
 mod flow_monitor_tui;
-mod flow_run_tui;
 mod ps_tui;
 mod tui;
 
@@ -485,43 +484,40 @@ fn main() {
             }
         },
         Commands::Flow { action } => match action {
-            FlowCommand::Run { file, quiet } => {
+            FlowCommand::Run { file, quiet: _ } => {
                 let file_path = PathBuf::from(file);
+                let flow_doc = match ferri_automation::flow::parse_flow_file(&file_path) {
+                    Ok(doc) => doc,
+                    Err(e) => {
+                        eprintln!("\n❌ Error parsing flow file: {}", e);
+                        std::process::exit(1);
+                    }
+                };
 
-                // Try parsing as new format first
-                match flow::parse_flow_file(&file_path) {
-                    Ok(flow_doc) => {
-                        // New format - use orchestrator
-                        if !quiet {
-                            println!(
-                                "🚀 Running flow: {} ({})",
-                                flow_doc.metadata.name, flow_doc.api_version
-                            );
-                            println!("   Jobs: {}", flow_doc.spec.jobs.len());
-                            println!();
-                        }
+                let orchestrator = ferri_automation::orchestrator::FlowOrchestrator::new(
+                    flow_doc,
+                    &current_path,
+                    Default::default(),
+                );
 
-                        // Execute the flow with rich output
-                        if let Err(e) = execute_flow_with_output(flow_doc, &current_path, *quiet) {
-                            eprintln!("\n❌ Flow execution failed: {}", e);
+                // Run orchestrator in a background thread and get the log path
+                let log_path_result = std::thread::spawn(move || orchestrator.execute()).join();
+
+                match log_path_result {
+                    Ok(Ok(log_path)) => {
+                        // Run the TUI on the main thread, polling the log file
+                        if let Err(e) = flow_monitor_tui::run(&log_path) {
+                            eprintln!("\n❌ TUI Error: {}", e);
                             std::process::exit(1);
                         }
                     }
-                    Err(new_format_error) => {
-                        // Fall back to legacy format
-                        match flow::parse_pipeline_file(&file_path) {
-                            Ok(pipeline) => {
-                                if let Err(e) = flow_run_tui::run(pipeline) {
-                                    eprintln!("Error: Flow execution failed - {}", e);
-                                    std::process::exit(1);
-                                }
-                            }
-                            Err(_legacy_error) => {
-                                // Both parsers failed - show the new format error since that's preferred
-                                eprintln!("Error: {}", new_format_error);
-                                std::process::exit(1);
-                            }
-                        }
+                    Ok(Err(e)) => {
+                        eprintln!("\n❌ Flow execution failed: {}", e);
+                        std::process::exit(1);
+                    }
+                    Err(_) => {
+                        eprintln!("\n❌ Flow execution thread panicked");
+                        std::process::exit(1);
                     }
                 }
             }
@@ -592,24 +588,21 @@ fn main() {
                 }
             };
 
-            // 3. Set up the orchestrator and TUI
-            let (tx, rx) = crossbeam_channel::unbounded();
+            // 3. Set up the orchestrator
             let orchestrator = ferri_automation::orchestrator::FlowOrchestrator::new(
                 flow_doc,
                 &current_path,
                 Default::default(),
             );
 
-            // 4. Run orchestrator in a background thread
-            std::thread::spawn(move || {
-                if let Err(e) = orchestrator.execute(Some(tx)) {
-                    // Errors will be sent as updates, but we can log panics here if needed
-                    eprintln!("[Orchestrator Thread Error]: {}", e);
-                }
-            });
+            // 4. Run orchestrator in a background thread and get the log path
+            let log_path = std::thread::spawn(move || orchestrator.execute())
+                .join()
+                .unwrap()
+                .unwrap(); // Handle errors better here
 
-            // 5. Run the TUI on the main thread
-            if let Err(e) = flow_monitor_tui::run(rx) {
+            // 5. Run the TUI on the main thread, polling the log file
+            if let Err(e) = flow_monitor_tui::run(&log_path) {
                 eprintln!("\n❌ TUI Error: {}", e);
                 std::process::exit(1);
             }
@@ -703,70 +696,6 @@ fn main() {
                 }
             }
         },
-    }
-}
-
-fn execute_flow_with_output(
-
-    flow_doc: ferri_automation::flow::FlowDocument,
-
-    base_path: &PathBuf,
-
-    quiet: bool,
-
-) -> io::Result<()> {
-
-    use ferri_automation::orchestrator::FlowOrchestrator;
-
-    use std::collections::HashMap;
-
-
-
-    // Create orchestrator
-
-    let orchestrator = FlowOrchestrator::new(
-
-        flow_doc,
-
-        base_path,
-
-        HashMap::new(), // TODO: Parse runtime inputs from CLI args
-
-    );
-
-
-
-        // Spawn execution thread
-
-
-
-        let execution_handle = std::thread::spawn(move || orchestrator.execute(None));
-
-
-
-    // Wait for execution to complete
-
-    match execution_handle.join() {
-
-        Ok(result) => {
-
-            result?;
-
-            if !quiet {
-
-                println!("\n✨ Flow completed successfully!");
-
-            }
-
-            Ok(())
-
-        }
-        Err(_) => {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Flow execution thread panicked"
-            ))
-        }
     }
 }
 

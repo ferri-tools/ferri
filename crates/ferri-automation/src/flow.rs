@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::{fs, io, thread};
 
 // --- Data structures for real-time updates ---
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StepStatus {
     Pending,
     Running,
@@ -27,7 +27,7 @@ pub enum StepStatus {
     Failed(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepUpdate {
     pub job_id: String,
     pub step_name: String,
@@ -35,7 +35,7 @@ pub struct StepUpdate {
     pub output: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum JobStatus {
     Pending,
     Running,
@@ -43,13 +43,19 @@ pub enum JobStatus {
     Failed(String),
 }
 
-#[derive(Clone, Debug)]
+impl JobStatus {
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, JobStatus::Succeeded | JobStatus::Failed(_))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JobUpdate {
     pub job_id: String,
     pub status: JobStatus,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Update {
     Job(JobUpdate),
     Step(StepUpdate),
