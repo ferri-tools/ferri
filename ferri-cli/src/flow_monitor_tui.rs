@@ -54,14 +54,6 @@ impl App {
         }
     }
 
-    fn is_finished(&self) -> bool {
-        if self.total_jobs == 0 {
-            return false;
-        }
-        let finished_jobs = self.jobs.values().filter(|s| s.is_terminal()).count();
-        finished_jobs == self.total_jobs
-    }
-
     fn next_job(&mut self) {
         if !self.job_order.is_empty() {
             self.selected_job = (self.selected_job + 1) % self.job_order.len();
@@ -125,9 +117,7 @@ pub fn run(log_path: &Path) -> io::Result<()> {
             last_tick = Instant::now();
         }
 
-        if app.quit || app.is_finished() {
-            std::thread::sleep(Duration::from_millis(500));
-            terminal.draw(|f| ui(f, &mut app))?;
+        if app.quit {
             break;
         }
     }
