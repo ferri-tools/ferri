@@ -586,38 +586,34 @@ fn main() {
 
             // 2. Spawn the generator and orchestrator in a background thread
             let handle = std::thread::spawn(move || -> Result<(), String> {
+                // This closure now returns a Result to indicate success or failure.
+
                 // 3. Write the initial "generating" status to the log
-                let log_file = fs::File::create(&log_path_clone).map_err(|e| e.to_string())?;
+                let log_file = fs::File::create(&log_path_clone).map_err(|e| format!("Failed to create log file: {}", e))?;
                 let mut writer = io::BufWriter::new(log_file);
+
                 let initial_update = flow::Update::Job(flow::JobUpdate {
                     job_id: "generating-flow".to_string(),
                     status: flow::JobStatus::Running,
                 });
-                writeln!(
-                    writer,
-                    "{}",
-                    serde_json::to_string(&initial_update).map_err(|e| e.to_string())?
-                )
-                .map_err(|e| e.to_string())?;
+                writeln!(writer, "{}", serde_json::to_string(&initial_update).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
                 writer.flush().map_err(|e| e.to_string())?;
 
                 // 4. Generate the flow
                 println!("Generating flow from prompt...");
-                let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
-                let flow_path = match rt.block_on(ferri_agent::agent::generate_flow(
-                    &current_path_clone,
-                    &prompt_str,
-                )) {
+                let rt = tokio::runtime::Runtime::new().map_err(|e| format!("Failed to create Tokio runtime: {}", e))?;
+                let flow_path = match rt.block_on(ferri_agent::agent::generate_flow(&current_path_clone, &prompt_str)) {
                     Ok(path) => path,
                     Err(e) => {
+                        let err_msg = format!("Flow generation failed: {}", e);
                         let err_update = flow::Update::Job(flow::JobUpdate {
                             job_id: "generating-flow".to_string(),
                             status: flow::JobStatus::Failed(e.to_string()),
                         });
-                        writeln!(writer, "{}", serde_json::to_string(&err_update).map_err(|e| e.to_string())?)
-                            .map_err(|e| e.to_string())?;
-                        writer.flush().map_err(|e| e.to_string())?;
-                        return Err(e.to_string());
+                        // Try to write the error to the log, but don't fail the whole thread if this fails
+                        let _ = writeln!(writer, "{}", serde_json::to_string(&err_update).unwrap_or_default());
+                        let _ = writer.flush();
+                        return Err(err_msg);
                     }
                 };
 
@@ -625,19 +621,14 @@ fn main() {
                     job_id: "generating-flow".to_string(),
                     status: flow::JobStatus::Succeeded,
                 });
-                writeln!(
-                    writer,
-                    "{}",
-                    serde_json::to_string(&success_update).map_err(|e| e.to_string())?
-                )
-                .map_err(|e| e.to_string())?;
+                writeln!(writer, "{}", serde_json::to_string(&success_update).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
                 writer.flush().map_err(|e| e.to_string())?;
 
-                // 5. Send the flow content to the TUI via the log
+                // 5. Log the flow content
                 if let Ok(content) = fs::read_to_string(&flow_path) {
                     let flow_file_update = flow::Update::FlowFile(flow::FlowFileContent { content });
-                    writeln!(writer, "{}", serde_json::to_string(&flow_file_update).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-                    writer.flush().map_err(|e| e.to_string())?;
+                    let _ = writeln!(writer, "{}", serde_json::to_string(&flow_file_update).unwrap_or_default());
+                    let _ = writer.flush();
                 }
 
                 // 6. Parse and execute the generated flow
@@ -650,9 +641,8 @@ fn main() {
                             job_id: "flow-execution".to_string(),
                             status: flow::JobStatus::Failed(err_msg.clone()),
                         });
-                        writeln!(writer, "{}", serde_json::to_string(&err_update).map_err(|e| e.to_string())?)
-                            .map_err(|e| e.to_string())?;
-                        writer.flush().map_err(|e| e.to_string())?;
+                        let _ = writeln!(writer, "{}", serde_json::to_string(&err_update).unwrap_or_default());
+                        let _ = writer.flush();
                         return Err(err_msg);
                     }
                 };
@@ -663,17 +653,8 @@ fn main() {
                     Default::default(),
                 );
 
-                if orchestrator.execute().is_err() {
-                    let err_msg = "Orchestrator failed to execute".to_string();
-                    let err_update = flow::Update::Job(flow::JobUpdate {
-                        job_id: "flow-execution".to_string(),
-                        status: flow::JobStatus::Failed(err_msg.clone()),
-                    });
-                    writeln!(writer, "{}", serde_json::to_string(&err_update).map_err(|e| e.to_string())?)
-                        .map_err(|e| e.to_string())?;
-                    writer.flush().map_err(|e| e.to_string())?;
-                    return Err(err_msg);
-                }
+                orchestrator.execute().map_err(|e| e.to_string())?;
+
                 Ok(())
             });
 
