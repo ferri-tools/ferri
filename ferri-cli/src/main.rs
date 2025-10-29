@@ -582,11 +582,12 @@ fn main() {
             let runs_dir = current_path.join(".ferri").join("runs");
             fs::create_dir_all(&runs_dir).unwrap();
             let log_path = runs_dir.join(format!("{}.log", run_id));
+            let log_path_clone = log_path.clone();
 
             // 2. Spawn the generator and orchestrator in a background thread
-            let _handle = std::thread::spawn(move || {
+            let handle = std::thread::spawn(move || -> Result<(), String> {
                 // 3. Write the initial "generating" status to the log
-                let log_file = fs::File::create(&log_path).unwrap();
+                let log_file = fs::File::create(&log_path_clone).map_err(|e| e.to_string())?;
                 let mut writer = io::BufWriter::new(log_file);
                 let initial_update = flow::Update::Job(flow::JobUpdate {
                     job_id: "generating-flow".to_string(),
@@ -595,13 +596,14 @@ fn main() {
                 writeln!(
                     writer,
                     "{}",
-                    serde_json::to_string(&initial_update).unwrap()
+                    serde_json::to_string(&initial_update).map_err(|e| e.to_string())?
                 )
-                .unwrap();
-                writer.flush().unwrap();
+                .map_err(|e| e.to_string())?;
+                writer.flush().map_err(|e| e.to_string())?;
 
                 // 4. Generate the flow
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                println!("Generating flow from prompt...");
+                let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
                 let flow_path = match rt.block_on(ferri_agent::agent::generate_flow(
                     &current_path_clone,
                     &prompt_str,
@@ -612,10 +614,10 @@ fn main() {
                             job_id: "generating-flow".to_string(),
                             status: flow::JobStatus::Failed(e.to_string()),
                         });
-                        writeln!(writer, "{}", serde_json::to_string(&err_update).unwrap())
-                            .unwrap();
-                        writer.flush().unwrap();
-                        return;
+                        writeln!(writer, "{}", serde_json::to_string(&err_update).map_err(|e| e.to_string())?)
+                            .map_err(|e| e.to_string())?;
+                        writer.flush().map_err(|e| e.to_string())?;
+                        return Err(e.to_string());
                     }
                 };
 
@@ -626,34 +628,32 @@ fn main() {
                 writeln!(
                     writer,
                     "{}",
-                    serde_json::to_string(&success_update).unwrap()
+                    serde_json::to_string(&success_update).map_err(|e| e.to_string())?
                 )
-                .unwrap();
-                writer.flush().unwrap();
+                .map_err(|e| e.to_string())?;
+                writer.flush().map_err(|e| e.to_string())?;
 
                 // 5. Send the flow content to the TUI via the log
                 if let Ok(content) = fs::read_to_string(&flow_path) {
                     let flow_file_update = flow::Update::FlowFile(flow::FlowFileContent { content });
-                    writeln!(writer, "{}", serde_json::to_string(&flow_file_update).unwrap()).unwrap();
-                    writer.flush().unwrap();
+                    writeln!(writer, "{}", serde_json::to_string(&flow_file_update).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+                    writer.flush().map_err(|e| e.to_string())?;
                 }
 
-
                 // 6. Parse and execute the generated flow
+                println!("Executing generated flow...");
                 let flow_doc = match ferri_automation::flow::parse_flow_file(&flow_path) {
                     Ok(doc) => doc,
                     Err(e) => {
+                        let err_msg = format!("Failed to parse generated flow: {}", e);
                         let err_update = flow::Update::Job(flow::JobUpdate {
                             job_id: "flow-execution".to_string(),
-                            status: flow::JobStatus::Failed(format!(
-                                "Failed to parse generated flow: {}",
-                                e
-                            )),
+                            status: flow::JobStatus::Failed(err_msg.clone()),
                         });
-                        writeln!(writer, "{}", serde_json::to_string(&err_update).unwrap())
-                            .unwrap();
-                        writer.flush().unwrap();
-                        return;
+                        writeln!(writer, "{}", serde_json::to_string(&err_update).map_err(|e| e.to_string())?)
+                            .map_err(|e| e.to_string())?;
+                        writer.flush().map_err(|e| e.to_string())?;
+                        return Err(err_msg);
                     }
                 };
 
@@ -664,22 +664,30 @@ fn main() {
                 );
 
                 if orchestrator.execute().is_err() {
+                    let err_msg = "Orchestrator failed to execute".to_string();
                     let err_update = flow::Update::Job(flow::JobUpdate {
                         job_id: "flow-execution".to_string(),
-                        status: flow::JobStatus::Failed(
-                            "Orchestrator failed to execute".to_string()
-                        ),
+                        status: flow::JobStatus::Failed(err_msg.clone()),
                     });
-                    writeln!(writer, "{}", serde_json::to_string(&err_update).unwrap())
-                        .unwrap();
-                    writer.flush().unwrap();
+                    writeln!(writer, "{}", serde_json::to_string(&err_update).map_err(|e| e.to_string())?)
+                        .map_err(|e| e.to_string())?;
+                    writer.flush().map_err(|e| e.to_string())?;
+                    return Err(err_msg);
                 }
+                Ok(())
             });
 
-            // 7. Launch the TUI immediately
-            if let Err(e) = flow_monitor_tui::run(&log_path, None) {
-                eprintln!("\n❌ TUI Error: {}", e);
-                std::process::exit(1);
+            // 7. Wait for the thread to finish and report status
+            match handle.join() {
+                Ok(Ok(_)) => println!("\n✅ Flow completed successfully."),
+                Ok(Err(e)) => {
+                    eprintln!("\n❌ Flow failed: {}", e);
+                    std::process::exit(1);
+                }
+                Err(_) => {
+                    eprintln!("\n❌ Flow thread panicked.");
+                    std::process::exit(1);
+                }
             }
         }
         Commands::Ui => {

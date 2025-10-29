@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
+use std::sync::mpsc;
+use std::thread;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -192,21 +194,47 @@ pub fn run(log_path: &Path, _initial_flow_content: Option<String>) -> io::Result
     let tick_rate = Duration::from_millis(100);
     let mut app = App::new();
 
-    // Wait a moment for the log file to be created
-    std::thread::sleep(Duration::from_millis(100));
-    let file = File::open(log_path)?;
-    let mut reader = BufReader::new(file);
-    let mut line = String::new();
+    let (tx, rx) = mpsc::channel();
+    let log_path_buf = log_path.to_path_buf();
+
+    thread::spawn(move || {
+        // Wait a moment for the log file to be created by the main thread
+        thread::sleep(Duration::from_millis(100));
+
+        // This loop will retry opening the file, in case the watcher starts before the file exists.
+        let file = loop {
+            match File::open(&log_path_buf) {
+                Ok(f) => break f,
+                Err(_) => {
+                    // If it fails, wait a bit and try again.
+                    thread::sleep(Duration::from_millis(50));
+                }
+            }
+        };
+
+        let mut reader = BufReader::new(file);
+        let mut line = String::new();
+        // This is a blocking read, which is fine for a background thread.
+        // It will read until EOF, then wait for more lines to be added.
+        while reader.read_line(&mut line).unwrap_or(0) > 0 {
+            if let Ok(update) = serde_json::from_str::<Update>(&line) {
+                if tx.send(update).is_err() {
+                    // The receiver has disconnected, so we can exit.
+                    break;
+                }
+            }
+            line.clear();
+        }
+    });
 
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
-        // Non-blocking read from the log file
-        while reader.read_line(&mut line)? > 0 {
-            if let Ok(update) = serde_json::from_str::<Update>(&line) {
-                app.on_update(update);
-            }
-            line.clear();
+        // Non-blocking check for updates from the watcher thread.
+        // We loop on try_recv to drain the channel of all pending updates
+        // on each tick of the TUI loop.
+        while let Ok(update) = rx.try_recv() {
+            app.on_update(update);
         }
 
         if crossterm::event::poll(tick_rate)? {
