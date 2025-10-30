@@ -9,10 +9,9 @@
 use crate::executors::ExecutorRegistry;
 use crate::expressions::EvaluationContext;
 use crate::flow::{FlowDocument, Job, JobStatus, JobUpdate, Update};
-use crossbeam_channel::Sender;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::io::{self};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -23,8 +22,6 @@ pub struct FlowOrchestrator {
     base_path: std::path::PathBuf,
     runtime_inputs: HashMap<String, String>,
     executor_registry: Arc<ExecutorRegistry>,
-    job_states: Arc<Mutex<HashMap<String, JobStatus>>>,
-    step_states: Arc<Mutex<HashMap<String, HashMap<String, crate::flow::StepStatus>>>>,
 }
 
 impl FlowOrchestrator {
@@ -38,22 +35,27 @@ impl FlowOrchestrator {
             base_path: base_path.to_path_buf(),
             runtime_inputs,
             executor_registry: Arc::new(ExecutorRegistry::new()),
-            job_states: Arc::new(Mutex::new(HashMap::new())),
-            step_states: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Execute the entire flow
-    pub fn execute(&self) -> io::Result<()> {
-        // Create a new channel for updates
-        let (update_sender, update_receiver) = crossbeam_channel::unbounded();
+    pub fn execute(&self) -> io::Result<PathBuf> {
+        // Create a unique run ID
+        let run_id = format!(
+            "{}-{}",
+            self.flow.metadata.name,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
 
-        // Spawn a thread to process updates
-        let job_states = Arc::clone(&self.job_states);
-        let step_states = Arc::clone(&self.step_states);
-        thread::spawn(move || {
-            Self::process_updates(update_receiver, job_states, step_states);
-        });
+        // Create the runs directory
+        let runs_dir = self.base_path.join(".ferri").join("runs");
+        fs::create_dir_all(&runs_dir)?;
+        let log_path = runs_dir.join(format!("{}.log", run_id));
+        let log_file = fs::File::create(&log_path)?;
+        let writer = Arc::new(Mutex::new(io::BufWriter::new(log_file)));
 
         // Create temporary workspace directories
         let workspace_root = self.create_workspace_directories()?;
@@ -76,11 +78,11 @@ impl FlowOrchestrator {
                 &wave,
                 Arc::clone(&job_outputs),
                 &workspace_paths,
-                &update_sender,
+                Arc::clone(&writer),
             )?;
         }
 
-        Ok(())
+        Ok(log_path)
     }
 
     /// Build a mapping of workspace names to their absolute paths
@@ -199,16 +201,34 @@ impl FlowOrchestrator {
         wave: &[String],
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         workspace_paths: &HashMap<String, PathBuf>,
-        update_sender: &Sender<Update>,
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
     ) -> io::Result<()> {
-        // Send Pending status for all jobs in this wave
+        // Send Pending status for all jobs and their steps in this wave
         for job_id in wave {
-            update_sender
-                .send(Update::Job(JobUpdate {
+            let job = self.flow.spec.jobs.get(job_id).unwrap();
+            let mut writer_lock = writer.lock().unwrap();
+
+            // Log job as pending
+            let job_update = Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status: JobStatus::Pending,
+            });
+            writeln!(writer_lock, "{}", serde_json::to_string(&job_update).unwrap())?;
+
+            // Log all steps as pending
+            for (step_index, _) in job.steps.iter().enumerate() {
+                let step_update = Update::Step(crate::flow::StepUpdate {
                     job_id: job_id.clone(),
-                    status: JobStatus::Pending,
-                }))
-                .unwrap();
+                    step_index,
+                    status: crate::flow::StepStatus::Pending,
+                });
+                writeln!(
+                    writer_lock,
+                    "{}",
+                    serde_json::to_string(&step_update).unwrap()
+                )?;
+            }
+            writer_lock.flush()?;
         }
 
         let mut handles = Vec::new();
@@ -217,7 +237,6 @@ impl FlowOrchestrator {
             let job = self.flow.spec.jobs.get(job_id).unwrap().clone();
             let job_id = job_id.clone();
             let base_path = self.base_path.clone();
-            let update_sender = update_sender.clone();
             let runtime_inputs = self.runtime_inputs.clone();
             let job_outputs_clone = Arc::clone(&job_outputs);
             let flow = self.flow.clone();
@@ -225,6 +244,7 @@ impl FlowOrchestrator {
             let workspace_paths_clone = workspace_paths.clone();
 
             let registry_clone = Arc::clone(&self.executor_registry);
+            let writer_clone = Arc::clone(&writer);
 
             let handle = thread::spawn(move || {
                 Self::execute_job(
@@ -236,6 +256,7 @@ impl FlowOrchestrator {
                     &flow,
                     &workspace_paths_clone,
                     registry_clone,
+                    writer_clone,
                 )
             });
 
@@ -246,38 +267,31 @@ impl FlowOrchestrator {
         let mut errors = Vec::new();
         for (idx, handle) in handles.into_iter().enumerate() {
             let job_id = &wave[idx];
-            match handle.join() {
-                Ok(Ok(())) => {
-                    // Job succeeded
-                    update_sender
-                        .send(Update::Job(JobUpdate {
-                            job_id: job_id.clone(),
-                            status: JobStatus::Succeeded,
-                        }))
-                        .unwrap();
-                }
+            let (status, error_msg) = match handle.join() {
+                Ok(Ok(())) => (JobStatus::Succeeded, None),
                 Ok(Err(e)) => {
-                    // Job returned an error
-                    let error_msg = e.to_string();
-                    update_sender
-                        .send(Update::Job(JobUpdate {
-                            job_id: job_id.clone(),
-                            status: JobStatus::Failed(error_msg.clone()),
-                        }))
-                        .unwrap();
-                    errors.push(format!("Job '{}' failed: {}", job_id, error_msg));
+                    let msg = e.to_string();
+                    (
+                        JobStatus::Failed(msg.clone()),
+                        Some(format!("Job '{}' failed: {}", job_id, msg)),
+                    )
                 }
                 Err(e) => {
-                    // Thread panicked
-                    let panic_msg = format!("Job thread panicked: {:?}", e);
-                    update_sender
-                        .send(Update::Job(JobUpdate {
-                            job_id: job_id.clone(),
-                            status: JobStatus::Failed(panic_msg.clone()),
-                        }))
-                        .unwrap();
-                    errors.push(panic_msg);
+                    let msg = format!("Job thread panicked: {:?}", e);
+                    (JobStatus::Failed(msg.clone()), Some(msg))
                 }
+            };
+
+            let update = Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status,
+            });
+            let mut writer_lock = writer.lock().unwrap();
+            writeln!(writer_lock, "{}", serde_json::to_string(&update).unwrap())?;
+            writer_lock.flush()?;
+
+            if let Some(msg) = error_msg {
+                errors.push(msg);
             }
         }
 
@@ -298,9 +312,12 @@ impl FlowOrchestrator {
         _flow: &FlowDocument,
         _workspace_paths: &HashMap<String, PathBuf>,
         executor_registry: Arc<ExecutorRegistry>,
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
     ) -> io::Result<()> {
         // Run the job using the appropriate executor
-        Self::run_job_executor(job_id, job, base_path, executor_registry)?;
+        let handle =
+            Self::run_job_executor(job_id, job, base_path, executor_registry, writer)?;
+        handle.0.join().unwrap()?; // Wait for the executor to finish
 
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
@@ -330,7 +347,8 @@ impl FlowOrchestrator {
         job: &Job,
         base_path: &Path,
         executor_registry: Arc<ExecutorRegistry>,
-    ) -> io::Result<()> {
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
+    ) -> io::Result<crate::executors::ExecutionHandle> {
         // --- Executor Selection ---
         let executor_name = job.runs_on.as_deref().unwrap_or("process");
         let executor = executor_registry.get(executor_name).ok_or_else(|| {
@@ -344,30 +362,9 @@ impl FlowOrchestrator {
         })?;
 
         // Secrets are not yet implemented, so we pass an empty HashMap.
-        let _handle = executor.execute(job, base_path, &HashMap::new())?;
+        let handle = executor.execute(job_id, job, base_path, &HashMap::new(), writer)?;
 
-        Ok(())
-    }
-
-    /// Process updates from the executors
-    fn process_updates(
-        receiver: crossbeam_channel::Receiver<Update>,
-        job_states: Arc<Mutex<HashMap<String, JobStatus>>>,
-        step_states: Arc<Mutex<HashMap<String, HashMap<String, crate::flow::StepStatus>>>>,
-    ) {
-        for update in receiver {
-            match update {
-                Update::Job(job_update) => {
-                    let mut states = job_states.lock().unwrap();
-                    states.insert(job_update.job_id, job_update.status);
-                }
-                Update::Step(step_update) => {
-                    let mut states = step_states.lock().unwrap();
-                    let job_steps = states.entry(step_update.job_id).or_default();
-                    job_steps.insert(step_update.step_name, step_update.status);
-                }
-            }
-        }
+        Ok(handle)
     }
 }
 
