@@ -18,7 +18,7 @@
 # Ferri
 
 <div align="center">
-  <img src="logo.png" alt="Ferri Logo" width="200"/>
+  <img src="assets/logo.png" alt="Ferri Logo" width="200"/>
 </div>
 
 [![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/ferri-tools/ferri/blob/main/LICENSE)
@@ -49,7 +49,7 @@ ferri --version
 ## Demo
 
 <div align="center">
-  <img src="docs/showtime.gif" alt="Ferri Showtime Demo"/>
+  <img src="assets/showtime.gif" alt="Ferri Showtime Demo"/>
 </div>
 
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
@@ -193,7 +193,8 @@ You are now fully configured to use the `gemini-pro` model in any `ferri` comman
 | `ps` | List and manage active background jobs. |
 | `yank` | Fetch the output (stdout) of a completed background job. |
 | `flow` | Define and run multi-step, declarative AI workflows from a file. |
-| `do` | Execute a high-level goal with an AI-powered agentic engine. |
+| `plan` | Generate and preview a flow before execution. |
+| `do` | Execute a high-level goal with an AI-powered agentic engine, providing a blocking status report. |
 
 -----
 
@@ -353,6 +354,20 @@ spec:
 # Execute the entire workflow
 ferri flow run ci-prep.yml
 ```
+
+-----
+
+### `ferri plan`
+
+Generates and previews a multi-step plan before execution.
+
+**Use Case: Previewing a plan before running it**
+
+```bash
+ferri plan "create a python script that prints hello world"
+```
+
+This will output the plan and ask for confirmation before running. You can choose to `run`, `save`, or `abort`.
 
 -----
 
