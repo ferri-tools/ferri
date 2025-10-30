@@ -1,13 +1,14 @@
 > ---
 >
-> ### **Notice: Pre-Release Alpha Software**
+> ### **Notice: Public Beta**
 >
-> This repository contains an early, pre-release version of Ferri and should be considered **alpha-quality software**.
+> Welcome to the Ferri Public Beta! This version is intended for evaluation and feedback.
 >
-> We are currently in the middle of a major architectural refactor to make the workflow engine more powerful and secure. We're too busy breaking things and rebuilding them into something better to guarantee stability right now.
+> * **✅ L1: Core Execution (`init`, `with`, `ctx`):** Stable and ready for general use.
+> * **⚠️ L2: Workflow Automation (`flow`, `plan`, `run`):** Beta. Core features are functional, but the workflow schema and command APIs may evolve.
+> * **🧪 L3: Agentic Engine (`do`):** Experimental. This layer is in early development and subject to significant changes.
 >
-> * **✅ Layer 1 (`init`, `with`, `ctx`, etc.):** Stable and ready for use.
-> * **⚠️ Layer 2 & 3 (`flow`, `do`):** Highly volatile. Here be dragons.
+> **Note on AI-Powered Commands:** The `plan` and `do` commands currently require a Google Gemini API key for generating execution plans. Support for other models and providers is planned for a future release.
 >
 > * **Stability:** The software is not stable and is not suitable for production use.
 > * **Breaking Changes:** The API, command structure, and workflow schemas are under active development and are subject to change without notice in future updates.
@@ -117,7 +118,7 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 | Layer | Command(s) | Description |
 |---|---|---|
 | **L1: Core Execution** | `init`, `secrets`, `models`, `ctx`, `with` | The foundation. Manages your environment, models, and executes synchronous, single-shot commands. |
-| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, monitors their status, and orchestrates multi-step workflows. |
+| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow`, `plan` | The automation layer. Runs commands as background jobs, orchestrates multi-step workflows, and allows for AI-powered planning. |
 | **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. |
 
 ## Roadmap
@@ -228,9 +229,6 @@ Manages encrypted, project-specific secrets like API keys. Secrets are stored lo
 ```bash
 # Securely store your Google API key. You will be prompted for the value.
 ferri secrets set GOOGLE_API_KEY
-
-# Securely store another key non-interactively.
-ferri secrets set ANTHROPIC_API_KEY="sk-ant..."
 ```
 
 -----
@@ -247,13 +245,7 @@ ferri models ls
 
 **Use Case: Registering a New Remote Model**
 
-```bash
-# Register the Claude 3 Opus model
-ferri models add claude-opus \
-  --provider anthropic \
-  --api-key-secret ANTHROPIC_API_KEY \
-  --model-name claude-3-opus-20240229
-```
+*This example shows how to register a Google model. Support for other providers like Anthropic and OpenAI is tracked in issues #67 and #68.*
 
 -----
 
@@ -352,7 +344,7 @@ spec:
 
 ```bash
 # Execute the entire workflow
-ferri flow run ci-prep.yml
+ferri flow run docs/user_guide/examples/hello-bye-flow.yml
 ```
 
 -----
@@ -399,10 +391,10 @@ Follow the **Quick Start** guide above to initialize your project and register t
 
 **2. Run the Flow:**
 
-Execute the `code_review_flow.yml` pipeline. This flow uses the `engineering/demos/demo_script.py` file as its input.
+Execute the `code_review_flow.yml` pipeline. This flow uses the `demo_script.py` file found in the same directory as its input.
 
 ```bash
-ferri flow run project_resources/engineering/demos/code_review_flow.yml
+ferri flow run docs/archive/sandbox/hybrid/code_review_flow.yml
 ```
 
 **3. What it Does:**
