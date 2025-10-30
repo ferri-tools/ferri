@@ -7,8 +7,12 @@ use rand::Rng;
 use serde_json::json;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
+use syntect::easy::HighlightLines;
+use syntect::highlighting::ThemeSet;
+use syntect::parsing::SyntaxSet;
+use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
 // These modules are part of the CLI binary, not library crates.
 mod flow_monitor_tui;
@@ -57,6 +61,10 @@ enum Commands {
         action: FlowCommand,
     },
     Do {
+        #[arg(required = true, trailing_var_arg = true)]
+        prompt: Vec<String>,
+    },
+    Plan {
         #[arg(required = true, trailing_var_arg = true)]
         prompt: Vec<String>,
     },
@@ -562,6 +570,99 @@ fn main() {
                 }
             }
         },
+        Commands::Plan { prompt } => {
+            let prompt_str = prompt.join(" ");
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            match rt.block_on(generate_flow_logic(&current_path, &prompt_str)) {
+                Ok(flow_content) => {
+                    println!("\n{}", "--- Generated Flow ---".bold().cyan());
+
+                    if io::stdout().is_terminal() {
+                        let ps = SyntaxSet::load_defaults_newlines();
+                        let ts = ThemeSet::load_defaults();
+                        let syntax = ps.find_syntax_by_extension("yml").unwrap();
+                        let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+                        for line in LinesWithEndings::from(&flow_content) {
+                            let ranges = h.highlight_line(line, &ps).unwrap();
+                            let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
+                            print!("{}", escaped);
+                        }
+                        println!(); // Ensure a newline after the highlighted output
+                    } else {
+                        println!("{}", flow_content);
+                    }
+
+                    println!("\n{}", "--- Actions ---".bold().cyan());
+                    println!("What would you like to do with this flow?");
+                    println!("  (r)un: Execute the flow immediately.");
+                    println!("  (s)ave: Save the flow to a file.");
+                    println!("  (a)bort: Discard the flow and exit.");
+                    print!("Enter your choice (r/s/a): ");
+                    io::stdout().flush().unwrap();
+
+                    let mut choice = String::new();
+                    io::stdin().read_line(&mut choice).unwrap();
+                    let choice = choice.trim().to_lowercase();
+
+                    match choice.as_str() {
+                        "r" => {
+                            println!("\n{}", "--- Running Flow ---".bold().green());
+                            let flow_path = current_path.join(".ferri").join("temp_flow.yml");
+                            fs::write(&flow_path, &flow_content).unwrap();
+
+                            let flow_doc = match ferri_automation::flow::parse_flow_file(&flow_path) {
+                                Ok(doc) => doc,
+                                Err(e) => {
+                                    eprintln!("\n❌ Error parsing generated flow: {}", e);
+                                    std::process::exit(1);
+                                }
+                            };
+
+                            let orchestrator = ferri_automation::orchestrator::FlowOrchestrator::new(
+                                flow_doc,
+                                &current_path,
+                                Default::default(),
+                            );
+
+                            match orchestrator.execute() {
+                                Ok(_) => println!("\n✅ Flow completed successfully."),
+                                Err(e) => {
+                                    eprintln!("\n❌ Flow execution failed: {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                            fs::remove_file(&flow_path).unwrap_or_else(|e| eprintln!("Warning: Failed to remove temporary flow file: {}", e));
+                        }
+                        "s" => {
+                            print!("Enter filename (e.g., my_flow.yml): ");
+                            io::stdout().flush().unwrap();
+                            let mut filename = String::new();
+                            io::stdin().read_line(&mut filename).unwrap();
+                            let filename = filename.trim();
+                            let save_path = current_path.join(filename);
+                            match fs::write(&save_path, &flow_content) {
+                                Ok(_) => println!("\n✅ Flow saved to {}\n", save_path.display()),
+                                Err(e) => {
+                                    eprintln!("\n❌ Failed to save flow: {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                        }
+                        "a" => {
+                            println!("Flow aborted.");
+                        }
+                        _ => {
+                            eprintln!("Invalid choice. Aborting flow.");
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("\n❌ Flow generation failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
         Commands::Do { prompt } => {
             let prompt_str = prompt.join(" ");
             let current_path_clone = current_path.clone();
@@ -843,5 +944,15 @@ fn print_init_message() {
     // Ensure the cursor moves to the next line after the art is done.
     println!();
     println!("Ferri project initialized!");
-    println!("Run `{}` to see what you can do.", "ferri --help".cyan());
-}
+        println!("Run `{}` to see what you can do.", "ferri --help".cyan());
+    }
+    
+    /// Helper function to encapsulate the logic of generating a flow from a prompt.
+    async fn generate_flow_logic(base_path: &PathBuf, prompt: &str) -> Result<String, String> {
+        println!("Generating flow from prompt...");
+        let flow_path = ferri_agent::agent::generate_flow(base_path, prompt)
+            .await
+            .map_err(|e| e.to_string())?;
+        fs::read_to_string(&flow_path).map_err(|e| format!("Failed to read generated flow file: {}", e))
+    }
+    

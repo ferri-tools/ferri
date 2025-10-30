@@ -27,6 +27,7 @@ chrono = "0.4"
 crossbeam-channel = "0.5"
 colored = "3.0.0"
 rand.workspace = true
+syntect = "5.3.0"
 
 
 [dev-dependencies]
