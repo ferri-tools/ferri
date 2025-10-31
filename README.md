@@ -118,8 +118,8 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 | Layer | Command(s) | Description |
 |---|---|---|
 | **L1: Core Execution** | `init`, `secrets`, `models`, `ctx`, `with` | The foundation. Manages your environment, models, and executes synchronous, single-shot commands. |
-| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow`, `plan` | The automation layer. Runs commands as background jobs, orchestrates multi-step workflows, and allows for AI-powered planning. |
-| **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. |
+| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, orchestrates multi-step workflows. |
+| **L3: Agentic Engine** | `plan`, `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it, providing a blocking status report, or allowing for preview and interaction. |
 
 ## Roadmap
 * ✅ **L1: Core Execution:** Stable and ready for use.
