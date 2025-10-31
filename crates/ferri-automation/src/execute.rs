@@ -71,6 +71,7 @@ pub enum ModelProvider {
     Ollama,
     Google,
     GoogleGeminiImage,
+    Anthropic,
     Unknown,
 }
 
@@ -106,6 +107,7 @@ pub fn prepare_command(
             "ollama" => ModelProvider::Ollama,
             "google" => ModelProvider::Google,
             "google-gemini-image" => ModelProvider::GoogleGeminiImage,
+            "anthropic" => ModelProvider::Anthropic,
             _ => ModelProvider::Unknown,
         };
 
@@ -186,11 +188,64 @@ Use the content of the files below as context to answer the question.
             }
             ModelProvider::GoogleGeminiImage => {
                 let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Google provider requires an API key secret."))?;
-                let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model.model_name);
+                let url = format!("httpshttps://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model.model_name);
                 let body = json!({ "contents": [{ "parts": [{ "text": prompt }] }] });
                 let client = reqwest::blocking::Client::new();
                 let request = client.post(&url)
                     .header("x-goog-api-key", api_key)
+                    .header("Content-Type", "application/json")
+                    .json(&body);
+                Ok((PreparedCommand::Remote(request), decrypted_secrets))
+            }
+            ModelProvider::Anthropic => {
+                let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "Anthropic provider requires an API key secret."))?;
+                let url = "https://api.anthropic.com/v1/messages".to_string();
+
+                let mut messages = Vec::new();
+                let mut content_parts = Vec::new();
+
+                if args.use_context {
+                    let full_context = context::get_full_multimodal_context(base_path)?;
+                    let context_prompt = format!(
+                        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
+                        full_context.text_content.trim(),
+                        prompt
+                    );
+                    content_parts.push(json!({ "type": "text", "text": context_prompt }));
+
+                    for image_file in full_context.image_files {
+                        let image_data = fs::read(&image_file.path)?;
+                        let encoded_image = STANDARD.encode(image_data);
+                        let mime_type = match image_file.content_type {
+                            context::ContentType::Png => "image/png",
+                            context::ContentType::Jpeg => "image/jpeg",
+                            context::ContentType::WebP => "image/webp",
+                            _ => "application/octet-stream",
+                        };
+                        content_parts.push(json!({
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": mime_type,
+                                "data": encoded_image
+                            }
+                        }));
+                    }
+                    messages.push(json!({ "role": "user", "content": content_parts }));
+                } else {
+                    messages.push(json!({ "role": "user", "content": prompt }));
+                }
+
+                let body = json!({
+                    "model": model.model_name,
+                    "messages": messages,
+                    "max_tokens": 1024
+                });
+
+                let client = reqwest::blocking::Client::new();
+                let request = client.post(&url)
+                    .header("x-api-key", api_key)
+                    .header("anthropic-version", "2023-06-01")
                     .header("Content-Type", "application/json")
                     .json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
