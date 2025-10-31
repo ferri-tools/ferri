@@ -72,6 +72,7 @@ pub enum ModelProvider {
     Google,
     GoogleGeminiImage,
     Anthropic,
+    OpenRouter,
     Unknown,
 }
 
@@ -108,6 +109,7 @@ pub fn prepare_command(
             "google" => ModelProvider::Google,
             "google-gemini-image" => ModelProvider::GoogleGeminiImage,
             "anthropic" => ModelProvider::Anthropic,
+            "openrouter" => ModelProvider::OpenRouter,
             _ => ModelProvider::Unknown,
         };
 
@@ -246,6 +248,60 @@ Use the content of the files below as context to answer the question.
                 let request = client.post(&url)
                     .header("x-api-key", api_key)
                     .header("anthropic-version", "2023-06-01")
+                    .header("Content-Type", "application/json")
+                    .json(&body);
+                Ok((PreparedCommand::Remote(request), decrypted_secrets))
+            }
+            ModelProvider::OpenRouter => {
+                let api_key = api_key.ok_or_else(|| Error::new(ErrorKind::NotFound, "OpenRouter provider requires an API key secret."))?;
+                let url = "https://openrouter.ai/api/v1/chat/completions".to_string();
+
+                let mut messages = Vec::new();
+                let mut content_parts = Vec::new();
+
+                if args.use_context {
+                    let full_context = context::get_full_multimodal_context(base_path)?;
+                    let context_prompt = format!(
+                        "You are a helpful assistant. Use the following file content to answer the user's question.\n\n---\n{}\n---\n\nQuestion: {}",
+                        full_context.text_content.trim(),
+                        prompt
+                    );
+                    content_parts.push(json!({ "type": "text", "text": context_prompt }));
+
+                    for image_file in full_context.image_files {
+                        let image_data = fs::read(&image_file.path)?;
+                        let encoded_image = STANDARD.encode(image_data);
+                        let mime_type = match image_file.content_type {
+                            context::ContentType::Png => "image/png",
+                            context::ContentType::Jpeg => "image/jpeg",
+                            context::ContentType::WebP => "image/webp",
+                            _ => "application/octet-stream",
+                        };
+                        content_parts.push(json!({
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": mime_type,
+                                "data": encoded_image
+                            }
+                        }));
+                    }
+                    messages.push(json!({ "role": "user", "content": content_parts }));
+                } else {
+                    messages.push(json!({ "role": "user", "content": prompt }));
+                }
+
+                let body = json!({
+                    "model": model.model_name,
+                    "messages": messages,
+                    "max_tokens": 1024
+                });
+
+                let client = reqwest::blocking::Client::new();
+                let request = client.post(&url)
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .header("HTTP-Referer", "https://openrouter.ai/") // Optional: For OpenRouter to identify your app
+                    .header("X-Title", "Ferri") // Optional: For OpenRouter to identify your app
                     .header("Content-Type", "application/json")
                     .json(&body);
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
