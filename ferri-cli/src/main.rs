@@ -169,7 +169,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    match &cli.command {
+    match cli.command {
         Commands::Init => {} // This case is handled above
         Commands::Ctx { action } => match action {
             CtxCommand::Add { paths } => {
@@ -360,13 +360,31 @@ fn main() {
                 }
             }
         }
-        Commands::Secrets { action } => match action {
-            SecretsCommand::Set { key, value } => {
-                if let Err(e) = secrets::set_secret(&current_path, key, value.clone()) {
+        Commands::Secrets { mut action } => match action {
+            SecretsCommand::Set { key, ref mut value } => {
+                if value.is_none() {
+                    if let Ok(env_val) = env::var(&key) {
+                        if !env_val.is_empty() {
+                            let masked_val = if env_val.len() > 6 {
+                                format!("...{}", &env_val[env_val.len() - 6..])
+                            } else {
+                                "******".to_string()
+                            };
+                            print!("Environment variable '{}' found (value: {}). Use this value? [y/N] ", key, masked_val);
+                            io::stdout().flush().unwrap();
+                            let mut confirmation = String::new();
+                            io::stdin().read_line(&mut confirmation).unwrap();
+                            if confirmation.trim().eq_ignore_ascii_case("y") {
+                                *value = Some(env_val);
+                            }
+                        }
+                    }
+                }
+                if let Err(e) = secrets::set_secret(&current_path, &key, value.clone()) {
                     eprintln!("Error: Failed to set secret - {}", e)
                 }
             }
-            SecretsCommand::Rm { key } => match secrets::remove_secret(&current_path, key) {
+            SecretsCommand::Rm { key } => match secrets::remove_secret(&current_path, &key) {
                 Ok(_) => println!("Secret '{}' removed successfully.", key),
                 Err(e) => eprintln!("Error: Failed to remove secret - {}", e),
             },
@@ -414,7 +432,7 @@ fn main() {
                 let mut confirmation = String::new();
                 io::stdin().read_line(&mut confirmation).unwrap();
                 if confirmation.trim().eq_ignore_ascii_case("y") {
-                    match models::remove_model(&current_path, alias) {
+                    match models::remove_model(&current_path, &alias) {
                         Ok(_) => println!("Model '{}' removed successfully.", alias),
                         Err(e) => eprintln!("Error: Failed to remove model - {}", e),
                     }
@@ -477,14 +495,14 @@ fn main() {
                 std::process::exit(1);
             }
         },
-        Commands::Kill { job_id } => match jobs::kill_job(&current_path, job_id) {
+        Commands::Kill { job_id } => match jobs::kill_job(&current_path, &job_id) {
             Ok(_) => println!("Successfully terminated job '{}'.", job_id),
             Err(e) => {
                 eprintln!("Error: Failed to terminate job - {}", e);
                 std::process::exit(1);
             }
         },
-        Commands::Yank { job_id } => match jobs::get_job_output(&current_path, job_id) {
+        Commands::Yank { job_id } => match jobs::get_job_output(&current_path, &job_id) {
             Ok(output) => print!("{}", output),
             Err(e) => {
                 eprintln!("Error: Failed to get job output - {}", e);
@@ -492,7 +510,7 @@ fn main() {
             }
         },
         Commands::Flow { action } => match action {
-            FlowCommand::Run { file, quiet: _ } => {
+            FlowCommand::Run { file, quiet } => {
                 let file_path = PathBuf::from(file);
                 let flow_content = fs::read_to_string(&file_path).ok();
 
@@ -515,10 +533,14 @@ fn main() {
 
                 match log_path_result {
                     Ok(Ok(log_path)) => {
-                        // Run the TUI on the main thread, polling the log file
-                        if let Err(e) = flow_monitor_tui::run(&log_path, flow_content) {
-                            eprintln!("\n❌ TUI Error: {}", e);
-                            std::process::exit(1);
+                        if !quiet {
+                            // Run the TUI on the main thread, polling the log file
+                            if let Err(e) = flow_monitor_tui::run(&log_path, flow_content) {
+                                eprintln!("\n❌ TUI Error: {}", e);
+                                std::process::exit(1);
+                            }
+                        } else {
+                            println!("\n✅ Flow completed successfully (quiet mode).");
                         }
                     }
                     Ok(Err(e)) => {
