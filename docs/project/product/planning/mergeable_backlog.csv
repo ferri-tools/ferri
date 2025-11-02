@@ -1,0 +1,44 @@
+JiraTicketID,TicketID,Goal,SubtaskID,SubtaskDescription,Status
+,T8,PDF Processing Workflow,T8.1,"Define the end-to-end workflow for processing PDFs, including text extraction, image description, image generation, and document creation.",Not Started
+,T8,PDF Processing Workflow,T8.2,"Create a new module in `ferri-core` for the PDF processing workflow.",Not Started
+,T8,PDF Processing Workflow,T8.3,"Implement the main function in the new module that orchestrates the entire workflow.",Not Started
+,T8,PDF Processing Workflow,T8.4,"Add unit tests for the workflow orchestrator.",Not Started
+,T9,PDF Text and Image Extraction,T9.1,"Add a dependency for PDF parsing (e.g., `pdf-extract`).",Not Started
+,T9,PDF Text and Image Extraction,T9.2,"Implement a function to extract text from a PDF file.",Not Started
+,T9,PDF Text and Image Extraction,T9.3,"Implement a function to extract images from a PDF file.",Not Started
+,T9,PDF Text and Image Extraction,T9.4,"Implement a function to generate a text description of an image (e.g., using a pre-trained model).",Not Started
+,T9,PDF Text and Image Extraction,T9.5,"Add unit tests for text and image extraction.",Not Started
+,T10,Image Generation,T10.1,"Add a dependency for image generation (e.g., `image`).",Not Started
+,T10,Image Generation,T10.2,"Implement a function to generate an image from a text description.",Not Started
+,T10,Image Generation,T10.3,"Add unit tests for image generation.",Not Started
+,T11,Document Generation,T11.1,"Add a dependency for document creation (e.g., `docx-rs`).",Not Started
+,T11,Document Generation,T11.2,"Implement a function to create a new document with text and images.",Not Started
+,T11,Document Generation,T11.3,"Add unit tests for document generation.",Not Started
+,T12,Workflow Orchestration,T12.1,"Implement the logic to pass the extracted text and image descriptions to the document generation function.",Not Started
+,T12,Workflow Orchestration,T12.2,"Implement the logic to pass the image descriptions to the image generation function.",Not Started
+,T12,Workflow Orchestration,T12.3,"Implement the logic to insert the generated images into the new document.",Not Started
+,T12,Workflow Orchestration,T12.4,"Add unit tests for the workflow orchestration.",Not Started
+,T13,CLI Integration,T13.1,"In `ferri-cli`, define a new `pdf` command with a `process` subcommand.",Not Started
+,T13,CLI Integration,T13.2,"In `ferri-cli`, add arguments to the `process` subcommand for the input PDF file and the output document file.",Not Started
+,T13,CLI Integration,T13.3,"In `ferri-cli`, call the main workflow function from the `pdf process` match arm.",Not Started
+,T13,CLI Integration,T13.4,"In `ferri-cli/tests/`, write an integration test for the `pdf process` command.",Not Started
+,T14,Project Setup,T14.1,"Create the basic directory structure: prompts/, scripts/, and output/.",Not Started
+,T14,Project Setup,T14.2,"Initialize a Git repository for the project.",Not Started
+,T14,Project Setup,T14.3,"Create a README.md file with a project description and setup instructions.",Not Started
+,T15,Core Ferri Application,T15.1,"Implement the main ferri executable to orchestrate the workflow.",Not Started
+,T15,Core Ferri Application,T15.2,"Implement the 'do' command to accept a high-level user directive.",Not Started
+,T15,Core Ferri Application,T15.3,"Implement the 'run' command to execute local Python scripts.",Not Started
+,T15,Core Ferri Application,T15.4,"Implement the 'with' command to interact with the Gemini API.",Not Started
+,T16,Intelligence Gathering,T16.1,"Create the get_transcript.py script to fetch YouTube video transcripts.",Not Started
+,T16,Intelligence Gathering,T16.2,"Implement error handling in get_transcript.py for invalid URLs or videos without transcripts.",Not Started
+,T17,Prompt Engineering,T17.1,"Create the prompts/video_debrief.txt prompt template.",Not Started
+,T17,Prompt Engineering,T17.2,"Implement logic to dynamically assemble the prompt with the fetched transcript.",Not Started
+,T18,Multimodal Analysis,T18.1,"Integrate the Gemini API client into the 'with' command.",Not Started
+,T18,Multimodal Analysis,T18.2,"Implement the logic to pass the assembled prompt to the Gemini 1.5 Pro model.",Not Started
+,T18,Multimodal Analysis,T18.3,"Implement parsing and validation for the JSON output from the Gemini API.",Not Started
+,T19,Artifact Generation,T19.1,"Create the draw_overlay.py script to draw SVG contours on images.",Not Started
+,T19,Artifact Generation,T19.2,"Create the generate_report.py script to synthesize the final Markdown debrief.",Not Started
+,T19,Artifact Generation,T19.3,"Implement logic to save the key moment screenshots from the Base64-encoded strings in the JSON output.",Not Started
+,T20,DAG Implementation,T20.1,"Define the workflow as a DAG, inspired by aorta_dag.csv.",Not Started
+,T20,DAG Implementation,T20.2,"Implement a DAG runner within the ferri core to execute the workflow nodes in the correct order.",Not Started
+,T20,DAG Implementation,T20.3,"Implement error handling and logging for the DAG execution.",Not Started

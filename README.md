@@ -1,13 +1,14 @@
 > ---
 >
-> ### **Notice: Pre-Release Alpha Software**
+> ### **Notice: Public Beta**
 >
-> This repository contains an early, pre-release version of Ferri and should be considered **alpha-quality software**.
+> Welcome to the Ferri Public Beta! This version is intended for evaluation and feedback.
 >
-> We are currently in the middle of a major architectural refactor to make the workflow engine more powerful and secure. We're too busy breaking things and rebuilding them into something better to guarantee stability right now.
+> * **✅ L1: Core Execution (`init`, `with`, `ctx`):** Stable and ready for general use.
+> * **⚠️ L2: Workflow Automation (`flow`, `plan`, `run`):** Beta. Core features are functional, but the workflow schema and command APIs may evolve.
+> * **🧪 L3: Agentic Engine (`do`):** Experimental. This layer is in early development and subject to significant changes.
 >
-> * **✅ Layer 1 (`init`, `with`, `ctx`, etc.):** Stable and ready for use.
-> * **⚠️ Layer 2 & 3 (`flow`, `do`):** Highly volatile. Here be dragons.
+> **Note on AI-Powered Commands:** The `plan` and `do` commands currently require a Google Gemini API key for generating execution plans. Support for other models and providers is planned for a future release.
 >
 > * **Stability:** The software is not stable and is not suitable for production use.
 > * **Breaking Changes:** The API, command structure, and workflow schemas are under active development and are subject to change without notice in future updates.
@@ -18,7 +19,7 @@
 # Ferri
 
 <div align="center">
-  <img src="logo.png" alt="Ferri Logo" width="200"/>
+  <img src="assets/logo.png" alt="Ferri Logo" width="200"/>
 </div>
 
 [![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/ferri-tools/ferri/blob/main/LICENSE)
@@ -49,7 +50,7 @@ ferri --version
 ## Demo
 
 <div align="center">
-  <img src="docs/showtime.gif" alt="Ferri Showtime Demo"/>
+  <img src="assets/showtime.gif" alt="Ferri Showtime Demo"/>
 </div>
 
 Ferri is a local-first AI toolkit that acts as an intelligent director for foundation models. It evolves from a simple command runner into a proactive, agentic partner that can plan and execute complex development tasks.
@@ -117,8 +118,8 @@ Ferri is built in layers, allowing you to choose the right level of power for yo
 | Layer | Command(s) | Description |
 |---|---|---|
 | **L1: Core Execution** | `init`, `secrets`, `models`, `ctx`, `with` | The foundation. Manages your environment, models, and executes synchronous, single-shot commands. |
-| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, monitors their status, and orchestrates multi-step workflows. |
-| **L3: Agentic Engine** | `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it. |
+| **L2: Workflow Automation** | `run`, `ps`, `yank`, `flow` | The automation layer. Runs commands as background jobs, orchestrates multi-step workflows. |
+| **L3: Agentic Engine** | `plan`, `do` | The intelligent director. Takes a high-level goal, formulates a multi-step plan, and executes it, providing a blocking status report, or allowing for preview and interaction. |
 
 ## Roadmap
 * ✅ **L1: Core Execution:** Stable and ready for use.
@@ -193,7 +194,8 @@ You are now fully configured to use the `gemini-pro` model in any `ferri` comman
 | `ps` | List and manage active background jobs. |
 | `yank` | Fetch the output (stdout) of a completed background job. |
 | `flow` | Define and run multi-step, declarative AI workflows from a file. |
-| `do` | Execute a high-level goal with an AI-powered agentic engine. |
+| `plan` | Generate and preview a flow before execution. |
+| `do` | Execute a high-level goal with an AI-powered agentic engine, providing a blocking status report. |
 
 -----
 
@@ -227,9 +229,6 @@ Manages encrypted, project-specific secrets like API keys. Secrets are stored lo
 ```bash
 # Securely store your Google API key. You will be prompted for the value.
 ferri secrets set GOOGLE_API_KEY
-
-# Securely store another key non-interactively.
-ferri secrets set ANTHROPIC_API_KEY="sk-ant..."
 ```
 
 -----
@@ -246,13 +245,7 @@ ferri models ls
 
 **Use Case: Registering a New Remote Model**
 
-```bash
-# Register the Claude 3 Opus model
-ferri models add claude-opus \
-  --provider anthropic \
-  --api-key-secret ANTHROPIC_API_KEY \
-  --model-name claude-3-opus-20240229
-```
+*This example shows how to register a Google model. Support for other providers like Anthropic and OpenAI is tracked in issues #67 and #68.*
 
 -----
 
@@ -351,8 +344,22 @@ spec:
 
 ```bash
 # Execute the entire workflow
-ferri flow run ci-prep.yml
+ferri flow run docs/user_guide/examples/hello-bye-flow.yml
 ```
+
+-----
+
+### `ferri plan`
+
+Generates and previews a multi-step plan before execution.
+
+**Use Case: Previewing a plan before running it**
+
+```bash
+ferri plan "create a python script that prints hello world"
+```
+
+This will output the plan and ask for confirmation before running. You can choose to `run`, `save`, or `abort`.
 
 -----
 
@@ -384,10 +391,10 @@ Follow the **Quick Start** guide above to initialize your project and register t
 
 **2. Run the Flow:**
 
-Execute the `code_review_flow.yml` pipeline. This flow uses the `engineering/demos/demo_script.py` file as its input.
+Execute the `code_review_flow.yml` pipeline. This flow uses the `demo_script.py` file found in the same directory as its input.
 
 ```bash
-ferri flow run project_resources/engineering/demos/code_review_flow.yml
+ferri flow run docs/archive/sandbox/hybrid/code_review_flow.yml
 ```
 
 **3. What it Does:**

@@ -1,0 +1,23 @@
+# sample-flow.yml
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: simple-echo-flow
+spec:
+  jobs:
+    # The first job to run
+    say-hello:
+      name: "Say Hello"
+      runs-on: process # This is the default and only implemented executor
+      steps:
+        - name: "Echo a greeting"
+          run: echo "Hello from the first job!"
+
+    # This job will run after 'say-hello' completes
+    say-goodbye:
+      name: "Say Goodbye"
+      needs:
+        - say-hello
+      steps:
+        - name: "Echo a farewell"
+          run: echo "The first job is done. Goodbye!"

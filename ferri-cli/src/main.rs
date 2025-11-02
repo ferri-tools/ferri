@@ -290,33 +290,51 @@ fn main() {
                                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
                                     let mut text_content = String::new();
                                     let mut image_saved = false;
-                                    let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
-                                    for chunk in response_chunks {
-                                        if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                                            for candidate in candidates {
-                                                if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                                                    for part in parts {
-                                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                                            text_content.push_str(text);
-                                                        }
-                                                        if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
-                                                            if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
-                                                                match execute::save_base64_image(output_path, b64_data) {
-                                                                    Ok(_) => {
-                                                                        println!("Successfully saved image to {}", output_path.display());
-                                                                        image_saved = true;
-                                                                    }
-                                                                    Err(e) => eprintln!("Error: Failed to save image - {}", e),
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if !text_content.is_empty() {
-                                        if let Some(output_path) = &exec_args.output_file {
+                                                                         let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
+                                                                        for chunk in response_chunks {
+                                                                            // Google Gemini response parsing
+                                                                            if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
+                                                                                for candidate in candidates {
+                                                                                    if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
+                                                                                        for part in parts {
+                                                                                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                                                                                text_content.push_str(text);
+                                                                                            }
+                                                                                            if let (Some(output_path), Some(inline_data)) = (&exec_args.output_file, part.get("inlineData")) {
+                                                                                                if let Some(b64_data) = inline_data.get("data").and_then(|d| d.as_str()) {
+                                                                                                    match execute::save_base64_image(output_path, b64_data) {
+                                                                                                        Ok(_) => {
+                                                                                                            println!("Successfully saved image to {}", output_path.display());
+                                                                                                            image_saved = true;
+                                                                                                        }
+                                                                                                        Err(e) => eprintln!("Error: Failed to save image - {}", e),
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            // Anthropic (Claude) response parsing
+                                                                            if let Some(content) = chunk.get("content").and_then(|c| c.as_array()) {
+                                                                                for item in content {
+                                                                                    if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                                                                        text_content.push_str(text);
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            // OpenRouter response parsing (compatible with OpenAI chat completions API)
+                                                                            if let Some(choices) = chunk.get("choices").and_then(|c| c.as_array()) {
+                                                                                for choice in choices {
+                                                                                    if let Some(message) = choice.get("message") {
+                                                                                        if let Some(text) = message.get("content").and_then(|t| t.as_str()) {
+                                                                                            text_content.push_str(text);
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        if !text_content.is_empty() {                                        if let Some(output_path) = &exec_args.output_file {
                                             if let Err(e) = fs::write(output_path, &text_content) {
                                                 eprintln!("Error: Failed to write to output file {} - {}", output_path.display(), e);
                                                 std::process::exit(1);
