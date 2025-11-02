@@ -277,12 +277,11 @@ Use the content of the files below as context to answer the question.
                             context::ContentType::WebP => "image/webp",
                             _ => "application/octet-stream",
                         };
+                        let image_url = format!("data:{};base64,{}", mime_type, encoded_image);
                         content_parts.push(json!({
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": mime_type,
-                                "data": encoded_image
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_url
                             }
                         }));
                     }
