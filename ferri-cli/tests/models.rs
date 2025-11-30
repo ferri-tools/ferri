@@ -17,7 +17,7 @@ fn test_models_add_ls_rm_confirm_yes() {
     // 1. Add an ollama model
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&[
+        .args([
             "models",
             "add",
             "test-llama",
@@ -32,7 +32,7 @@ fn test_models_add_ls_rm_confirm_yes() {
     // 2. List models and verify it's there
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&["models", "ls"])
+        .args(["models", "ls"])
         .assert()
         .success()
         .stdout(predicate::str::contains("test-llama"))
@@ -42,7 +42,7 @@ fn test_models_add_ls_rm_confirm_yes() {
     // 3. Remove the model, confirming with "y"
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&["models", "rm", "test-llama"])
+        .args(["models", "rm", "test-llama"])
         .write_stdin("y\n")
         .assert()
         .success()
@@ -51,7 +51,7 @@ fn test_models_add_ls_rm_confirm_yes() {
     // 4. List again and verify it's gone
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&["models", "ls"])
+        .args(["models", "ls"])
         .assert()
         .success()
         .stdout(predicate::str::contains("test-llama").not());
@@ -72,7 +72,7 @@ fn test_models_rm_confirm_no() {
     // 1. Add a model
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&[
+        .args([
             "models",
             "add",
             "test-model",
@@ -87,7 +87,7 @@ fn test_models_rm_confirm_no() {
     // 2. Attempt to remove the model, but cancel
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&["models", "rm", "test-model"])
+        .args(["models", "rm", "test-model"])
         .write_stdin("n\n")
         .assert()
         .success()
@@ -96,7 +96,7 @@ fn test_models_rm_confirm_no() {
     // 3. List again and verify it's still there
     Command::cargo_bin("ferri").unwrap()
         .current_dir(base_path)
-        .args(&["models", "ls"])
+        .args(["models", "ls"])
         .assert()
         .success()
         .stdout(predicate::str::contains("test-model"));

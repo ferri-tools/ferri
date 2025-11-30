@@ -1,4 +1,3 @@
-use assert_cmd::prelude::*;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
@@ -30,10 +29,10 @@ spec:
     Command::cargo_bin("ferri")
         .unwrap()
         .current_dir(base_path)
-        .args(["flow", "run", "test-flow.yml"])
+        .args(["flow", "run", "test-flow.yml", "--quiet"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Flow completed successfully!"));
+        .stdout(predicate::str::contains("Flow completed successfully (quiet mode)."));
 
     Ok(())
 }
@@ -68,10 +67,10 @@ spec:
     Command::cargo_bin("ferri")
         .unwrap()
         .current_dir(base_path)
-        .args(["flow", "run", "dep-flow.yml"])
+        .args(["flow", "run", "dep-flow.yml", "--quiet"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Flow completed successfully!"));
+        .stdout(predicate::str::contains("Flow completed successfully (quiet mode)."));
 
     Ok(())
 }
@@ -102,7 +101,7 @@ spec:
     Command::cargo_bin("ferri")
         .unwrap()
         .current_dir(base_path)
-        .args(["flow", "run", "fail-flow.yml"])
+        .args(["flow", "run", "fail-flow.yml", "--quiet"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Flow execution failed"));

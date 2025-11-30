@@ -296,7 +296,7 @@ impl FlowOrchestrator {
         }
 
         if !errors.is_empty() {
-            return Err(io::Error::new(io::ErrorKind::Other, errors.join("; ")));
+            return Err(io::Error::other(errors.join("; ")));
         }
 
         Ok(())

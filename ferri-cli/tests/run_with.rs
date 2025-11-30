@@ -1,8 +1,6 @@
-use assert_cmd::prelude::*;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::tempdir;
-use std::fs;
 
 #[test]
 fn test_with_and_run_unification() -> Result<(), Box<dyn std::error::Error>> {

@@ -138,7 +138,7 @@ impl App {
             None => {
                 // Job is selected, try selecting its first step if it has any
                 let job_id = &self.job_order[job_idx];
-                if !self.jobs.get(job_id).map_or(true, |j| j.steps.is_empty()) {
+                if !self.jobs.get(job_id).is_none_or(|j| j.steps.is_empty()) {
                     self.selected_item = (job_idx, Some(0));
                 } else if job_idx + 1 < self.job_order.len() {
                     // Otherwise, select the next job
@@ -293,7 +293,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         };
         items.push(
             ListItem::new(Line::from(vec![
-                Span::styled(format!("▶ {}", job_id), style.bold()),
+                Span::styled(format!("▶ {}", job_state.name), style.bold()),
                 Span::raw(" "),
                 Span::styled(status_text, style),
             ]))

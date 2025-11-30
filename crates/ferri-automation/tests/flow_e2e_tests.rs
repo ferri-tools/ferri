@@ -17,7 +17,7 @@ fn execute_flow(flow_yaml: &str) -> Result<ExecutionSummary, String> {
     // The new orchestrator does not require a channel for this kind of test
     let orchestrator = FlowOrchestrator::new(
         flow_doc,
-        &base_path.to_path_buf(),
+        base_path,
         HashMap::new(),
     );
 
@@ -29,10 +29,12 @@ fn execute_flow(flow_yaml: &str) -> Result<ExecutionSummary, String> {
     Ok(summary)
 }
 
+use std::path::PathBuf;
+
 /// Simplified summary of flow execution for testing
 #[derive(Debug)]
 struct ExecutionSummary {
-    execution_result: Option<Result<(), io::Error>>,
+    execution_result: Option<Result<PathBuf, io::Error>>,
 }
 
 impl ExecutionSummary {
@@ -43,7 +45,7 @@ impl ExecutionSummary {
     }
 
     fn succeeded(&self) -> bool {
-        matches!(self.execution_result, Some(Ok(())))
+        matches!(self.execution_result, Some(Ok(_)))
     }
 
     fn failed(&self) -> bool {
