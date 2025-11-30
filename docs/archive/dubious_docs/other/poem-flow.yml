@@ -1,0 +1,28 @@
+# poem-flow.yml
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: poem-generator-and-editor
+spec:
+  jobs:
+    write-poem:
+      name: "Write Poem"
+      steps:
+        - name: "Use Gemma to write a poem about love"
+          run: /Users/jorgeajimenez/repos/ferri/gemini-worktree/target/debug/ferri with --model gemma --output poem.txt -- "write a short poem about love"
+
+    edit-poem:
+      name: "Edit Poem with sed"
+      needs:
+        - write-poem
+      steps:
+        - name: "Replace 'love' with 'code'"
+          run: "sed 's/love/code/gI' poem.txt > coded-poem.txt"
+
+    display-result:
+      name: "Display Final Result"
+      needs:
+        - edit-poem
+      steps:
+        - name: "Cat the final poem"
+          run: "cat coded-poem.txt"

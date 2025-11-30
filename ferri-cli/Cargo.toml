@@ -20,13 +20,14 @@ serde = { version = "1.0", features = ["derive"] }
 futures = "0.3"
 reqwest = "0.12"
 serde_json = "1.0"
+serde_yaml = "0.9.34"
 shell-escape = "0.1"
 tokio = { version = "1", features = ["full"] }
 chrono = "0.4"
 crossbeam-channel = "0.5"
-atty = "0.2"
 colored = "3.0.0"
 rand.workspace = true
+syntect = "5.3.0"
 
 
 [dev-dependencies]

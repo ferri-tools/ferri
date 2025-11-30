@@ -1,0 +1,62 @@
+# This flow demonstrates a multi-stage data pipeline where each stage is
+# represented by a distinct workspace, ensuring data integrity.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: staged-data-processing-pipeline
+spec:
+  workspaces:
+    - name: raw-data
+    - name: processed-data
+    - name: final-report
+
+  jobs:
+    download-dataset:
+      name: "Download Raw Dataset"
+      steps:
+        - name: "Simulate downloading a CSV"
+          workspaces:
+            - name: raw-data
+              mountPath: data/raw
+          run: |
+            mkdir -p data/raw
+            echo "--- Downloading data ---"
+            echo -e "id,category,value\n1,A,100\n2,B,150\n3,A,200" > data/raw/dataset.csv
+            echo "Download complete."
+
+    process-data:
+      name: "Process and Clean Data"
+      needs:
+        - download-dataset
+      steps:
+        - name: "Filter for category A"
+          workspaces:
+            - name: raw-data
+              mountPath: data/raw
+              readOnly: true # Enforce immutability of raw data
+            - name: processed-data
+              mountPath: data/processed
+          run: |
+            mkdir -p data/processed
+            echo "--- Processing data ---"
+            grep "A" data/raw/dataset.csv > data/processed/category_a.csv
+            echo "Processing complete."
+
+    generate-report:
+      name: "Generate Final Report"
+      needs:
+        - process-data
+      steps:
+        - name: "Use AI to summarize the processed data"
+          workspaces:
+            - name: processed-data
+              mountPath: data/processed
+              readOnly: true
+            - name: final-report
+              mountPath: report
+          run: |
+            mkdir -p report
+            echo "--- Generating report ---"
+            ferri ctx add data/processed/category_a.csv
+            ferri with --ctx --model gemma --output report/summary.md -- "Analyze the provided CSV data and summarize its key findings."
+            echo "Report generation complete."

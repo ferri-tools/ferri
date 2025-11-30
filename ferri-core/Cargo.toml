@@ -1,7 +1,0 @@
-[package]
-name = "ferri-core-placeholder"
-version = "0.1.0"
-edition = "2021"
-
-# This crate is a placeholder after the workspace refactor.
-# See the crates in the `crates/` directory for the actual code.

@@ -6,44 +6,66 @@
 //! - Context management and expression evaluation
 //! - Real-time status updates
 
-use crate::execute::PreparedCommand;
-use crate::expressions::{self, EvaluationContext};
-use crate::flow::{FlowDocument, Job, Step, StepUpdate, StepStatus};
-use crate::jobs;
-use crossbeam_channel::Sender;
+use crate::executors::ExecutorRegistry;
+use crate::expressions::EvaluationContext;
+use crate::flow::{FlowDocument, Job, JobStatus, JobUpdate, Update};
 use std::collections::{HashMap, VecDeque};
-use std::io;
-use std::path::Path;
-use std::process::Command;
+use std::fs;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 /// Orchestrator state for flow execution
 pub struct FlowOrchestrator {
     flow: FlowDocument,
     base_path: std::path::PathBuf,
-    update_sender: Sender<StepUpdate>,
     runtime_inputs: HashMap<String, String>,
+    executor_registry: Arc<ExecutorRegistry>,
 }
 
 impl FlowOrchestrator {
     pub fn new(
         flow: FlowDocument,
         base_path: &Path,
-        update_sender: Sender<StepUpdate>,
         runtime_inputs: HashMap<String, String>,
     ) -> Self {
         Self {
             flow,
             base_path: base_path.to_path_buf(),
-            update_sender,
             runtime_inputs,
+            executor_registry: Arc::new(ExecutorRegistry::new()),
         }
     }
 
     /// Execute the entire flow
-    pub fn execute(&self) -> io::Result<()> {
+    pub fn execute(&self) -> io::Result<PathBuf> {
+        // Create a unique run ID
+        let run_id = format!(
+            "{}-{}",
+            self.flow.metadata.name,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
+
+        // Create the runs directory
+        let runs_dir = self.base_path.join(".ferri").join("runs");
+        fs::create_dir_all(&runs_dir)?;
+        let log_path = runs_dir.join(format!("{}.log", run_id));
+        let log_file = fs::File::create(&log_path)?;
+        let writer = Arc::new(Mutex::new(io::BufWriter::new(log_file)));
+
+        // Create temporary workspace directories
+        let workspace_root = self.create_workspace_directories()?;
+
+        // Build workspace path mapping
+        let workspace_paths = self.build_workspace_paths(&workspace_root);
+
+        // Ensure cleanup happens even if execution fails
+        let _cleanup_guard = WorkspaceCleanupGuard::new(workspace_root.clone());
+
         // Resolve execution order
         let execution_order = self.resolve_execution_order()?;
 
@@ -52,10 +74,52 @@ impl FlowOrchestrator {
 
         // Execute jobs in waves (each wave contains jobs that can run in parallel)
         for wave in execution_order {
-            self.execute_wave(&wave, Arc::clone(&job_outputs))?;
+            self.execute_wave(
+                &wave,
+                Arc::clone(&job_outputs),
+                &workspace_paths,
+                Arc::clone(&writer),
+            )?;
         }
 
-        Ok(())
+        Ok(log_path)
+    }
+
+    /// Build a mapping of workspace names to their absolute paths
+    fn build_workspace_paths(&self, workspace_root: &Path) -> HashMap<String, PathBuf> {
+        let mut paths = HashMap::new();
+        if let Some(workspaces) = &self.flow.spec.workspaces {
+            for workspace in workspaces {
+                paths.insert(workspace.name.clone(), workspace_root.join(&workspace.name));
+            }
+        }
+        paths
+    }
+
+    /// Create temporary workspace directories for this flow run
+    fn create_workspace_directories(&self) -> io::Result<PathBuf> {
+        // Create a unique temporary directory for this flow run
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let flow_name = &self.flow.metadata.name;
+        let workspace_root = std::env::temp_dir()
+            .join("ferri-workspaces")
+            .join(format!("{}-{}", flow_name, timestamp));
+
+        // Create the root directory
+        fs::create_dir_all(&workspace_root)?;
+
+        // Create a subdirectory for each workspace defined in the flow
+        if let Some(workspaces) = &self.flow.spec.workspaces {
+            for workspace in workspaces {
+                let workspace_dir = workspace_root.join(&workspace.name);
+                fs::create_dir_all(&workspace_dir)?;
+            }
+        }
+
+        Ok(workspace_root)
     }
 
     /// Resolve job execution order using topological sort
@@ -124,7 +188,7 @@ impl FlowOrchestrator {
         if processed != jobs.len() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Circular dependency detected in job graph"
+                "Circular dependency detected in job graph",
             ));
         }
 
@@ -136,27 +200,63 @@ impl FlowOrchestrator {
         &self,
         wave: &[String],
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
+        workspace_paths: &HashMap<String, PathBuf>,
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
     ) -> io::Result<()> {
+        // Send Pending status for all jobs and their steps in this wave
+        for job_id in wave {
+            let job = self.flow.spec.jobs.get(job_id).unwrap();
+            let mut writer_lock = writer.lock().unwrap();
+
+            // Log job as pending
+            let job_update = Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status: JobStatus::Pending,
+            });
+            writeln!(writer_lock, "{}", serde_json::to_string(&job_update).unwrap())?;
+
+            // Log all steps as pending
+            for (step_index, _) in job.steps.iter().enumerate() {
+                let step_update = Update::Step(crate::flow::StepUpdate {
+                    job_id: job_id.clone(),
+                    step_index,
+                    status: crate::flow::StepStatus::Pending,
+                });
+                writeln!(
+                    writer_lock,
+                    "{}",
+                    serde_json::to_string(&step_update).unwrap()
+                )?;
+            }
+            writer_lock.flush()?;
+        }
+
         let mut handles = Vec::new();
 
         for job_id in wave {
             let job = self.flow.spec.jobs.get(job_id).unwrap().clone();
             let job_id = job_id.clone();
             let base_path = self.base_path.clone();
-            let update_sender = self.update_sender.clone();
             let runtime_inputs = self.runtime_inputs.clone();
             let job_outputs_clone = Arc::clone(&job_outputs);
             let flow = self.flow.clone();
+
+            let workspace_paths_clone = workspace_paths.clone();
+
+            let registry_clone = Arc::clone(&self.executor_registry);
+            let writer_clone = Arc::clone(&writer);
 
             let handle = thread::spawn(move || {
                 Self::execute_job(
                     &job_id,
                     &job,
                     &base_path,
-                    update_sender,
                     &runtime_inputs,
                     job_outputs_clone,
                     &flow,
+                    &workspace_paths_clone,
+                    registry_clone,
+                    writer_clone,
                 )
             });
 
@@ -165,17 +265,38 @@ impl FlowOrchestrator {
 
         // Wait for all jobs in this wave to complete
         let mut errors = Vec::new();
-        for handle in handles {
-            if let Err(e) = handle.join() {
-                errors.push(format!("Job thread panicked: {:?}", e));
+        for (idx, handle) in handles.into_iter().enumerate() {
+            let job_id = &wave[idx];
+            let (status, error_msg) = match handle.join() {
+                Ok(Ok(())) => (JobStatus::Succeeded, None),
+                Ok(Err(e)) => {
+                    let msg = e.to_string();
+                    (
+                        JobStatus::Failed(msg.clone()),
+                        Some(format!("Job '{}' failed: {}", job_id, msg)),
+                    )
+                }
+                Err(e) => {
+                    let msg = format!("Job thread panicked: {:?}", e);
+                    (JobStatus::Failed(msg.clone()), Some(msg))
+                }
+            };
+
+            let update = Update::Job(JobUpdate {
+                job_id: job_id.clone(),
+                status,
+            });
+            let mut writer_lock = writer.lock().unwrap();
+            writeln!(writer_lock, "{}", serde_json::to_string(&update).unwrap())?;
+            writer_lock.flush()?;
+
+            if let Some(msg) = error_msg {
+                errors.push(msg);
             }
         }
 
         if !errors.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                errors.join("; ")
-            ));
+            return Err(io::Error::new(io::ErrorKind::Other, errors.join("; ")));
         }
 
         Ok(())
@@ -186,11 +307,18 @@ impl FlowOrchestrator {
         job_id: &str,
         job: &Job,
         base_path: &Path,
-        update_sender: Sender<StepUpdate>,
         runtime_inputs: &HashMap<String, String>,
         job_outputs: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
         _flow: &FlowDocument,
+        _workspace_paths: &HashMap<String, PathBuf>,
+        executor_registry: Arc<ExecutorRegistry>,
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
     ) -> io::Result<()> {
+        // Run the job using the appropriate executor
+        let handle =
+            Self::run_job_executor(job_id, job, base_path, executor_registry, writer)?;
+        handle.0.join().unwrap()?; // Wait for the executor to finish
+
         // Build evaluation context
         let mut ctx = EvaluationContext::new().with_inputs(runtime_inputs.clone());
 
@@ -208,228 +336,67 @@ impl FlowOrchestrator {
             }
         }
 
-        // Execute each step sequentially within the job
-        for (step_idx, step) in job.steps.iter().enumerate() {
-            let step_name = step.name.clone()
-                .unwrap_or_else(|| format!("step-{}", step_idx));
-
-            Self::execute_step(
-                job_id,
-                &step_name,
-                step,
-                base_path,
-                &update_sender,
-                &mut ctx,
-            )?;
-        }
-
         // TODO: Collect job-level outputs and store them in job_outputs
 
         Ok(())
     }
 
-    /// Execute a single step
-    fn execute_step(
+    /// Selects and runs the appropriate executor for a job
+    fn run_job_executor(
         job_id: &str,
-        step_name: &str,
-        step: &Step,
+        job: &Job,
         base_path: &Path,
-        update_sender: &Sender<StepUpdate>,
-        ctx: &mut EvaluationContext,
-    ) -> io::Result<()> {
-        // Send running status
-        update_sender.send(StepUpdate {
-            job_id: job_id.to_string(),
-            step_name: step_name.to_string(),
-            status: StepStatus::Running,
-            output: None,
-        }).unwrap();
+        executor_registry: Arc<ExecutorRegistry>,
+        writer: Arc<Mutex<io::BufWriter<fs::File>>>,
+    ) -> io::Result<crate::executors::ExecutionHandle> {
+        // --- Executor Selection ---
+        let executor_name = job.runs_on.as_deref().unwrap_or("process");
+        let executor = executor_registry.get(executor_name).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "Executor '{}' not found for job '{}'",
+                    executor_name, job_id
+                ),
+            )
+        })?;
 
-        // Evaluate expressions in the step
-        let evaluated_step = Self::evaluate_step_expressions(step, ctx)?;
+        // Secrets are not yet implemented, so we pass an empty HashMap.
+        let handle = executor.execute(job_id, job, base_path, &HashMap::new(), writer)?;
 
-        // Execute based on step type
-        if let Some(run_command) = &evaluated_step.run {
-            Self::execute_run_step(
-                job_id,
-                step_name,
-                run_command,
-                &evaluated_step.env,
-                base_path,
-                update_sender,
-                ctx,
-            )?;
-        } else if let Some(uses) = &evaluated_step.uses {
-            // TODO: Implement reusable actions
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("Reusable actions not yet implemented: {}", uses)
-            ));
-        }
-
-        Ok(())
+        Ok(handle)
     }
+}
 
-    /// Evaluate expressions in a step
-    fn evaluate_step_expressions(step: &Step, ctx: &EvaluationContext) -> io::Result<Step> {
-        let mut evaluated = step.clone();
+/// Guard that ensures workspace directories are cleaned up when dropped
+struct WorkspaceCleanupGuard {
+    workspace_root: PathBuf,
+}
 
-        // Evaluate 'run' field
-        if let Some(run) = &step.run {
-            evaluated.run = Some(expressions::evaluate_expressions(run, ctx)?);
-        }
-
-        // Evaluate environment variables
-        if let Some(env) = &step.env {
-            let mut evaluated_env = HashMap::new();
-            for (key, value) in env {
-                let evaluated_value = expressions::evaluate_expressions(value, ctx)?;
-                evaluated_env.insert(key.clone(), evaluated_value);
-            }
-            evaluated.env = Some(evaluated_env);
-        }
-
-        Ok(evaluated)
+impl WorkspaceCleanupGuard {
+    fn new(workspace_root: PathBuf) -> Self {
+        Self { workspace_root }
     }
+}
 
-    /// Execute a 'run' step
-    fn execute_run_step(
-        job_id: &str,
-        step_name: &str,
-        command: &str,
-        env: &Option<HashMap<String, String>>,
-        base_path: &Path,
-        update_sender: &Sender<StepUpdate>,
-        ctx: &mut EvaluationContext,
-    ) -> io::Result<()> {
-        // For now, execute as a simple shell command
-        // TODO: Integrate with proper job system, handle env vars, workspaces, etc.
-
-        // Build command
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(command);
-
-        // Add environment variables
-        if let Some(env_vars) = env {
-            for (key, value) in env_vars {
-                cmd.env(key, value);
-            }
-        }
-
-        let prepared_cmd = PreparedCommand::Local(cmd, None);
-        let original_command = vec![command.to_string()];
-
-        let job = jobs::submit_job(
-            base_path,
-            prepared_cmd,
-            HashMap::new(),
-            &original_command,
-            None,
-            None,
-        )?;
-
-        let background_job_id = job.id;
-
-        // Poll until completion
-        loop {
-            thread::sleep(Duration::from_millis(500));
-            let jobs_list = jobs::list_jobs(base_path)?;
-
-            if let Some(bg_job) = jobs_list.iter().find(|j| j.id == background_job_id) {
-                match bg_job.status.as_str() {
-                    "Completed" => {
-                        // Get output
-                        let output = jobs::get_job_output(base_path, &background_job_id)?;
-
-                        // TODO: Parse ferri-runtime set-output commands from output
-                        // For now, just store the full output
-                        if let Some(step_id) = ctx.step_outputs.keys().next() {
-                            ctx.add_step_output(
-                                step_id.to_string(),
-                                "stdout".to_string(),
-                                output.clone(),
-                            );
-                        }
-
-                        update_sender.send(StepUpdate {
-                            job_id: job_id.to_string(),
-                            step_name: step_name.to_string(),
-                            status: StepStatus::Completed,
-                            output: Some(output),
-                        }).unwrap();
-
-                        break;
-                    }
-                    "Failed" => {
-                        let err_msg = format!("Step '{}' failed", step_name);
-                        update_sender.send(StepUpdate {
-                            job_id: job_id.to_string(),
-                            step_name: step_name.to_string(),
-                            status: StepStatus::Failed(err_msg.clone()),
-                            output: None,
-                        }).unwrap();
-
-                        return Err(io::Error::new(io::ErrorKind::Other, err_msg));
-                    }
-                    _ => {
-                        // Still running
-                        let output = jobs::get_job_output(base_path, &background_job_id)?;
-                        update_sender.send(StepUpdate {
-                            job_id: job_id.to_string(),
-                            step_name: step_name.to_string(),
-                            status: StepStatus::Running,
-                            output: Some(output),
-                        }).unwrap();
-                    }
-                }
-            } else {
-                // Job not found - assume completed
-                update_sender.send(StepUpdate {
-                    job_id: job_id.to_string(),
-                    step_name: step_name.to_string(),
-                    status: StepStatus::Completed,
-                    output: None,
-                }).unwrap();
-                break;
-            }
-        }
-
-        Ok(())
+impl Drop for WorkspaceCleanupGuard {
+    fn drop(&mut self) {
+        // Attempt to remove the workspace directory
+        // Ignore errors during cleanup to avoid panicking in drop
+        let _ = fs::remove_dir_all(&self.workspace_root);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flow::{FlowSpec, Metadata};
+    use crate::flow::{FlowSpec, Metadata, Workspace};
 
-    #[test]
-    fn test_simple_dependency_resolution() {
-        // Create a simple flow: job1 -> job2 -> job3
-        let mut jobs = HashMap::new();
-
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Job 1".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
-
-        jobs.insert("job2".to_string(), Job {
-            name: Some("Job 2".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job1".to_string()]),
-            steps: vec![],
-        });
-
-        jobs.insert("job3".to_string(), Job {
-            name: Some("Job 3".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job2".to_string()]),
-            steps: vec![],
-        });
-
-        let flow = FlowDocument {
+    fn create_test_flow(
+        jobs: HashMap<String, Job>,
+        workspaces: Option<Vec<Workspace>>,
+    ) -> FlowDocument {
+        FlowDocument {
             api_version: "ferri.flow/v1alpha1".to_string(),
             kind: "Flow".to_string(),
             metadata: Metadata {
@@ -439,19 +406,45 @@ mod tests {
             },
             spec: FlowSpec {
                 inputs: None,
-                workspaces: None,
+                workspaces,
                 jobs,
             },
-        };
+        }
+    }
 
-        let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
+    #[test]
+    fn test_simple_dependency_resolution() {
+        let mut jobs = HashMap::new();
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job1".to_string()]),
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job3".to_string(),
+            Job {
+                name: Some("Job 3".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job2".to_string()]),
+                steps: vec![],
+            },
         );
 
+        let flow = create_test_flow(jobs, None);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
         let order = orchestrator.resolve_execution_order().unwrap();
 
         assert_eq!(order.len(), 3);
@@ -462,59 +455,144 @@ mod tests {
 
     #[test]
     fn test_parallel_jobs() {
-        // Create jobs that can run in parallel
         let mut jobs = HashMap::new();
-
-        jobs.insert("job1".to_string(), Job {
-            name: Some("Job 1".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
-
-        jobs.insert("job2".to_string(), Job {
-            name: Some("Job 2".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: None,
-            steps: vec![],
-        });
-
-        jobs.insert("job3".to_string(), Job {
-            name: Some("Job 3".to_string()),
-            runs_on: "ubuntu-latest".to_string(),
-            needs: Some(vec!["job1".to_string(), "job2".to_string()]),
-            steps: vec![],
-        });
-
-        let flow = FlowDocument {
-            api_version: "ferri.flow/v1alpha1".to_string(),
-            kind: "Flow".to_string(),
-            metadata: Metadata {
-                name: "test-flow".to_string(),
-                labels: None,
-                annotations: None,
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
             },
-            spec: FlowSpec {
-                inputs: None,
-                workspaces: None,
-                jobs,
+        );
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
             },
-        };
-
-        let (tx, _rx) = crossbeam_channel::unbounded();
-        let orchestrator = FlowOrchestrator::new(
-            flow,
-            Path::new("/tmp"),
-            tx,
-            HashMap::new(),
+        );
+        jobs.insert(
+            "job3".to_string(),
+            Job {
+                name: Some("Job 3".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job1".to_string(), "job2".to_string()]),
+                steps: vec![],
+            },
         );
 
+        let flow = create_test_flow(jobs, None);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
         let order = orchestrator.resolve_execution_order().unwrap();
 
         assert_eq!(order.len(), 2);
-        assert_eq!(order[0].len(), 2); // job1 and job2 in parallel
+        assert_eq!(order[0].len(), 2);
         assert!(order[0].contains(&"job1".to_string()));
         assert!(order[0].contains(&"job2".to_string()));
         assert_eq!(order[1], vec!["job3"]);
+    }
+
+    #[test]
+    fn test_job_state_tracking() {
+        let mut jobs = HashMap::new();
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Job 1".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        jobs.insert(
+            "job2".to_string(),
+            Job {
+                name: Some("Job 2".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: Some(vec!["job1".to_string()]),
+                steps: vec![],
+            },
+        );
+
+        let flow = create_test_flow(jobs, None);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
+        let order = orchestrator.resolve_execution_order().unwrap();
+
+        assert_eq!(order.len(), 2);
+        assert_eq!(order[0], vec!["job1"]);
+        assert_eq!(order[1], vec!["job2"]);
+    }
+
+    #[test]
+    fn test_workspace_creation_and_cleanup() {
+        let mut jobs = HashMap::new();
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Test Job".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        let workspaces = Some(vec![
+            Workspace {
+                name: "data".to_string(),
+            },
+            Workspace {
+                name: "logs".to_string(),
+            },
+        ]);
+
+        let flow = create_test_flow(jobs, workspaces);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
+        let workspace_root = orchestrator.create_workspace_directories().unwrap();
+
+        assert!(workspace_root.exists() && workspace_root.is_dir());
+        assert!(workspace_root.join("data").exists());
+        assert!(workspace_root.join("logs").exists());
+
+        drop(WorkspaceCleanupGuard::new(workspace_root.clone()));
+        assert!(!workspace_root.exists());
+    }
+
+    #[test]
+    fn test_workspace_paths_mapping() {
+        let mut jobs = HashMap::new();
+        jobs.insert(
+            "job1".to_string(),
+            Job {
+                name: Some("Test Job".to_string()),
+                runs_on: Some("ubuntu-latest".to_string()),
+                needs: None,
+                steps: vec![],
+            },
+        );
+        let workspaces = Some(vec![
+            Workspace {
+                name: "data".to_string(),
+            },
+            Workspace {
+                name: "cache".to_string(),
+            },
+        ]);
+
+        let flow = create_test_flow(jobs, workspaces);
+        let orchestrator = FlowOrchestrator::new(flow, Path::new("/tmp"), HashMap::new());
+        let workspace_root = PathBuf::from("/tmp/test-workspaces");
+        let workspace_paths = orchestrator.build_workspace_paths(&workspace_root);
+
+        assert_eq!(workspace_paths.len(), 2);
+        assert_eq!(
+            workspace_paths.get("data").unwrap(),
+            &workspace_root.join("data")
+        );
+        assert_eq!(
+            workspace_paths.get("cache").unwrap(),
+            &workspace_root.join("cache")
+        );
     }
 }

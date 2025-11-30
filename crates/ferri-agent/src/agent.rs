@@ -1,72 +1,119 @@
-use ferri_automation::execute::PreparedCommand;
-use ferri_automation::jobs;
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
-use std::collections::HashMap;
 use std::env;
-use std::io::Write;
-use std::path::Path;
-use std::process::Command;
-use tempfile::NamedTempFile;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time;
 
-pub async fn generate_and_run_flow<F>(
-    base_path: &Path,
-    prompt: &str,
-    mut status_callback: F,
-) -> Result<String>
-where
-    F: FnMut(&str),
-{
-    status_callback(&format!("Generating flow for prompt: '{}'", prompt));
-
-    let api_key =
-        env::var("GEMINI_API_KEY").context("GEMINI_API_KEY environment variable not set")?;
+pub async fn generate_flow(base_path: &Path, prompt: &str) -> Result<PathBuf> {
+    let api_key = env::var("GEMINI_API_KEY").map_err(|_| {
+        anyhow!(
+            "GEMINI_API_KEY environment variable not set.
+'ferri do' requires a Google Gemini API key to generate flows.
+Please set it in your environment, for example:
+export GEMINI_API_KEY=\"your-api-key-here\""
+        )
+    })?;
 
     let system_prompt = r###"you are an expert software developer and terminal assistant. your goal is to break down a user's high-level request into a precise, executable ferri flow yaml file.
 
-the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps in a ferri flow.
+the user's prompt will be a high-level goal. you must convert this into a series of shell commands organized as steps within one or more jobs in a ferri flow. if the request implies a sequence of distinct stages (e.g., "build the frontend, then build the backend"), you should use multiple jobs with `needs` to define dependencies.
 
-**key rules:**
-- the output must be a valid yaml file.
-- the yaml structure must have a top-level `name` and a list of `steps`.
-- each item in the `steps` list is an object with a `name` (a human-readable title) and a `command` (the shell command to execute).
-- **important**: for multi-line commands, especially for writing files, use the yaml literal block scalar (`|`). this is the most robust method.
-- steps are executed sequentially. do not use a `dependencies` field.
+**key rules & decision making:**
+- the output must be a valid yaml file conforming to the `ferri.flow/v1alpha1` specification.
+- use logical job ids (e.g., `build-frontend`, `deploy`).
+- for multi-line commands, use the yaml literal block scalar (`|`).
+- **your primary goal is to use the simplest, most efficient tool for the job.**
+- **decision: when to use `ferri with`?**
+    - use `ferri with` only for tasks that require genuine understanding, interpretation, summarization, or generation of new content (e.g., "summarize this file," "write a function that does x," "refactor this code").
+    - before using `ferri with`, you must always add the relevant files to the context using `ferri ctx add <file_path>`.
+- **decision: when to use shell commands?**
+    - for simple, deterministic tasks like searching for text, creating files, moving directories, or running build tools, always prefer standard shell commands (e.g., `grep`, `find`, `mkdir`, `cp`, `cargo build`). they are faster and more reliable.
 
 **example 1: simple file operations**
-
 user prompt: "create a new directory called 'my_app' and then create an empty file inside it named 'index.js'"
-
 your response:
 ```yaml
-name: "create my_app directory and index.js file"
-steps:
-  - name: "create project directory"
-    command: "mkdir my_app"
-  - name: "create empty index file"
-    command: "touch my_app/index.js"
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: "create-my-app"
+spec:
+  jobs:
+    create-structure:
+      name: "Create project structure"
+      steps:
+        - name: "Create project directory"
+          run: "mkdir my_app"
+        - name: "Create empty index file"
+          run: "touch my_app/index.js"
 ```
 
-**example 2: writing a multi-line script file**
-
-user prompt: "create a python script named 'app.py' that prints 'hello'"
-
+**example 2: multi-stage build**
+user prompt: "create a rust project and then compile it"
 your response:
 ```yaml
-name: "create hello world python script"
-steps:
-  - name: "write python script"
-    command: |
-      cat > app.py << EOF
-      #!/usr/bin/env python3
-      print('hello')
-      EOF
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: "create-and-build-rust-project"
+spec:
+  jobs:
+    create-project:
+      name: "Create Rust Project"
+      steps:
+        - name: "Initialize new cargo project"
+          run: "cargo new my_rust_app"
+    build-project:
+      name: "Build Rust Project"
+      needs: [create-project]
+      steps:
+        - name: "Navigate to project and build"
+          run: |
+            cd my_rust_app
+            cargo build
+```
+
+**example 3: ai-powered analysis (correct use of `ferri with`)**
+user prompt: "summarize the contents of the readme.md file and save it to a new file called summary.txt"
+your response:
+```yaml
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: "summarize-readme"
+spec:
+  jobs:
+    summarize:
+      name: "Summarize README.md"
+      steps:
+        - name: "Add README to context"
+          run: "ferri ctx add README.md"
+        - name: "Use AI to summarize"
+          run: "ferri with --ctx --output summary.txt -- \"summarize the contents of the file i've provided.\""
+```
+
+**example 4: preferring shell commands over ai (important judgment)**
+user prompt: "find all instances of 'todo' in the 'src' directory and save them to a file."
+your response:
+```yaml
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: "find-todos"
+spec:
+  jobs:
+    find-todos:
+      name: "Find all TODOs in source code"
+      steps:
+        - name: "Use grep to find all TODOs"
+          run: "grep -r 'TODO' src > todos.txt"
 ```
 "###;
 
     let client = reqwest::Client::new();
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={}",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={}",
         api_key
     );
 
@@ -81,8 +128,6 @@ steps:
         ]
     });
 
-    status_callback("Sending request to Gemini API...");
-
     let response = client
         .post(&url)
         .json(&request_body)
@@ -90,15 +135,13 @@ steps:
         .await
         .context("Failed to send request to Gemini API")?;
 
-    let status = response.status();
-    if !status.is_success() {
+    if !response.status().is_success() {
         let error_body = response
             .text()
             .await
             .unwrap_or_else(|_| "Could not read error body".to_string());
         return Err(anyhow!(
-            "Gemini API request failed with status: {}. Body: {}",
-            status,
+            "Gemini API request failed. Body: {}",
             error_body
         ));
     }
@@ -107,8 +150,6 @@ steps:
         .json()
         .await
         .context("Failed to parse Gemini API response")?;
-
-    status_callback("Received response from Gemini API. Parsing flow...");
 
     let generated_text = response_body["candidates"][0]["content"]["parts"][0]["text"]
         .as_str()
@@ -127,30 +168,20 @@ steps:
 
     let yaml_content = yaml_content.trim();
 
-    status_callback(&format!(
-        "Generated Flow:\n---\n{}\n---",
-        yaml_content
-    ));
+    // Create the .ferri/do directory
+    let do_dir = base_path.join(".ferri").join("do");
+    fs::create_dir_all(&do_dir).context("Failed to create .ferri/do directory")?;
 
-    let mut temp_file = NamedTempFile::new().context("Failed to create temporary file")?;
-    writeln!(temp_file, "{}", yaml_content).context("Failed to write to temporary file")?;
+    // Generate a unique filename
+    let timestamp = time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let file_name = format!("flow-{}.yml", timestamp);
+    let file_path = do_dir.join(file_name);
 
-    status_callback("Executing generated flow...");
+    // Write the flow to the file
+    fs::write(&file_path, yaml_content).context("Failed to write flow to file")?;
 
-    let command_str = format!("ferri flow run {}", temp_file.path().to_string_lossy());
-    let mut command = Command::new("sh");
-    command.arg("-c").arg(&command_str);
-
-    let job = jobs::submit_job(
-        base_path,
-        PreparedCommand::Local(command, None),
-        HashMap::new(),
-        &[],
-        None,
-        None,
-    )?;
-
-    temp_file.keep()?;
-
-    Ok(job.id)
+    Ok(file_path)
 }

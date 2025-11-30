@@ -1,0 +1,59 @@
+# This flow demonstrates a full AI-powered code review, refactoring, and documentation pipeline.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: ai-automated-code-improvement-pipeline
+spec:
+  jobs:
+    triage-code:
+      name: "Triage Original Code"
+      steps:
+        - name: "Create a sample Python script"
+          run: |
+            echo '
+            # Simple script to process numbers
+            def process_numbers(data):
+                results = []
+                for i in data:
+                    if i % 2 == 0:
+                        results.append(str(i))
+                return ",".join(results)
+            ' > original_script.py
+        - name: "Add script to context"
+          run: "ferri ctx add original_script.py"
+        - name: "Use local model for a quick triage"
+          run: "ferri with --ctx --model gemma --output triage_report.txt -- 'Briefly review this Python code. Identify one area for improvement.'"
+
+    refactor-code:
+      name: "Refactor Code with Powerful AI"
+      needs:
+        - triage-code
+      steps:
+        - name: "Add original script and triage report to context"
+          run: "ferri ctx add original_script.py triage_report.txt"
+        - name: "Use Gemini to refactor the code based on the triage"
+          run: "ferri with --ctx --model gemini-pro --output enhanced_script.py -- 'Rewrite the Python script from the context to implement the improvement suggested in the triage report. CRITICAL: Your response must be ONLY the raw, runnable code. Do not include markdown fences like ```python or any other explanatory text.'"
+
+    generate-tests:
+      name: "Generate Unit Tests"
+      needs:
+        - triage-code
+      steps:
+        - name: "Add script to context"
+          run: "ferri ctx add original_script.py"
+        - name: "Use Gemini to write unit tests for the original script's logic"
+          run: "ferri with --ctx --model gemini-pro --output tests.py -- 'Write a Python unit test file using the unittest library to verify the logic of the script in context. The tests must be runnable with python3. CRITICAL: Your response must be ONLY the raw, runnable code. Do not include markdown fences like ```python or any other explanatory text.'"
+
+    validate-and-document:
+      name: "Validate and Generate Commit Message"
+      needs:
+        - refactor-code
+        - generate-tests
+      steps:
+        - name: "Run the generated tests against the ENHANCED script"
+          # This step is a crucial validation gate.
+          run: "python3 tests.py"
+        - name: "Add the final code to the context"
+          run: "ferri ctx add enhanced_script.py"
+        - name: "Generate a conventional commit message"
+          run: "ferri with --ctx --model gemma --output commit_message.txt -- 'Based on the Python script in context, write a conventional commit message for the refactoring that was performed.'"

@@ -13,7 +13,7 @@ use std::thread;
 use crate::execute::PreparedCommand;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Job {
+pub struct JobInstance {
     pub id: String,
     pub command: String,
     pub status: String,
@@ -36,7 +36,7 @@ fn get_jobs_file_path(base_path: &Path) -> PathBuf {
     base_path.join(".ferri").join("jobs.json")
 }
 
-fn read_jobs(base_path: &Path) -> io::Result<Vec<Job>> {
+fn read_jobs(base_path: &Path) -> io::Result<Vec<JobInstance>> {
     let jobs_file = get_jobs_file_path(base_path);
     if !jobs_file.exists() {
         return Ok(Vec::new());
@@ -48,7 +48,7 @@ fn read_jobs(base_path: &Path) -> io::Result<Vec<Job>> {
     serde_json::from_str(&content).map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
 }
 
-fn write_jobs(base_path: &Path, jobs: &[Job]) -> io::Result<()> {
+fn write_jobs(base_path: &Path, jobs: &[JobInstance]) -> io::Result<()> {
     let jobs_file = get_jobs_file_path(base_path);
     let content =
         serde_json::to_string_pretty(jobs).map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?;
@@ -57,7 +57,7 @@ fn write_jobs(base_path: &Path, jobs: &[Job]) -> io::Result<()> {
 
 /// Updates job status by checking if process still exists and reading exit code file.
 /// This is called lazily by list_jobs() and get_job_output() rather than in a background thread.
-fn update_job_status(base_path: &Path, job: &mut Job) -> io::Result<()> {
+fn update_job_status(base_path: &Path, job: &mut JobInstance) -> io::Result<()> {
     if job.status != "Running" {
         // Job already completed/failed, no need to check
         return Ok(());
@@ -163,42 +163,7 @@ fn spawn_local_command(
     Ok(child)
 }
 
-fn execute_remote_command(
-    request: reqwest::blocking::RequestBuilder,
-) -> io::Result<Vec<u8>> {
-    let response = request.send().map_err(|e| io::Error::new(ErrorKind::Other, e))?;
-    let status = response.status();
-    let body = response.text().map_err(|e| io::Error::new(ErrorKind::Other, e))?;
 
-    if !status.is_success() {
-        return Err(io::Error::new(
-            ErrorKind::Other,
-            format!("API Error ({}): {}", status, body),
-        ));
-    }
-
-    let mut text_content = String::new();
-    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-        let response_chunks = if let Some(array) = json.as_array() { array.to_vec() } else { vec![json] };
-        for chunk in response_chunks {
-            if let Some(candidates) = chunk.get("candidates").and_then(|c| c.as_array()) {
-                for candidate in candidates {
-                    if let Some(parts) = candidate.get("content").and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
-                        for part in parts {
-                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                text_content.push_str(text);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        text_content = body;
-    }
-
-    Ok(text_content.into_bytes())
-}
 
 
 pub fn submit_job(
@@ -208,7 +173,7 @@ pub fn submit_job(
     original_command: &[String],
     _input_data: Option<Vec<u8>>,
     _output_file: Option<PathBuf>,
-) -> io::Result<Job> {
+) -> io::Result<JobInstance> {
     let job_id = generate_job_id();
     let job_dir = base_path.join(".ferri/jobs").join(&job_id);
     fs::create_dir_all(&job_dir)?;
@@ -238,7 +203,7 @@ pub fn submit_job(
     // Drop the Child handle - process runs independently
     drop(child);
 
-    let new_job = Job {
+    let new_job = JobInstance {
         id: job_id.clone(),
         command: original_command.join(" "),
         status: "Running".to_string(),
@@ -259,7 +224,7 @@ pub fn submit_job(
 }
 
 
-pub fn list_jobs(base_path: &Path) -> io::Result<Vec<Job>> {
+pub fn list_jobs(base_path: &Path) -> io::Result<Vec<JobInstance>> {
     let mut jobs = read_jobs(base_path)?;
     let mut needs_write = false;
 

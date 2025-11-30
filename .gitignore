@@ -10,6 +10,10 @@ project_resources/development_resources/
 !project_resources/development_resources/logs/
 .obsidian
 .zed
-sandbox
+
 claude-worktree/
 gemini-worktree/
+/development_resources/logs/last_session.md
+/project_resources/flow_engine_status_summary.md
+/development_resources/logs/last_session.md
+/project_resources/flow_engine_status_summary.md

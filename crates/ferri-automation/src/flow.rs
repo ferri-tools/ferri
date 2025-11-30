@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::{fs, io, thread};
 
 // --- Data structures for real-time updates ---
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StepStatus {
     Pending,
     Running,
@@ -27,12 +27,51 @@ pub enum StepStatus {
     Failed(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepUpdate {
     pub job_id: String,
-    pub step_name: String,
+    pub step_index: usize,
     pub status: StepStatus,
-    pub output: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum JobStatus {
+    Pending,
+    Running,
+    Succeeded,
+    Failed(String),
+}
+
+impl JobStatus {
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, JobStatus::Succeeded | JobStatus::Failed(_))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JobUpdate {
+    pub job_id: String,
+    pub status: JobStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputUpdate {
+    pub job_id: String,
+    pub step_index: usize,
+    pub line: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FlowFileContent {
+    pub content: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Update {
+    Job(JobUpdate),
+    Step(StepUpdate),
+    Output(OutputUpdate),
+    FlowFile(FlowFileContent),
 }
 // ---
 
@@ -132,7 +171,8 @@ pub struct Job {
     pub name: Option<String>,
 
     /// Runner environment (e.g., "ubuntu-latest")
-    pub runs_on: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runs_on: Option<String>,
 
     /// Job IDs that must complete before this job starts
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -162,6 +202,10 @@ pub struct Step {
     /// Reusable action to execute (mutually exclusive with 'run')
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uses: Option<String>,
+    
+    /// Declared output artifacts or files the task is expected to produce.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outputs: Option<Vec<String>>,
 
     /// Input parameters for the action specified by 'uses'
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -430,14 +474,13 @@ pub fn run_pipeline(
     // This map now tracks the explicit output file path for each step.
     let step_output_files = Arc::new(Mutex::new(HashMap::<String, PathBuf>::new()));
 
-    for step in &pipeline.steps {
+    for (step_index, step) in pipeline.steps.iter().enumerate() {
         let sender_clone = update_sender.clone();
         sender_clone
             .send(StepUpdate {
                 job_id: "legacy".to_string(),
-                step_name: step.name.clone(),
+                step_index,
                 status: StepStatus::Running,
-                output: None,
             })
             .unwrap();
 
@@ -498,8 +541,8 @@ pub fn run_pipeline(
         loop {
             thread::sleep(std::time::Duration::from_millis(500));
             let jobs = jobs::list_jobs(base_path)?;
-            if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
-                match job.status.as_str() {
+            if let Some(job_instance) = jobs.iter().find(|j| j.id == job_id) {
+                match job_instance.status.as_str() {
                     "Completed" => {
                         // If this step produced an output file, record it for subsequent steps.
                         if let Some(output_path) = output_file_for_registration {
@@ -507,9 +550,8 @@ pub fn run_pipeline(
                         }
                         sender_clone.send(StepUpdate {
                             job_id: "legacy".to_string(),
-                            step_name: step.name.clone(),
+                            step_index,
                             status: StepStatus::Completed,
-                            output: None
                         }).unwrap();
                         break;
                     }
@@ -517,19 +559,17 @@ pub fn run_pipeline(
                         let err_msg = format!("Step '{}' failed. See job '{}' for details.", step.name, job_id);
                         sender_clone.send(StepUpdate {
                             job_id: "legacy".to_string(),
-                            step_name: step.name.clone(),
+                            step_index,
                             status: StepStatus::Failed(err_msg.clone()),
-                            output: None
                         }).unwrap();
                         return Err(io::Error::new(io::ErrorKind::Other, err_msg));
                     }
                     _ => { // Still running
-                        let output = jobs::get_job_output(base_path, &job_id)?;
+                        // let output = jobs::get_job_output(base_path, &job_id)?;
                         sender_clone.send(StepUpdate {
                             job_id: "legacy".to_string(),
-                            step_name: step.name.clone(),
+                            step_index,
                             status: StepStatus::Running,
-                            output: Some(output)
                         }).unwrap();
                     }
                 }
@@ -538,9 +578,8 @@ pub fn run_pipeline(
                 // For this loop, we assume it's completed.
                 sender_clone.send(StepUpdate {
                     job_id: "legacy".to_string(),
-                    step_name: step.name.clone(),
+                    step_index,
                     status: StepStatus::Completed,
-                    output: None
                 }).unwrap();
                 break;
             }

@@ -1,0 +1,62 @@
+# This flow demonstrates a "composition" job that mounts multiple workspaces
+# to combine an AI-generated image with a static asset.
+apiVersion: ferri.flow/v1alpha1
+kind: Flow
+metadata:
+  name: ai-image-composition-pipeline
+spec:
+  workspaces:
+    - name: generated-image
+    - name: assets
+
+  jobs:
+    generate-image:
+      name: "Generate Image with AI"
+      steps:
+        - name: "Use Gemini to generate a picture of a cat"
+          workspaces:
+            - name: generated-image
+              mountPath: output
+          run: |
+            mkdir -p output
+            echo "--- Generating AI image ---"
+            # Simulate creating an image file. A real model would do this.
+            echo "IMAGE_DATA_OF_A_CAT" > output/cat.png
+            echo "Image generation complete."
+
+    download-watermark:
+      name: "Download Watermark Asset"
+      steps:
+        - name: "Simulate downloading a watermark.png"
+          workspaces:
+            - name: assets
+              mountPath: assets
+          run: |
+            mkdir -p assets
+            echo "--- Downloading assets ---"
+            echo "WATERMARK_PNG_DATA" > assets/watermark.png
+            echo "Asset download complete."
+
+    apply-watermark:
+      name: "Apply Watermark to Image"
+      needs:
+        - generate-image
+        - download-watermark
+      steps:
+        - name: "Combine image and watermark"
+          # This job mounts two different workspaces to combine their contents.
+          workspaces:
+            - name: generated-image
+              mountPath: images # Contains the dynamic content
+            - name: assets
+              mountPath: assets   # Contains the static assets
+              readOnly: true
+          run: |
+            mkdir -p images
+            echo "--- Applying watermark ---"
+            # Simulate a tool like ImageMagick: composite watermark.png cat.png final.png
+            IMAGE=$(cat images/cat.png)
+            WATERMARK=$(cat assets/watermark.png)
+            echo "${IMAGE}_WITH_${WATERMARK}" > images/final_watermarked_cat.png
+            echo "Composition complete. Final image:"
+            cat images/final_watermarked_cat.png
