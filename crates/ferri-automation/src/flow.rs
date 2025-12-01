@@ -259,17 +259,14 @@ pub struct RetryStrategy {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Default)]
 pub enum RetryPolicy {
+    #[default]
     OnFailure,  // Retry on non-zero exit code
     OnError,    // Retry on infrastructure errors
     Always,     // Retry on any failure
 }
 
-impl Default for RetryPolicy {
-    fn default() -> Self {
-        RetryPolicy::OnFailure
-    }
-}
 
 /// Exponential backoff configuration
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -562,7 +559,7 @@ pub fn run_pipeline(
                             step_index,
                             status: StepStatus::Failed(err_msg.clone()),
                         }).unwrap();
-                        return Err(io::Error::new(io::ErrorKind::Other, err_msg));
+                        return Err(io::Error::other(err_msg));
                     }
                     _ => { // Still running
                         // let output = jobs::get_job_output(base_path, &job_id)?;

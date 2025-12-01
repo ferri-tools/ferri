@@ -39,14 +39,14 @@ impl EvaluationContext {
     pub fn add_step_output(&mut self, step_id: String, output_name: String, value: String) {
         self.step_outputs
             .entry(step_id)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .insert(output_name, value);
     }
 
     pub fn add_job_output(&mut self, job_id: String, output_name: String, value: String) {
         self.job_outputs
             .entry(job_id)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .insert(output_name, value);
     }
 }
@@ -127,8 +127,7 @@ fn evaluate_single_expression(expr: &str, ctx: &EvaluationContext) -> io::Result
                 ));
             }
             let input_name = parts[2];
-            ctx.inputs.get(input_name)
-                .map(|s| s.clone())
+            ctx.inputs.get(input_name).cloned()
                 .ok_or_else(|| io::Error::new(
                     io::ErrorKind::NotFound,
                     format!("Input '{}' not found", input_name)
@@ -147,8 +146,7 @@ fn evaluate_single_expression(expr: &str, ctx: &EvaluationContext) -> io::Result
 
             ctx.step_outputs
                 .get(step_id)
-                .and_then(|outputs| outputs.get(output_name))
-                .map(|s| s.clone())
+                .and_then(|outputs| outputs.get(output_name)).cloned()
                 .ok_or_else(|| io::Error::new(
                     io::ErrorKind::NotFound,
                     format!("Step output '{}.{}' not found", step_id, output_name)
@@ -167,8 +165,7 @@ fn evaluate_single_expression(expr: &str, ctx: &EvaluationContext) -> io::Result
 
             ctx.job_outputs
                 .get(job_id)
-                .and_then(|outputs| outputs.get(output_name))
-                .map(|s| s.clone())
+                .and_then(|outputs| outputs.get(output_name)).cloned()
                 .ok_or_else(|| io::Error::new(
                     io::ErrorKind::NotFound,
                     format!("Job output '{}.{}' not found", job_id, output_name)

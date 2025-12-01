@@ -988,7 +988,7 @@ fn print_init_message() {
     }
     
     /// Helper function to encapsulate the logic of generating a flow from a prompt.
-    async fn generate_flow_logic(base_path: &PathBuf, prompt: &str) -> Result<String, String> {
+    async fn generate_flow_logic(base_path: &std::path::Path, prompt: &str) -> Result<String, String> {
         println!("Generating flow from prompt...");
         let flow_path = ferri_agent::agent::generate_flow(base_path, prompt)
             .await
