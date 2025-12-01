@@ -4,3 +4,4 @@ pub mod message;
 pub mod models;
 pub mod project;
 pub mod secrets;
+pub mod traits;
