@@ -1,10 +1,13 @@
 //! Core logic for managing the project's context.
 
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+use crate::message::{AssetSource, ContentBlock, MediaMetadata, Message, Role};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Context {
@@ -103,18 +106,29 @@ pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<MultimodalCon
         }
     }
 
-    Ok(MultimodalContext { text_content, image_files })
+    Ok(MultimodalContext {
+        text_content,
+        image_files,
+    })
 }
 
-fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<MultimodalFile>, base_path: &Path) -> io::Result<()> {
+fn process_file(
+    path: &Path,
+    text_content: &mut String,
+    image_files: &mut Vec<MultimodalFile>,
+    base_path: &Path,
+) -> io::Result<()> {
     let content_type = get_content_type(path);
     let display_path = path.strip_prefix(base_path).unwrap_or(path);
 
     match content_type {
         ContentType::Text => {
             let content = fs::read_to_string(path)?;
-            text_content.push_str(&format!("--- Content of file: {} ---
-", display_path.display()));
+            text_content.push_str(&format!(
+                "--- Content of file: {} ---
+",
+                display_path.display()
+            ));
             text_content.push_str(&content);
             text_content.push_str("\n\n");
         }
@@ -127,8 +141,11 @@ fn process_file(path: &Path, text_content: &mut String, image_files: &mut Vec<Mu
         ContentType::Unknown => {
             // For now, we try to read it as text and ignore errors.
             if let Ok(content) = fs::read_to_string(path) {
-                text_content.push_str(&format!("--- Content of file: {} ---
-", display_path.display()));
+                text_content.push_str(&format!(
+                    "--- Content of file: {} ---
+",
+                    display_path.display()
+                ));
                 text_content.push_str(&content);
                 text_content.push_str("\n\n");
             }
@@ -142,7 +159,10 @@ fn get_content_type(path: &Path) -> ContentType {
         Some("png") => ContentType::Png,
         Some("jpg") | Some("jpeg") => ContentType::Jpeg,
         Some("webp") => ContentType::WebP,
-        Some("txt") | Some("md") | Some("rs") | Some("py") | Some("js") | Some("ts") | Some("html") | Some("css") | Some("json") | Some("yaml") | Some("toml") => ContentType::Text,
+        Some("txt") | Some("md") | Some("rs") | Some("py") | Some("js") | Some("ts")
+        | Some("html") | Some("css") | Some("json") | Some("yaml") | Some("toml") => {
+            ContentType::Text
+        }
         _ => ContentType::Unknown,
     }
 }
@@ -163,4 +183,58 @@ fn read_context_file(path: &Path) -> io::Result<Context> {
 fn write_context_file(path: &Path, context: &Context) -> io::Result<()> {
     let content = serde_json::to_string_pretty(context)?;
     fs::write(path, content)
+}
+
+/// Implements the conversion from the legacy `MultimodalContext` to the new `Vec<Message>` format.
+/// This is the "Shim Layer" that allows the new multimodal engine to process existing context.
+impl TryFrom<MultimodalContext> for Vec<Message> {
+    /// The error type returned if the conversion fails.
+    type Error = anyhow::Error;
+
+    /// Performs the conversion from `MultimodalContext` to `Vec<Message>`.
+    fn try_from(legacy_ctx: MultimodalContext) -> Result<Self, Self::Error> {
+        let mut content_blocks = Vec::new();
+
+        // If there's any text content in the legacy context, add it as a single Text ContentBlock.
+        // This preserves the original behavior of concatenating all text.
+        if !legacy_ctx.text_content.is_empty() {
+            content_blocks.push(ContentBlock::Text(legacy_ctx.text_content));
+        }
+
+        // Iterate over legacy image files and convert them into Image ContentBlocks.
+        for img in legacy_ctx.image_files {
+            // Determine the MIME type based on the legacy ContentType enum.
+            let mime_type = match img.content_type {
+                ContentType::Png => "image/png",
+                ContentType::Jpeg => "image/jpeg",
+                ContentType::WebP => "image/webp",
+                // For any other ContentType, default to a generic octet-stream.
+                // In the legacy system, only image types were explicitly handled as files.
+                _ => "application/octet-stream",
+            };
+
+            // Create MediaMetadata for the image. Size is unknown in the legacy context.
+            let metadata = MediaMetadata {
+                mime_type: mime_type.to_string(),
+                size_bytes: None, // Legacy context does not easily provide file size.
+                file_name: img.path.file_name().map(|s| s.to_string_lossy().to_string()),
+            };
+
+            // Push a new Image ContentBlock, referencing the local path.
+            content_blocks.push(ContentBlock::Image{
+                source: AssetSource::LocalPath(img.path),
+                metadata
+            });
+        }
+
+        // Wrap all processed content blocks into a single Message with a User role.
+        // The legacy context is always assumed to originate from user input.
+        let message = Message {
+            role: Role::User,
+            content: content_blocks,
+        };
+
+        // Return the single message wrapped in a Vec, as `Vec<Message>` is the target type.
+        Ok(vec![message])
+    }
 }
