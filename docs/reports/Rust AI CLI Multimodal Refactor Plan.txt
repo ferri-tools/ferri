@@ -1,0 +1,487 @@
+﻿Architectural Transformation of Ferri: Designing a Native Multimodal Engine in Rust
+
+
+
+
+1. Executive Summary
+
+
+The evolution of generative AI from text-based large language models (LLMs) to multimodal foundation models necessitates a fundamental reimagining of client-side architecture. "Ferri," currently operating as a rapid prototype for text and image workflows, stands at a critical juncture. The introduction of high-dimensionality temporal data—specifically video via Google Veo and audio processing—exposes severe structural deficiencies in the current "vibe coded" codebase. The existing data structures in ferri-core enforce a semantic segregation between text and media that obliterates temporal coherence, while the execution logic in ferri-automation relies on monolithic procedural matching that violates the Open-Closed Principle. Most critically, the current memory management strategy, which relies on eager loading and Base64 encoding of assets, presents an existential stability risk; loading a 500MB video file into RAM for encoding will inevitably trigger Out-Of-Memory (OOM) panics in a CLI environment.
+This research report provides an exhaustive architectural blueprint for transitioning Ferri into a robust, type-safe, natively multimodal engine. We propose a paradigm shift from rigid structs to a flexible, recursive Enum-based type system that treats all modalities as first-class citizens within a unified message timeline. We define a polymorphic AIProvider trait system to encapsulate provider-specific API logic, enabling the seamless integration of diverse backends like Gemini, Claude, and Ollama without polluting the core business logic. Furthermore, we articulate a "Reference-First" asset strategy that leverages zero-copy streaming and finite state machines to handle massive media files, ensuring that Ferri remains performant and memory-safe even when orchestrating complex video generation workflows. The report concludes with a surgical, three-phase execution plan designed to refactor the core engine while maintaining backward compatibility with the existing CLI surface area.
+________________
+
+
+2. Architectural Audit: The Liability of the "Muddied" Context
+
+
+Before establishing the new architecture, it is imperative to dissect the specific failure modes of the current implementation. The "muddied" architecture described in the user query stems from a conflation of content storage with modality type, leading to brittle coupling.
+
+
+2.1 Analysis of ferri-core/src/context.rs
+
+
+The current definition of MultimodalContext serves as a "Bag of Words" model applied to multimodal data. It aggregates all text into a single string and all images into a vector, regardless of their semantic order.
+
+
+Rust
+
+
+
+
+// Current implementation in context.rs
+#
+pub struct MultimodalContext {
+   pub text_content: String,
+   pub image_files: Vec<MultimodalFile>,
+}
+
+This structure imposes three critical limitations that prevent the integration of Video and Audio:
+1. Loss of Temporal Sequence: Multimodal models are increasingly sensitive to the interleaving of data. A prompt such as "Look at this architecture diagram [Image A], read this error log, and then compare it to this reference video [Video A]" requires a strictly ordered sequence. The current struct flattens this into `` and [Image A], destroying the logical flow required for complex reasoning.
+2. Scalability Barriers: To add video, one would naively append pub video_files: Vec<VideoFile>. This linear growth of fields results in a combinatorial explosion of handling logic. Every function consuming MultimodalContext would need to be rewritten to check for the presence of videos, audio, or future modalities like 3D assets, rendering the codebase brittle and prone to regression.
+3. Eager Loading and Memory Pressure: The current MultimodalFile struct (inferred from usage) likely holds the file path or, worse, the file content. The consuming logic in execute.rs performs fs::read(&image_file.path) and immediately encodes it. This pattern forces the entire asset payload into the application's heap memory. While a 5MB image is manageable, a 500MB video file multiplied by the overhead of Base64 encoding (approx. 33% increase) results in a memory footprint approaching 700MB for a single asset. In a concurrent environment or on constrained hardware, this guarantees a crash.
+
+
+2.2 Analysis of ferri-automation/src/execute.rs
+
+
+The execution logic currently resides in a monolithic prepare_command function. This function creates a massive bottleneck where provider-specific logic is intermingled with argument parsing and IO operations.
+The existence of "massive match statements handling JSON construction" indicates a violation of the Single Responsibility Principle. execute.rs "knows" too much: it knows the specific JSON schema for Anthropic's messages array, Google's parts object, and Ollama's images field. This high coupling means that an update to the Google API version requires modifying the central execution file, creating a risk of breaking Anthropic support.
+Furthermore, the ferri_video_prompt.md document highlights a requirement for "Director Mode"—recursive chaining where the output of one command becomes the input of the next. The current procedural architecture lacks a mechanism to represent "state" or "handles" to remote resources, necessitating a shift to a more sophisticated type system.
+________________
+
+
+3. The "Unified Message" Type System: The Refactor
+
+
+To address the brittleness of the current data structures, we must adopt a type system that mirrors the recursive, block-based nature of modern AI interaction models. We move from specific fields (text, images) to a generic collection of content blocks.
+
+
+3.1 The ContentBlock Enum Architecture
+
+
+The core primitive of the new architecture is the ContentBlock. This enum exploits Rust's algebraic data types to represent heterogeneous content with complete type safety. Unlike a struct with optional fields, an enum variant ensures that data is valid by construction—a Video block must contain video metadata and a source; it cannot accidentally contain text.
+We propose the following definitions to reside in a new module, crates/ferri-core/src/message.rs:
+
+
+Rust
+
+
+
+
+use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
+
+/// Represents the physical location or state of a large asset.
+/// This distinction is crucial for the "Reference vs. Value" strategy.
+#
+pub enum AssetSource {
+   /// A reference to a file on the local filesystem.
+   /// This is the default state for user inputs.
+   LocalPath(PathBuf),
+
+   /// A reference to a remote resource, such as a Google File API URI
+   /// or an S3 object URL. Used for "Director Mode" chaining.
+   RemoteUri(String),
+
+   /// Raw binary data held in memory.
+   /// STRICTLY LIMITED to small assets (< 5MB) or generated thumbnails.
+   /// Usage for video triggers a warning or error.
+   Bytes(Vec<u8>),
+}
+
+/// Metadata describing the media asset.
+/// Essential for Content-Type headers and optimizing provider selection.
+#
+pub struct MediaMetadata {
+   pub mime_type: String,
+   pub size_bytes: Option<u64>,
+   pub file_name: Option<String>,
+}
+
+/// The atomic unit of meaning in a Ferri conversation.
+#
+pub enum ContentBlock {
+   /// Pure UTF-8 text content.
+   Text(String),
+
+   /// An image asset.
+   Image {
+       source: AssetSource,
+       metadata: MediaMetadata,
+   },
+
+   /// A video asset.
+   /// Separated from Image to allow for video-specific fields (e.g., duration) later.
+   Video {
+       source: AssetSource,
+       metadata: MediaMetadata,
+   },
+
+   /// An audio asset.
+   Audio {
+       source: AssetSource,
+       metadata: MediaMetadata,
+   },
+   
+   /// Result from a tool execution (future-proofing for L3 Agentic features).
+   ToolResult {
+       tool_use_id: String,
+       output: String,
+   }
+}
+
+Architectural Justification:
+* Extensibility: Adding 3D support in the future simply requires adding a Mesh variant to the enum. No existing logic for Text or Video needs to change.
+* Memory Safety: The AssetSource enum allows the system to distinguish between a path to a 2GB file and the bytes themselves. Logic can be written to strictly enforce LocalPath usage for videos, preventing accidental reads into Bytes.
+
+
+3.2 The Generic Message Struct
+
+
+The ContentBlock lives inside a Message struct that abstracts the concept of a conversational turn. This structure unifies the disparate role systems of different providers (e.g., Gemini uses "model" vs "user", Anthropic uses "assistant" vs "user").
+
+
+Rust
+
+
+
+
+/// Normalized roles across all providers.
+#
+pub enum Role {
+   System,
+   User,
+   Assistant,
+   Tool,
+}
+
+/// A unified message structure preserving temporal sequence.
+#
+pub struct Message {
+   pub role: Role,
+   /// The content is a vector, preserving the order of text/media interleaving.
+   pub content: Vec<ContentBlock>,
+}
+
+/// The complete context of a conversation or prompt execution.
+#
+pub struct Conversation {
+   pub messages: Vec<Message>,
+}
+
+Solving the "Bag of Words" Problem:
+Unlike MultimodalContext, which separated text and images, Message.content allows for true interleaving:
+vec!
+This sequence is preserved and can be mapped correctly to providers that support interleaving (like Gemini and Claude) or flattened intelligently for those that don't.
+________________
+
+
+4. The "Provider" Trait Definition: Decoupling Execution
+
+
+The monolithic prepare_command function in execute.rs is a scalability bottleneck. To fix this, we introduce the AIProvider trait. This trait defines the contract for interaction with an AI backend, enforcing that every provider must implement its own logic for asset preparation and request formatting.
+
+
+4.1 The Trait Definition
+
+
+The trait must be asynchronous (async_trait) because interacting with remote APIs, specifically for large video uploads, is an inherently asynchronous operation involving significant I/O latency.
+We propose defining this in crates/ferri-core/src/traits.rs:
+
+
+Rust
+
+
+
+
+use async_trait::async_trait;
+use anyhow::Result;
+use crate::message::{Message, ContentBlock};
+use crate::models::Model; // Existing Model struct
+
+/// Represents the output of a generation request.
+pub struct GenerationResponse {
+   pub content: Vec<ContentBlock>,
+   pub usage_metrics: Option<TokenUsage>,
+   pub raw_response: serde_json::Value, // For debugging/logging
+}
+
+pub struct TokenUsage {
+   pub input_tokens: u32,
+   pub output_tokens: u32,
+}
+
+#[async_trait]
+pub trait AIProvider: Send + Sync {
+   /// Step 1: Asset Preparation (The "Optimization" Phase).
+   /// 
+   /// This method is responsible for enforcing the Large Asset Strategy.
+   /// It iterates through the input messages. If it encounters a `LocalPath`
+   /// for a large asset (Video/Audio) and the provider requires cloud hosting
+   /// (e.g., Google File API), it performs the upload here.
+   ///
+   /// It returns a *new* vector of Messages where `LocalPath` sources
+   /// may have been replaced by `RemoteUri` sources.
+   async fn prepare_assets(&self, messages: &[Message]) -> Result<Vec<Message>>;
+
+   /// Step 2: Request Execution.
+   ///
+   /// Converts the unified `Message` format into the provider-specific JSON payload.
+   /// Executes the HTTP request and normalizes the response back into `GenerationResponse`.
+   async fn generate(
+       &self, 
+       model_config: &Model, 
+       messages: &[Message], 
+       stream: bool
+   ) -> Result<GenerationResponse>;
+}
+
+
+
+4.2 Why This Signature?
+
+
+1. Separation of Concerns: prepare_assets isolates the complexity of file uploads (hashing, caching, resumable uploads) from the inference logic. This allows generate to remain pure: it simply takes messages and sends them to the inference endpoint.
+2. Immutability: The input messages are borrowed slice &[Message]. prepare_assets returns a new Vec<Message>, ensuring that we don't mutate the user's original context state unexpectedly.
+3. Polymorphism: In execute.rs, we can now hold a Box<dyn AIProvider>. The execution logic becomes provider-agnostic:
+
+
+Rust
+
+
+
+
+// Conceptual usage in execute.rs
+let provider = ProviderFactory::get(&model.provider)?;
+let ready_messages = provider.prepare_assets(&raw_messages).await?;
+let response = provider.generate(&model, &ready_messages, streaming).await?;
+
+This effectively deletes the massive match statement, replacing it with dynamic dispatch.
+________________
+
+
+5. Large Asset Strategy: The "Zero-Copy" Mandate
+
+
+Handling 500MB+ video files in a local-first CLI requires a strict discipline regarding memory usage. Loading such a file into a Vec<u8> or String (Base64) is non-negotiable failure.
+
+
+5.1 Reference vs. Value Strategy
+
+
+The Core Principle: Assets are References (PathBuf or URI), never Values (Bytes), until the precise microsecond they hit the network socket.
+Data Flow Analysis:
+1. Input Parsing: The user provides a path: ferri ctx add./movie.mp4.
+   * Action: Store AssetSource::LocalPath("./movie.mp4").
+   * Memory Cost: Negligible (path string only).
+2. Context Loading: context.rs reads the context file.
+   * Action: Deserialize the path. Do NOT read the file.
+   * Memory Cost: Negligible.
+3. Provider Selection (Google Veo): The provider identifies a video asset.
+   * Action: Google requires a File API URI. We must upload.
+   * Mechanism: Use reqwest::Body::wrap_stream.
+   * Implementation: We open the file using tokio::fs::File. We wrap this file handle in a FramedRead utilizing a small buffer (e.g., 8KB or 64KB). We pass this stream to the HTTP client.
+   * Memory Cost: Constant (buffer size only), regardless of video size. The bytes move Disk -> Kernel Buffer -> Network Card.
+Question Answered: Should the ContentBlock hold a PathBuf or a FileStream?
+It should hold a PathBuf (AssetSource::LocalPath).
+A FileStream is an active resource handle (file descriptor). Holding open file handles in the persistent context struct is dangerous (OS limits, serialization issues). The stream should only be instantiated transiently inside the prepare_assets method of the AIProvider.
+
+
+5.2 Provider-Specific Implementations
+
+
+Scenario A: Ollama (Local)
+Ollama runs on localhost. It typically expects Base64 for images in the JSON payload (though path support varies by version/model).
+* Strategy: If Base64 is strictly required, we still avoid loading the full file. We implement a streaming encoder. We create a stream that reads chunks from the file, encodes that chunk to Base64, and yields the encoded chunk to the HTTP request body.
+* Limitation: If the JSON parser on the receiving end (Ollama server) doesn't support streaming JSON parsing, this might still be heavy. However, for a Video strategy on Ollama, it is more likely we will need to extract frames using ffmpeg (external process) and send specific keyframes as images, rather than sending a raw GB-sized video file.
+Scenario B: Google Gemini / Veo (Remote)
+Google explicitly rejects large Base64 payloads. The Google AI File API is mandatory for assets > 20MB.
+* Strategy:
+   1. Hash Check: Calculate a lightweight hash (SHA-256) of the local file.
+   2. Cache Lookup: Check .ferri/cache.json to see if this hash maps to an existing, active RemoteUri (Google URIs persist for 48 hours).
+   3. Upload (if miss): Perform a resumable upload to https://generativelanguage.googleapis.com/upload/v1beta/files. Use the streaming strategy described in 5.1.
+   4. Wait for State: Poll the file's state until it is ACTIVE.
+   5. Transform: Return a Message where the video block is now AssetSource::RemoteUri("https://generativelanguage.googleapis.com/...").
+   6. Inference: The final generate request sends strictly the URI, resulting in a tiny JSON payload.
+________________
+
+
+6. Deep Technical Considerations: Google File API Integration
+
+
+The prompt specifically mentions Google Veo and the need to map the JSON structure.
+
+
+6.1 Mapping the JSON
+
+
+The Google API expects:
+
+
+JSON
+
+
+
+
+{
+ "contents":
+   }
+ ]
+}
+
+In Rust, inside GoogleProvider::generate:
+
+
+Rust
+
+
+
+
+// Mapping Logic
+let parts: Vec<serde_json::Value> = msg.content.iter().map(|block| {
+   match block {
+       ContentBlock::Text(t) => json!({ "text": t }),
+       ContentBlock::Video { source, metadata } => {
+           match source {
+               AssetSource::RemoteUri(uri) => json!({
+                   "file_data": {
+                       "mime_type": metadata.mime_type,
+                       "file_uri": uri
+                   }
+               }),
+               _ => panic!("Video must be uploaded before generation!"),
+           }
+       },
+       //... handle other types
+   }
+}).collect();
+
+
+
+6.2 Authentication
+
+
+Question: How should Ferri handle the Google Auth token for the REST call? Is it distinct from the API Key?
+Analysis:
+For the Gemini API (Generative Language API), Google typically uses an API Key passed via the x-goog-api-key header or key query parameter. This is distinct from the OAuth 2.0 Bearer tokens used for Google Cloud Platform (Vertex AI).
+Given Ferri is a "local-first AI CLI" prototyped with "vibe coding," it is almost certainly using the consumer/prosumer API (generativelanguage.googleapis.com) rather than Vertex AI.
+Recommendation:
+Ferri should continue using the API Key stored in ferri secrets. The File API (upload.googleapis.com or generativelanguage.googleapis.com/upload) uses the same authentication method (API Key) as the inference endpoint. There is no need to implement a complex OAuth flow for the "Director Mode" unless targeting Vertex AI enterprise endpoints.
+________________
+
+
+7. Execution Plan: A Three-Step Refactor
+
+
+Refactoring a "muddied" architecture requires a strategy that prevents "breaking the world." We will use a parallel implementation strategy.
+
+
+Step 1: Define the Types (The "Shadow" Core)
+
+
+Objective: Introduce the new type system without deleting the old one immediately.
+1. Create crates/ferri-core/src/message.rs: Implement AssetSource, MediaMetadata, ContentBlock, and Message enums/structs as defined in Section 3.1.
+2. Update crates/ferri-core/src/lib.rs: Expose the new module.
+3. Implement Conversion Traits: In context.rs, implement TryFrom to convert the legacy MultimodalContext into Vec<Message>.
+   * This maps text_content to a ContentBlock::Text.
+   * This maps image_files to ContentBlock::Image with AssetSource::LocalPath.
+   * Benefit: This allows us to start writing new logic that consumes Message while the old logic still produces MultimodalContext.
+
+
+Step 2: Implement the Traits (The "Shim" Layer)
+
+
+Objective: Build the provider infrastructure.
+1. Create crates/ferri-core/src/traits.rs: Define the AIProvider trait.
+2. Create crates/ferri-automation/src/providers/ directory.
+3. Implement google.rs:
+   * Create struct GoogleProvider.
+   * Implement prepare_assets: Add the logic to scan for LocalPath videos, upload them using reqwest streams to the Google File API, and return RemoteUri messages.
+   * Implement generate: Map Message to the Google JSON schema.
+4. Implement ollama.rs:
+   * Create struct OllamaProvider.
+   * Implement prepare_assets: For now, this can be a pass-through (or implement base64 streaming if needed).
+   * Implement generate: Port the existing logic from execute.rs into this struct, adapting it to consume Message.
+
+
+Step 3: Migration of execute.rs (The "Big Switch")
+
+
+Objective: Switch the CLI to use the new architecture.
+1. Modify ferri-automation/src/execute.rs:
+2. Refactor prepare_command:
+   * Old: Direct JSON construction logic.
+   * New:
+Rust
+// 1. Load Legacy Context
+let legacy_ctx = context::get_full_multimodal_context(base_path)?;
+
+// 2. Convert to New Type System
+let messages: Vec<Message> = legacy_ctx.try_into()?; 
+
+// 3. Instantiate Provider
+let provider: Box<dyn AIProvider> = match model.provider.as_str() {
+   "google" => Box::new(GoogleProvider::new(api_key)),
+   "ollama" => Box::new(OllamaProvider::new()),
+   //...
+};
+
+// 4. Optimize Assets (Uploads happen here)
+let optimized_messages = provider.prepare_assets(&messages).await?;
+
+// 5. Execute
+let response = provider.generate(&model, &optimized_messages, streaming).await?;
+
+   3. Verification: Run the existing test suite (Text/Image).
+   4. Cleanup: Once verified, mark MultimodalContext as #[deprecated] and plan its removal in a future PR.
+
+
+8. Director Mode: State Machine Visualization
+
+
+For the "Friday Demo," visualizing the state machine is critical.
+Logic:
+   1. Step 1: ferri do "Generate video A" -> Output is a ProviderResponse containing a ContentBlock::Video with a RemoteUri (from Google Veo).
+   2. Step 2: Ferri saves this response to .ferri/state.json.
+   3. Step 3: ferri do "Edit that video to look like 1920s film" -> Ferri loads .ferri/state.json. It sees the RemoteUri. It constructs a Message using that URI.
+   4. Visualization:
+   * Print Context Loaded: 1 Video Reference (Remote)
+   * Print [API] Skipping Upload (Asset is Remote)
+   * Print [EXEC] Sending Generation Request...
+This clearly demonstrates to the "Math/Berkeley" audience that Ferri is managing references (pointers) to data, not moving massive data blobs unnecessarily, acting as an efficient state machine controller.
+
+
+9. Conclusion
+
+
+This redesign moves Ferri from a fragile prototype to a professional-grade AI engineering tool. By enforcing type safety with Enums, decoupling logic with Traits, and adhering to strict "Zero-Copy" memory disciplines, the system becomes capable of handling the heavy lifting required by modern multimodal Video and Audio workflows. The path forward is clear, modular, and safe.
+
+
+10. Table: Legacy vs. Proposed Architecture
+
+
+Feature
+	Legacy (vibe coding)
+	Proposed (Native Multimodal)
+	Data Structure
+	MultimodalContext (Struct)
+	Message containing Vec<ContentBlock> (Enum)
+	Modality Support
+	Text, Image (Hardcoded)
+	Text, Image, Video, Audio, Tool (Extensible)
+	Asset Storage
+	Vec<u8> (In-Memory Values)
+	AssetSource Enum (LocalPath / RemoteUri)
+	Video Handling
+	Impossible (OOM Panic)
+	Streaming Uploads & Cloud References
+	Logic Location
+	Monolithic execute.rs
+	Polymorphic AIProvider Implementations
+	Extensibility
+	Modification of Core required
+	Implement new Trait or Enum Variant
+	Memory Profile
+	Linear with Asset Size
+	Constant (Streaming Buffers)
+	This table summarizes the tangible benefits of the proposed architectural refactor, highlighting the shift from brittle, memory-intensive operations to a scalable, reference-based system.

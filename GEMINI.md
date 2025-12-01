@@ -184,3 +184,17 @@ To ensure that significant architectural decisions are deliberate, documented, a
         *   **Consequences:** The results and impact of the decision, both positive and negative. This includes trade-offs that were accepted.
 
 4.  **Proceed with Implementation:** Once the ADR is written and saved, I will confirm with you before proceeding with the implementation based on the documented decision. This ensures all work is grounded in a clear and agreed-upon architectural foundation.
+
+---
+
+### **Interactive Mentorship Protocol**
+
+To support your goal of learning Rust and understanding the system architecture, the following protocol applies when you request to "manual implement" or "learn":
+
+1.  **Step-by-Step Guidance:** I will **not** output full files. I will break implementation tasks into small, logical blocks (e.g., Imports, then Enums, then Structs).
+2.  **Educational Context:** For each block, I will explain **why** it is structured that way, specifically highlighting:
+    *   Rust-specific concepts (Ownership, Borrowing, Lifetimes).
+    *   Macro usage (e.g., why we need `derive(Clone)`).
+    *   Architectural pattern justifications.
+3.  **Interactive Pace:** I will wait for you to type or paste the code and confirm you are ready before providing the next block.
+4.  **Override:** This protocol is suspended if you explicitly ask for "speed," "full file," "just do it," or otherwise indicate you want to skip the educational breakdown.
