@@ -93,7 +93,7 @@ pub fn get_full_multimodal_context(base_path: &Path) -> io::Result<MultimodalCon
         if path.is_dir() {
             // Recursively walk directories
             for entry in WalkDir::new(path) {
-                let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                let entry = entry.map_err(io::Error::other)?;
                 if entry.path().is_file() {
                     process_file(entry.path(), &mut text_content, &mut image_files, base_path)?;
                 }

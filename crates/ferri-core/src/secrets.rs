@@ -89,7 +89,7 @@ fn read_all_secrets_internal<M: MagicCryptTrait>(
     secrets_path: &Path,
     crypt: &M,
 ) -> io::Result<HashMap<String, String>> {
-    let file_content = match fs::read_to_string(&secrets_path) {
+    let file_content = match fs::read_to_string(secrets_path) {
         Ok(content) => content,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
         Err(e) => return Err(e),

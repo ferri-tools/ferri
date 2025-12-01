@@ -306,7 +306,7 @@ Use the content of the files below as context to answer the question.
                 Ok((PreparedCommand::Remote(request), decrypted_secrets))
             }
             ModelProvider::Unknown => {
-                return Err(Error::new(ErrorKind::InvalidInput, format!("Unknown model provider: {}", model.provider)));
+                Err(Error::new(ErrorKind::InvalidInput, format!("Unknown model provider: {}", model.provider)))
             }
         }
     } else {

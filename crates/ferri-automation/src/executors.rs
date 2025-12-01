@@ -25,6 +25,12 @@ pub struct ExecutorRegistry {
     executors: HashMap<String, Box<dyn Executor + Send + Sync>>,
 }
 
+impl Default for ExecutorRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExecutorRegistry {
     pub fn new() -> Self {
         let mut executors: HashMap<String, Box<dyn Executor + Send + Sync>> = HashMap::new();
@@ -145,8 +151,7 @@ impl Executor for ProcessExecutor {
                     writer_lock.flush()?;
 
                     if !status.success() {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Other,
+                        return Err(io::Error::other(
                             format!("Step {} failed", step_index),
                         ));
                     }

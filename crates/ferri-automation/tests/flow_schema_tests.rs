@@ -153,7 +153,7 @@ spec:
     let step_workspaces = build_job.steps[0].workspaces.as_ref().unwrap();
     assert_eq!(step_workspaces.len(), 2);
     assert_eq!(step_workspaces[0].mount_path, "/workspace/source");
-    assert_eq!(step_workspaces[0].read_only, true);
+    assert!(step_workspaces[0].read_only);
 }
 
 // --- Validation Tests ---

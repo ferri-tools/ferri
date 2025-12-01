@@ -190,9 +190,8 @@ pub fn submit_job(
             spawn_local_command(&mut command, secrets, input_bytes, &stdout_path, &stderr_path)?
         }
         PreparedCommand::Remote(_request) => {
-            return Err(io::Error::new(
-                ErrorKind::Other,
-                "Remote commands not yet supported in background jobs"
+            return Err(io::Error::other(
+                "Remote commands not yet supported in background jobs. (See https://github.com/ferri-tools/ferri/issues/70)"
             ));
         }
     };
@@ -291,14 +290,12 @@ pub fn kill_job(base_path: &Path, job_id: &str) -> io::Result<()> {
                 write_jobs(base_path, &jobs)?;
                 Ok(())
             }
-            Err(e) => Err(io::Error::new(
-                ErrorKind::Other,
+            Err(e) => Err(io::Error::other(
                 format!("Failed to kill process group {}: {}", pgid, e),
             )),
         }
     } else {
-        Err(io::Error::new(
-            ErrorKind::Other,
+        Err(io::Error::other(
             "Cannot kill a remote job.",
         ))
     }

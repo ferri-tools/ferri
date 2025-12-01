@@ -44,7 +44,7 @@ impl StatefulWidget for ProcessWidget<'_> {
             .header(header)
             .block(Block::default().borders(Borders::ALL).title("Processes"))
             .highlight_style(selected_style)
-            .widths(&[
+            .widths([
                 ratatui::layout::Constraint::Percentage(20),
                 ratatui::layout::Constraint::Percentage(10),
                 ratatui::layout::Constraint::Percentage(50),
